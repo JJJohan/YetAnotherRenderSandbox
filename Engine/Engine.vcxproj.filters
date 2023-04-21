@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Core">
+      <UniqueIdentifier>{7f33ebec-7d6f-461a-b619-c8bc40f8665e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="OS">
+      <UniqueIdentifier>{774826fe-4cff-4dfb-be7c-cb6519dfb1e3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Logging">
+      <UniqueIdentifier>{d8e8c204-29a0-4af9-8622-91489583a433}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="OS\Win32">
+      <UniqueIdentifier>{8370b9aa-112f-400d-ba90-0a506ada996d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering">
+      <UniqueIdentifier>{ba2f5a6a-58f6-4eaa-9297-30e77fd20676}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering\Vulkan">
+      <UniqueIdentifier>{b01ef0bd-2b82-4e0a-a452-15b2db879669}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="Core\Logging\Logger.cpp">
+      <Filter>Core\Logging</Filter>
+    </ClCompile>
+    <ClCompile Include="OS\Window.cpp">
+      <Filter>OS</Filter>
+    </ClCompile>
+    <ClCompile Include="OS\Win32\Win32Window.cpp">
+      <Filter>OS\Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="OS\InputState.cpp">
+      <Filter>OS</Filter>
+    </ClCompile>
+    <ClCompile Include="OS\InputEnums.hpp">
+      <Filter>OS</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Renderer.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\VulkanRenderer.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Core\Logging\Logger.hpp">
+      <Filter>Core\Logging</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Macros.hpp">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="OS\Window.hpp">
+      <Filter>OS</Filter>
+    </ClInclude>
+    <ClInclude Include="OS\Win32\Win32Window.hpp">
+      <Filter>OS\Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="OS\InputState.hpp">
+      <Filter>OS</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Renderer.hpp">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\VulkanRenderer.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
