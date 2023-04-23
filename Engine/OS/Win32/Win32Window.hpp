@@ -13,6 +13,8 @@ namespace Engine::OS
 		Win32Window(const std::string& title, uint32_t width, uint32_t height, bool fullscreen);
 		~Win32Window();
 
+		virtual void* GetHandle() const;
+		virtual void* GetInstance() const;
 		virtual void SetTitle(const std::string& title);
 		virtual void SetFullscreen(bool fullscreen);
 		virtual void Resize(uint32_t width, uint32_t height);

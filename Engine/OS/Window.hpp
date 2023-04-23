@@ -5,6 +5,12 @@
 #include "Core/Macros.hpp"
 #include "InputState.hpp"
 
+namespace Engine::Rendering
+{
+	class Renderer;
+	enum class RendererType;
+}
+
 namespace Engine::OS
 {
 	class Window
@@ -18,6 +24,8 @@ namespace Engine::OS
 		EXPORT uint32_t GetHeight() const;
 		EXPORT bool IsFullscreen() const;
 		EXPORT bool IsClosed() const;
+		EXPORT virtual void* GetHandle() const;
+		EXPORT virtual void* GetInstance() const;
 
 		EXPORT virtual void SetTitle(const std::string& title);
 		EXPORT virtual void SetFullscreen(bool fullscreen);
@@ -25,10 +33,15 @@ namespace Engine::OS
 		EXPORT virtual void Close();
 		EXPORT virtual void Poll();
 
+		void NotifyResizeEvent(uint32_t width, uint32_t height);
+
+		EXPORT Engine::Rendering::Renderer* CreateRenderer(Engine::Rendering::RendererType rendererType, bool debug);
+
 		InputState InputState;
 
 	protected:
 		Window(const std::string& name, uint32_t width, uint32_t height, bool fullscreen);
+		std::unique_ptr<Engine::Rendering::Renderer> m_renderer;
 
 		std::string m_title;
 		uint32_t m_width;

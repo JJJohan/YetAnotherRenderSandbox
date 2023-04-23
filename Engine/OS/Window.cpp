@@ -1,7 +1,13 @@
 #include "Window.hpp"
+#include "Core/Logging/Logger.hpp"
+#include "Rendering/Renderer.hpp"
+
 #ifdef _WIN32
 #include "Win32/Win32Window.hpp"
 #endif
+
+using namespace Engine::Logging;
+using namespace Engine::Rendering;
 
 namespace Engine::OS
 {
@@ -11,11 +17,13 @@ namespace Engine::OS
 		, m_height(height)
 		, m_fullscreen(fullscreen)
 		, m_closed(false)
+		, m_renderer()
 	{
 	}
 
 	Window::~Window()
 	{
+		Close();
 	}
 
 	std::unique_ptr<Window> Window::Create(const std::string& title, uint32_t width, uint32_t height, bool fullscreen)
@@ -34,6 +42,7 @@ namespace Engine::OS
 
 	void Window::Close()
 	{
+		m_renderer.reset();
 	}
 
 	std::string Window::GetTitle() const
@@ -61,6 +70,16 @@ namespace Engine::OS
 		return m_closed;
 	}
 
+	void* Window::GetHandle() const
+	{
+		return nullptr;
+	}
+
+	void* Window::GetInstance() const
+	{
+		return nullptr;
+	}
+
 	void Window::SetTitle(const std::string& title)
 	{
 		m_title = title;
@@ -71,9 +90,38 @@ namespace Engine::OS
 		m_fullscreen = fullscreen;
 	}
 
+	void Window::NotifyResizeEvent(uint32_t width, uint32_t height)
+	{
+		if (m_width == width && m_height == height)
+		{
+			return;
+		}
+
+		m_width = width;
+		m_height = height;
+
+		Renderer* renderer = m_renderer.get();
+		if (renderer)
+		{
+			renderer->NotifyResizeEvent();
+		}
+	}
+
 	void Window::Resize(uint32_t width, uint32_t height)
 	{
 		m_width = width;
 		m_height = height;
+	}
+
+	Renderer* Window::CreateRenderer(RendererType rendererType, bool debug)
+	{
+		if (m_renderer.get() != nullptr)
+		{
+			Logger::Warning("Renderer already created, returning it instead.");
+			return m_renderer.get();
+		}
+
+		m_renderer = Renderer::Create(rendererType, *this, debug);
+		return m_renderer.get();
 	}
 }

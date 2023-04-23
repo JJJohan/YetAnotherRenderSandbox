@@ -115,6 +115,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -135,6 +136,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -149,21 +151,49 @@
   <ItemGroup>
     <ClCompile Include="Core\Logging\Logger.cpp" />
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="OS\Files.cpp" />
     <ClCompile Include="OS\InputEnums.hpp" />
     <ClCompile Include="OS\InputState.cpp" />
     <ClCompile Include="OS\Win32\Win32Window.cpp" />
     <ClCompile Include="OS\Window.cpp" />
     <ClCompile Include="Rendering\Renderer.cpp" />
+    <ClCompile Include="Rendering\Shader.cpp" />
+    <ClCompile Include="Rendering\Vulkan\CommandPool.cpp" />
+    <ClCompile Include="Rendering\Vulkan\Debug.cpp" />
+    <ClCompile Include="Rendering\Vulkan\Device.cpp" />
+    <ClCompile Include="Rendering\Vulkan\Framebuffer.cpp" />
+    <ClCompile Include="Rendering\Vulkan\ImageView.cpp" />
+    <ClCompile Include="Rendering\Vulkan\Instance.cpp" />
+    <ClCompile Include="Rendering\Vulkan\PhysicalDevice.cpp" />
+    <ClCompile Include="Rendering\Vulkan\RenderPass.cpp" />
+    <ClCompile Include="Rendering\Vulkan\PipelineLayout.cpp" />
     <ClCompile Include="Rendering\Vulkan\VulkanRenderer.cpp" />
+    <ClCompile Include="Rendering\Vulkan\Surface.cpp" />
+    <ClCompile Include="Rendering\Vulkan\SwapChain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Logging\Logger.hpp" />
     <ClInclude Include="Core\Macros.hpp" />
+    <ClInclude Include="OS\Files.hpp" />
     <ClInclude Include="OS\InputState.hpp" />
     <ClInclude Include="OS\Win32\Win32Window.hpp" />
     <ClInclude Include="OS\Window.hpp" />
     <ClInclude Include="Rendering\Renderer.hpp" />
+    <ClInclude Include="Rendering\Shader.hpp" />
+    <ClInclude Include="Rendering\Vulkan\CommandPool.hpp" />
+    <ClInclude Include="Rendering\Vulkan\Debug.hpp" />
+    <ClInclude Include="Rendering\Vulkan\Device.hpp" />
+    <ClInclude Include="Rendering\Vulkan\Framebuffer.hpp" />
+    <ClInclude Include="Rendering\Vulkan\ImageView.hpp" />
+    <ClInclude Include="Rendering\Vulkan\Instance.hpp" />
+    <ClInclude Include="Rendering\Vulkan\PhysicalDevice.hpp" />
+    <ClInclude Include="Rendering\Vulkan\QueueFamilyIndices.hpp" />
+    <ClInclude Include="Rendering\Vulkan\RenderPass.hpp" />
+    <ClInclude Include="Rendering\Vulkan\PipelineLayout.hpp" />
     <ClInclude Include="Rendering\Vulkan\VulkanRenderer.hpp" />
+    <ClInclude Include="Rendering\Vulkan\Surface.hpp" />
+    <ClInclude Include="Rendering\Vulkan\SwapChain.hpp" />
+    <ClInclude Include="Rendering\Vulkan\SwapChainSupportDetails.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

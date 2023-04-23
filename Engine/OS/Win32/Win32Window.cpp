@@ -21,24 +21,29 @@ namespace Engine::OS
 		}
 		case WM_DESTROY:
 		{
-			PostQuitMessage(0);
 			window->SignalClosed();
+			PostQuitMessage(0);
 			return 0;
 		}
 		case WM_PAINT:
 		{
 			PAINTSTRUCT ps;
 			HDC hdc = BeginPaint(hwnd, &ps);
-
-			// All painting occurs here, between BeginPaint and EndPaint.
 			FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_WINDOW + 1));
 			EndPaint(hwnd, &ps);
 			return 0;
 		}
+		case WM_SIZE:
+		{
+			uint32_t width = LOWORD(lParam);
+			uint32_t height = HIWORD(lParam);
+			window->NotifyResizeEvent(width, height);
+			break;
+		}
 		case WM_INPUT:
 		{
 			UINT dataSize = 0;
-			GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, NULL, &dataSize, sizeof(RAWINPUTHEADER));
+			GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, nullptr, &dataSize, sizeof(RAWINPUTHEADER));
 
 			if (dataSize > 0)
 			{
@@ -114,6 +119,16 @@ namespace Engine::OS
 	{
 	}
 
+	void* Win32Window::GetHandle() const
+	{
+		return m_hWnd;
+	}
+
+	void* Win32Window::GetInstance() const
+	{
+		return GetModuleHandle(nullptr);
+	}
+
 	std::unique_ptr<Win32Window> Win32Window::Create(const std::string& title, uint32_t width, uint32_t height, bool fullscreen)
 	{
 		std::wstring title_w = std::wstring(title.begin(), title.end());
@@ -143,15 +158,15 @@ namespace Engine::OS
 		wc.cbClsExtra = 0;                               // No Extra Window Data
 		wc.cbWndExtra = 0;                               // No Extra Window Data
 		wc.hInstance = hInstance;                      // Set The Instance
-		wc.hIcon = LoadIcon(NULL, IDI_WINLOGO);          // Load The Default Icon
-		wc.hCursor = LoadCursor(NULL, IDC_ARROW);        // Load The Arrow Pointer
+		wc.hIcon = LoadIcon(nullptr, IDI_WINLOGO);          // Load The Default Icon
+		wc.hCursor = LoadCursor(nullptr, IDC_ARROW);        // Load The Arrow Pointer
 		wc.hbrBackground = NULL;                         // No Background Required
 		wc.lpszMenuName = NULL;                          // We Don't Want A Menu
 
 		if (!RegisterClass(&wc))
 		{
 			Logger::Log(LogLevel::FATAL, "Failed to register window class.");
-			MessageBox(NULL, L"Failed to register window class.", L"Error", MB_OK | MB_ICONEXCLAMATION);
+			MessageBox(nullptr, L"Failed to register window class.", L"Error", MB_OK | MB_ICONEXCLAMATION);
 			return nullptr;
 		}
 
@@ -170,7 +185,7 @@ namespace Engine::OS
 			{
 				// If The Mode Fails, Offer Two Options.  Quit Or Use Windowed Mode.
 				Logger::Log(LogLevel::WARNING, "Fullscreen mode not supported, querying for window mode fallback.");
-				if (MessageBox(NULL, L"The Requested Fullscreen Mode Is Not Supported By\nYour Video Card. Use Windowed Mode Instead?", L"Error", MB_YESNO | MB_ICONEXCLAMATION) == IDYES)
+				if (MessageBox(nullptr, L"The Requested Fullscreen Mode Is Not Supported By\nYour Video Card. Use Windowed Mode Instead?", L"Error", MB_YESNO | MB_ICONEXCLAMATION) == IDYES)
 				{
 					fullscreen = FALSE;
 				}
@@ -209,13 +224,13 @@ namespace Engine::OS
 			WindowRect.left, WindowRect.top,     // Window Position
 			WindowRect.right - WindowRect.left,  // Calculate Window Width
 			WindowRect.bottom - WindowRect.top,  // Calculate Window Height
-			NULL,                                // No Parent Window
-			NULL,                                // No Menu
+			nullptr,                                // No Parent Window
+			nullptr,                                // No Menu
 			hInstance,                           // Instance
 			window.get())))                      // Pass reference of this to WM_CREATE
 		{
 			Logger::Log(LogLevel::FATAL, "Failed to create window.");
-			MessageBox(NULL, L"Failed to create window.", L"Error", MB_OK | MB_ICONEXCLAMATION);
+			MessageBox(nullptr, L"Failed to create window.", L"Error", MB_OK | MB_ICONEXCLAMATION);
 			return nullptr;
 		}
 
@@ -239,7 +254,7 @@ namespace Engine::OS
 		if (RegisterRawInputDevices(Rid, 2, sizeof(Rid[0])) == FALSE)
 		{
 			Logger::Log(LogLevel::FATAL, "Failed to register raw input for keyboard and mouse.");
-			MessageBox(NULL, L"Failed to register raw input for keyboard and mouse.", L"Error", MB_OK | MB_ICONEXCLAMATION);
+			MessageBox(nullptr, L"Failed to register raw input for keyboard and mouse.", L"Error", MB_OK | MB_ICONEXCLAMATION);
 		}
 
 		return window;
@@ -255,7 +270,7 @@ namespace Engine::OS
 		Window::Poll();
 
 		MSG msg = {};
-		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
@@ -264,6 +279,8 @@ namespace Engine::OS
 
 	void Win32Window::Close()
 	{
+		Window::Close();
+
 		if (m_hWnd != nullptr)
 		{
 			DestroyWindow(m_hWnd);
@@ -273,6 +290,8 @@ namespace Engine::OS
 
 	void Win32Window::SignalClosed()
 	{
+		Window::Close();
+
 		m_closed = true;
 		m_hWnd = nullptr;
 	}
@@ -316,7 +335,7 @@ namespace Engine::OS
 					SetWindowLong(m_hWnd, GWL_STYLE,
 						dwStyle | WS_OVERLAPPEDWINDOW);
 					SetWindowPlacement(m_hWnd, &m_prevPlacement);
-					SetWindowPos(m_hWnd, NULL, 0, 0, 0, 0,
+					SetWindowPos(m_hWnd, nullptr, 0, 0, 0, 0,
 						SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
 						SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
 				}

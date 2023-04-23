@@ -43,6 +43,45 @@
     <ClCompile Include="Rendering\Vulkan\VulkanRenderer.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\Device.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\Instance.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\PhysicalDevice.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\Debug.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\Surface.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\SwapChain.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\ImageView.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Shader.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\PipelineLayout.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="OS\Files.cpp">
+      <Filter>OS</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\RenderPass.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\Framebuffer.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\CommandPool.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Logging\Logger.hpp">
@@ -64,6 +103,51 @@
       <Filter>Rendering</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\Vulkan\VulkanRenderer.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\QueueFamilyIndices.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\Device.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\Instance.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\PhysicalDevice.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\Debug.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\Surface.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\SwapChain.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\SwapChainSupportDetails.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\ImageView.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Shader.hpp">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\PipelineLayout.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="OS\Files.hpp">
+      <Filter>OS</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\RenderPass.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\Framebuffer.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\CommandPool.hpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClInclude>
   </ItemGroup>
