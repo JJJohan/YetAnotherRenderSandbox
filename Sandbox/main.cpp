@@ -21,6 +21,8 @@ int main()
     std::unique_ptr<Window> window = Window::Create("Test", 1280, 720, false);
     Renderer* renderer = window->CreateRenderer(RendererType::VULKAN, debug);
 
+    renderer->SetClearColour(glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+
     if (!renderer || !renderer->Initialise())
     {
         Logger::Error("Failed to initialise renderer.");

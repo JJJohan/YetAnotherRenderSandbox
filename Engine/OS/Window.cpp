@@ -42,6 +42,7 @@ namespace Engine::OS
 
 	void Window::Close()
 	{
+		m_closed = true;
 		m_renderer.reset();
 	}
 

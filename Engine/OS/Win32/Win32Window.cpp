@@ -292,7 +292,6 @@ namespace Engine::OS
 	{
 		Window::Close();
 
-		m_closed = true;
 		m_hWnd = nullptr;
 	}
 

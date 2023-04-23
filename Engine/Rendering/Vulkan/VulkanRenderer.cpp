@@ -116,9 +116,7 @@ namespace Engine::Rendering::Vulkan
 
 		const std::vector<Framebuffer> framebuffers = m_swapChain.GetFramebuffers();
 
-		VkClearValue clearColor{};
-		clearColor.color = { 0.0f, 0.0f, 0.0f, 1.0f };
-		clearColor.depthStencil = { 0.0f, 0 };
+		VkClearValue clearColor = { m_clearColour.r, m_clearColour.g, m_clearColour.b, m_clearColour.a };
 
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -255,6 +253,12 @@ namespace Engine::Rendering::Vulkan
 
 	void VulkanRenderer::Render()
 	{
+		// Skip rendering in minimised state.
+		if (m_window.GetWidth() == 0 || m_window.GetHeight() == 0)
+		{
+			return;
+		}
+
 		VkDevice deviceImp = m_device.Get();
 		VkSwapchainKHR swapchainImp = m_swapChain.Get();
 		VkQueue graphicsQueue = m_device.GetGraphicsQueue();

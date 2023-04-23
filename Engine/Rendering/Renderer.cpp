@@ -14,6 +14,7 @@ namespace Engine::Rendering
 		: m_debug(debug)
 		, m_window(window)
 		, m_resized(false)
+		, m_clearColour()
 	{
 	}
 
@@ -36,6 +37,16 @@ namespace Engine::Rendering
 	void Renderer::NotifyResizeEvent()
 	{
 		m_resized = true;
+	}
+
+	void Renderer::SetClearColour(const glm::vec4& clearColour)
+	{
+		m_clearColour = clearColour;
+	}
+
+	const glm::vec4& Renderer::GetClearColor() const
+	{
+		return m_clearColour;
 	}
 
 	Shader* Renderer::CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs)

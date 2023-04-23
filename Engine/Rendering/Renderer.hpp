@@ -6,6 +6,7 @@
 #include "Core/Macros.hpp"
 #include "OS/Window.hpp"
 #include "Shader.hpp"
+#include <glm/glm.hpp>
 
 namespace Engine::OS
 {
@@ -29,6 +30,9 @@ namespace Engine::Rendering
 		EXPORT virtual void Shutdown();
 		EXPORT virtual void Render();
 
+		EXPORT void SetClearColour(const glm::vec4& colour);
+		EXPORT const glm::vec4& GetClearColor() const;
+
 		EXPORT virtual Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs);
 		EXPORT Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::string>& programs);
 		EXPORT virtual void DestroyShader(Shader* shader);
@@ -41,5 +45,6 @@ namespace Engine::Rendering
 		const Engine::OS::Window& m_window;
 		bool m_debug;
 		bool m_resized;
+		glm::vec4 m_clearColour;
 	};
 }
