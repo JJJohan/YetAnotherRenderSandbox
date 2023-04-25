@@ -4,11 +4,7 @@
 #include "SwapChainSupportDetails.hpp"
 #include "ImageView.hpp"
 #include "Framebuffer.hpp"
-
-namespace Engine::OS
-{
-	class Window;
-}
+#include <glm/glm.hpp>
 
 namespace Engine::Rendering::Vulkan
 {
@@ -21,24 +17,23 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		SwapChain();
-		void Shutdown(const Device& device);
-		void ShutdownFramebuffers(const Device& device);
+		void DestroyFramebuffers(const Device& device);
 
-		VkFormat GetFormat() const;
-		VkExtent2D GetExtent() const;
-		const std::vector<Framebuffer>& GetFramebuffers() const;
-		VkSwapchainKHR Get() const;
+		const vk::Format& GetFormat() const;
+		const vk::Extent2D& GetExtent() const;
+		std::vector<Framebuffer*> GetFramebuffers() const;
+		const vk::SwapchainKHR& Get() const;
 
-		bool CreateSwapChain(const PhysicalDevice& physicalDevice, const Device& device, const Surface& surface, const Engine::OS::Window& window);
+		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, const Surface& surface, const glm::uvec2& size);
 		bool CreateFramebuffers(const Device& device, const RenderPass& renderPass);
 
-		static std::optional<SwapChainSupportDetails> QuerySwapChainSupport(const VkPhysicalDevice& physicalDevice, const Surface& surface);
+		static SwapChainSupportDetails QuerySwapChainSupport(const vk::PhysicalDevice& physicalDevice, const Surface& surface);
 
 	private:
-		VkSwapchainKHR m_swapChain;
-		VkFormat m_swapChainImageFormat;
-		VkExtent2D m_swapChainExtent;
-		std::vector<ImageView> m_swapChainImageViews;
-		std::vector<Framebuffer> m_framebuffers;
+		vk::UniqueSwapchainKHR m_swapChain;
+		vk::Format m_swapChainImageFormat;
+		vk::Extent2D m_swapChainExtent;
+		std::vector<std::unique_ptr<ImageView>> m_swapChainImageViews;
+		std::vector<std::unique_ptr<Framebuffer>> m_framebuffers;
 	};
 }

@@ -13,7 +13,6 @@ namespace Engine::Rendering
 	Renderer::Renderer(const Window& window, bool debug)
 		: m_debug(debug)
 		, m_window(window)
-		, m_resized(false)
 		, m_clearColour()
 	{
 	}
@@ -34,9 +33,8 @@ namespace Engine::Rendering
 		}
 	}
 
-	void Renderer::NotifyResizeEvent()
+	void Renderer::Resize(glm::uvec2 size)
 	{
-		m_resized = true;
 	}
 
 	void Renderer::SetClearColour(const glm::vec4& clearColour)
@@ -64,7 +62,7 @@ namespace Engine::Rendering
 			if (!Files::TryReadFile(programInfo.second, data))
 			{
 				Logger::Error("Failed to read shader program at path '{}'.", programInfo.second);
-				return nullptr;;
+				return nullptr;
 			}
 
 			programs.emplace(programInfo.first, std::move(data));
@@ -77,12 +75,24 @@ namespace Engine::Rendering
 	{
 	}
 
+	void Renderer::BeginRenderingMesh(const Mesh& mesh, const Shader* shader)
+	{
+	}
+
+	void Renderer::UpdateMesh(const Mesh& mesh)
+	{
+	}
+
+	void Renderer::StopRenderingMesh(const Mesh& mesh)
+	{
+	}
+
 	bool Renderer::Initialise()
 	{
 		return true;
 	}
 
-	void Renderer::Shutdown()
+	void Renderer::Destroy()
 	{
 	}
 

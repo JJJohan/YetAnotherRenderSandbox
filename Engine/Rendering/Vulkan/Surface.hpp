@@ -15,11 +15,10 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		Surface();
-		void Shutdown(const Instance& instance);
-		VkSurfaceKHR Get() const;
-		bool CreateSurface(const Instance& instance, const Engine::OS::Window& window);
+		const vk::SurfaceKHR& Get() const;
+		bool Initialise(const Instance& instance, const Engine::OS::Window& window);
 
 	private:
-		VkSurfaceKHR m_surface;
+		vk::UniqueSurfaceKHR m_surface;
 	};
 }

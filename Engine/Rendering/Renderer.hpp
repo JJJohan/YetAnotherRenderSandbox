@@ -15,6 +15,8 @@ namespace Engine::OS
 
 namespace Engine::Rendering
 {
+	class Mesh;
+
 	enum class RendererType
 	{
 		VULKAN
@@ -23,11 +25,11 @@ namespace Engine::Rendering
 	class Renderer
 	{
 	public:
-		static std::unique_ptr<Renderer> Create(RendererType rendererType, const Engine::OS::Window& window, bool debug);
+		EXPORT static std::unique_ptr<Renderer> Create(RendererType rendererType, const Engine::OS::Window& window, bool debug);
 		EXPORT virtual ~Renderer();
 
 		EXPORT virtual bool Initialise();
-		EXPORT virtual void Shutdown();
+		EXPORT virtual void Destroy();
 		EXPORT virtual void Render();
 
 		EXPORT void SetClearColour(const glm::vec4& colour);
@@ -37,14 +39,17 @@ namespace Engine::Rendering
 		EXPORT Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::string>& programs);
 		EXPORT virtual void DestroyShader(Shader* shader);
 
-		void NotifyResizeEvent();
+		EXPORT virtual void BeginRenderingMesh(const Mesh& mesh, const Shader* shader);
+		EXPORT virtual void UpdateMesh(const Mesh& mesh);
+		EXPORT virtual void StopRenderingMesh(const Mesh& mesh);
+
+		EXPORT virtual void Resize(glm::uvec2 size);
 
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);
 
 		const Engine::OS::Window& m_window;
 		bool m_debug;
-		bool m_resized;
 		glm::vec4 m_clearColour;
 	};
 }

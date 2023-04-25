@@ -14,13 +14,14 @@ namespace Engine::Rendering::Vulkan
 	public:
 		PhysicalDevice();
 		QueueFamilyIndices GetQueueFamilyIndices() const;
-		bool PickPhysicalDevice(const Instance& instance, const Surface& surface);
-		VkPhysicalDevice Get() const;
+		bool Initialise(const Instance& instance, const Surface& surface);
+		const vk::PhysicalDevice& Get() const;
 		std::vector<const char*> GetRequiredExtensions() const;
+		bool FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties, uint32_t* memoryType) const;
 
 	private:
 
-		VkPhysicalDevice m_physicalDevice;
+		vk::PhysicalDevice m_physicalDevice;
 		QueueFamilyIndices m_queueFamilyIndices;
 	};
 }

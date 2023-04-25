@@ -10,11 +10,10 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		Instance();
-		void Shutdown();
-		bool CreateInstance(std::string name, Debug& debug, bool useDebug);
-		VkInstance Get() const;
+		bool Initialise(std::string name, Debug& debug, bool useDebug);
+		const vk::Instance& Get() const;
 
 	private:
-		VkInstance m_instance;
+		vk::UniqueInstance m_instance;
 	};
 }

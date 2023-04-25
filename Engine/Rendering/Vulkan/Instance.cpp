@@ -17,39 +17,21 @@ using namespace Engine::Logging;
 namespace Engine::Rendering::Vulkan
 {
 	Instance::Instance()
-		: m_instance(nullptr)
+		: m_instance()
 	{
 	}
 
-	VkInstance Instance::Get() const
+	const vk::Instance& Instance::Get() const
 	{
-		return m_instance;
-	}
-
-	void Instance::Shutdown()
-	{
-		if (m_instance != nullptr)
-		{
-			vkDestroyInstance(m_instance, nullptr);
-			m_instance = nullptr;
-		}
+		return m_instance.get();
 	}
 
 	bool CheckRequiredExtensionsSupport(const std::vector<const char*>& requestedExtensions)
 	{
-		uint32_t extensionCount = 0;
-		VkResult res = vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, NULL);
-		if (res != VK_SUCCESS)
+		std::vector<vk::ExtensionProperties> properties = vk::enumerateInstanceExtensionProperties(nullptr);
+		if (properties.empty())
 		{
-			Logger::Error("Failed to enumerate instance extension properties. Error code: {}", static_cast<int>(res));
-			return false;
-		}
-
-		std::vector<VkExtensionProperties> properties(extensionCount);
-		res = vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, &properties.front());
-		if (res != VK_SUCCESS)
-		{
-			Logger::Error("Failed to enumerate instance extension properties. Error code: {}", static_cast<int>(res));
+			Logger::Error("Failed to enumerate instance extension properties.");
 			return false;
 		}
 
@@ -62,19 +44,11 @@ namespace Engine::Rendering::Vulkan
 			});
 	}
 
-
-	bool Instance::CreateInstance(std::string name, Debug& debug, bool useDebug)
+	bool Instance::Initialise(std::string name, Debug& debug, bool useDebug)
 	{
-		VkApplicationInfo appInfo{};
-		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		appInfo.pApplicationName = name.c_str();
-		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.pEngineName = "No Engine";
-		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_3;
+		vk::ApplicationInfo appInfo(name.c_str(), VK_MAKE_VERSION(1, 0, 0), "No Engine", VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_3);
 
-		VkInstanceCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+		vk::InstanceCreateInfo createInfo{};
 		createInfo.pApplicationInfo = &appInfo;
 		createInfo.enabledLayerCount = 0;
 
@@ -91,7 +65,7 @@ namespace Engine::Rendering::Vulkan
 			"VK_LAYER_KHRONOS_validation"
 		};
 
-		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+		vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
 		if (useDebug)
 		{
 			extensionNames.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
@@ -120,12 +94,14 @@ namespace Engine::Rendering::Vulkan
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(extensionNames.size());
 		createInfo.ppEnabledExtensionNames = &extensionNames.front();
 
-		VkResult result = vkCreateInstance(&createInfo, nullptr, &m_instance);
-		if (result != VK_SUCCESS)
+		m_instance = vk::createInstanceUnique(createInfo);
+		if (!m_instance.get())
 		{
-			Logger::Error("Failed to create Vulkan instance. Error code: {}", static_cast<int>(result));
+			Logger::Error("Failed to create Vulkan instance.");
 			return false;
 		}
+
+		VULKAN_HPP_DEFAULT_DISPATCHER.init(m_instance.get());
 
 		if (useDebug)
 		{

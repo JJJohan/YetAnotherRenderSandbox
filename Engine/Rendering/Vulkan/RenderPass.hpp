@@ -11,11 +11,10 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		RenderPass();
-		void Shutdown(const Device& device);
-		VkRenderPass Get() const;
-		bool CreateRenderPass(const Device& device, const SwapChain& swapChain);
+		const vk::RenderPass& Get() const;
+		bool Initialise(const Device& device, const SwapChain& swapChain);
 
 	private:
-		VkRenderPass m_renderPass;
+		vk::UniqueRenderPass m_renderPass;
 	};
 }

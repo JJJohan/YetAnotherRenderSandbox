@@ -7,8 +7,8 @@ namespace Engine::Rendering::Vulkan
 {
 	struct SwapChainSupportDetails
 	{
-		VkSurfaceCapabilitiesKHR Capabilities;
-		std::vector<VkSurfaceFormatKHR> Formats;
-		std::vector<VkPresentModeKHR> PresentModes;
+		vk::SurfaceCapabilitiesKHR Capabilities;
+		std::vector<vk::SurfaceFormatKHR> Formats;
+		std::vector<vk::PresentModeKHR> PresentModes;
 	};
 }

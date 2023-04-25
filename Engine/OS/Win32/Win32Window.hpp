@@ -9,15 +9,15 @@ namespace Engine::OS
 	class Win32Window : public Window
 	{
 	public:
-		static std::unique_ptr<Win32Window> Create(const std::string& title, uint32_t width, uint32_t height, bool fullscreen);
-		Win32Window(const std::string& title, uint32_t width, uint32_t height, bool fullscreen);
+		static std::unique_ptr<Win32Window> Create(const std::string& title, const glm::uvec2& size, bool fullscreen);
+		Win32Window(const std::string& title, const glm::uvec2& size, bool fullscreen);
 		~Win32Window();
 
 		virtual void* GetHandle() const;
 		virtual void* GetInstance() const;
 		virtual void SetTitle(const std::string& title);
 		virtual void SetFullscreen(bool fullscreen);
-		virtual void Resize(uint32_t width, uint32_t height);
+		virtual void Resize(const glm::uvec2& size);
 		virtual void Poll();
 		virtual void Close();
 		void SignalClosed();

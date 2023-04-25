@@ -10,11 +10,10 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		ImageView();
-		VkImageView Get() const;
-		bool CreateImageView(const Device& device, const VkImage& image, VkFormat format, VkImageAspectFlags aspectFlags);
-		void Shutdown(const Device& device);
+		const vk::ImageView& Get() const;
+		bool Initialise(const Device& device, const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags);
 
 	private:
-		VkImageView m_imageView;
+		vk::UniqueImageView m_imageView;
 	};
 }

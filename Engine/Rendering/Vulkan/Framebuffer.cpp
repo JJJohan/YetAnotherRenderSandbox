@@ -11,37 +11,21 @@ namespace Engine::Rendering::Vulkan
 	Framebuffer::Framebuffer()
 		: m_framebuffer(nullptr)
 	{
-
 	}
 
-	VkFramebuffer Framebuffer::Get() const
+	const vk::Framebuffer& Framebuffer::Get() const
 	{
-		return m_framebuffer;
+		return m_framebuffer.get();
 	}
 
-	void Framebuffer::Shutdown(const Device& device)
+	bool Framebuffer::Initialise(const Device& device, const vk::Extent2D& swapChainExtent, const RenderPass& renderPass, const ImageView& imageView)
 	{
-		if (m_framebuffer)
-		{
-			vkDestroyFramebuffer(device.Get(), m_framebuffer, nullptr);
-			m_framebuffer = nullptr;
-		}
-	}
+		const vk::ImageView& imageViewImp = imageView.Get();
 
-	bool Framebuffer::CreateFramebuffer(const Device& device, const VkExtent2D& swapChainExtent, const RenderPass& renderPass, const ImageView& imageView)
-	{
-		VkImageView imageViewImp = imageView.Get();
+		vk::FramebufferCreateInfo framebufferInfo(vk::FramebufferCreateFlags(), renderPass.Get(), 1, &imageViewImp, swapChainExtent.width, swapChainExtent.height, 1);
 
-		VkFramebufferCreateInfo framebufferInfo{};
-		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = renderPass.Get();
-		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = &imageViewImp;
-		framebufferInfo.width = swapChainExtent.width;
-		framebufferInfo.height = swapChainExtent.height;
-		framebufferInfo.layers = 1;
-
-		if (vkCreateFramebuffer(device.Get(), &framebufferInfo, nullptr, &m_framebuffer) != VK_SUCCESS)
+		m_framebuffer = device.Get().createFramebufferUnique(framebufferInfo);
+		if (!m_framebuffer.get())
 		{
 			Logger::Error("Failed to create framebuffer.");
 			return false;

@@ -11,12 +11,12 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		CommandPool();
-		void Shutdown(const Device& device);
-		bool CreateCommandPool(const PhysicalDevice& physicalDevice, const Device& device);
+		const vk::CommandPool& Get() const;
+		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, vk::CommandPoolCreateFlagBits flags);
 
-		bool CreateCommandBuffers(const Device& device, VkCommandBuffer* commandBuffers, uint32_t bufferCount);
+		std::vector<vk::UniqueCommandBuffer> CreateCommandBuffers(const Device& device, uint32_t bufferCount);
 
 	private:
-		VkCommandPool m_commandPool;
+		vk::UniqueCommandPool m_commandPool;
 	};
 }

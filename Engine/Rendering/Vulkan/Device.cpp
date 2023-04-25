@@ -14,54 +14,41 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	VkDevice Device::Get() const
+	const vk::Device& Device::Get() const
 	{
-		return m_device;
+		return m_device.get();
 	}
 
-	VkQueue Device::GetGraphicsQueue() const
+	const vk::Queue& Device::GetGraphicsQueue() const
 	{
 		return m_graphicsQueue;
 	}
 
-	VkQueue Device::GetPresentQueue() const
+	const vk::Queue& Device::GetPresentQueue() const
 	{
 		return m_presentQueue;
 	}
 
-	void Device::Shutdown()
-	{
-		if (m_device != nullptr)
-		{
-			vkDestroyDevice(m_device, nullptr);
-			m_device = nullptr;
-		}
-	}
-
-	bool Device::CreateLogicalDevice(const PhysicalDevice& physicalDevice)
+	bool Device::Initialise(const PhysicalDevice& physicalDevice)
 	{
 		QueueFamilyIndices indices = physicalDevice.GetQueueFamilyIndices();
-		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+		std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
 		std::set<uint32_t> uniqueQueueFamilies = { indices.GraphicsFamily.value(), indices.PresentFamily.value() };
 
 		float queuePriority = 1.0f;
 		for (uint32_t queueFamily : uniqueQueueFamilies)
 		{
-			VkDeviceQueueCreateInfo queueCreateInfo{};
-			queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+			vk::DeviceQueueCreateInfo queueCreateInfo;
 			queueCreateInfo.queueFamilyIndex = queueFamily;
 			queueCreateInfo.queueCount = 1;
 			queueCreateInfo.pQueuePriorities = &queuePriority;
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
-		VkPhysicalDeviceFeatures deviceFeatures{};
-
+		vk::PhysicalDeviceFeatures deviceFeatures;
 		std::vector<const char*> extensionNames = physicalDevice.GetRequiredExtensions();
 
-
-		VkDeviceCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		vk::DeviceCreateInfo createInfo;
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
 		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 		createInfo.pEnabledFeatures = &deviceFeatures;
@@ -69,15 +56,15 @@ namespace Engine::Rendering::Vulkan
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(extensionNames.size());
 		createInfo.enabledLayerCount = 0;
 
-		if (vkCreateDevice(physicalDevice.Get(), &createInfo, nullptr, &m_device) != VK_SUCCESS)
+		m_device = physicalDevice.Get().createDeviceUnique(createInfo);
+		if (!m_device.get())
 		{
 			Logger::Error("Failed to create logical device.");
 			return false;
 		}
 
-		vkGetDeviceQueue(m_device, indices.GraphicsFamily.value(), 0, &m_graphicsQueue);
-		vkGetDeviceQueue(m_device, indices.PresentFamily.value(), 0, &m_presentQueue);
-
+		m_graphicsQueue = m_device.get().getQueue(indices.GraphicsFamily.value(), 0);
+		m_presentQueue = m_device.get().getQueue(indices.PresentFamily.value(), 0);
 
 		return true;
 	}

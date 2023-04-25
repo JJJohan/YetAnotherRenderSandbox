@@ -1,35 +1,32 @@
 #include "Window.hpp"
 #include "Core/Logging/Logger.hpp"
-#include "Rendering/Renderer.hpp"
 
 #ifdef _WIN32
 #include "Win32/Win32Window.hpp"
 #endif
 
 using namespace Engine::Logging;
-using namespace Engine::Rendering;
 
 namespace Engine::OS
 {
-	Window::Window(const std::string& title, uint32_t width, uint32_t height, bool fullscreen)
+	Window::Window(const std::string& title, const glm::uvec2& size, bool fullscreen)
 		: m_title(title)
-		, m_width(width)
-		, m_height(height)
+		, m_size(size)
 		, m_fullscreen(fullscreen)
 		, m_closed(false)
-		, m_renderer()
+		, m_resizeCallbacks()
+		, m_closeCallbacks()
 	{
 	}
 
 	Window::~Window()
 	{
-		Close();
 	}
 
-	std::unique_ptr<Window> Window::Create(const std::string& title, uint32_t width, uint32_t height, bool fullscreen)
+	std::unique_ptr<Window> Window::Create(const std::string& title, const glm::uvec2& size, bool fullscreen)
 	{
 #ifdef _WIN32
-		return Win32Window::Create(title, width, height, fullscreen);
+		return Win32Window::Create(title, size, fullscreen);
 #else
 #error "Not implemented."
 #endif
@@ -43,22 +40,21 @@ namespace Engine::OS
 	void Window::Close()
 	{
 		m_closed = true;
-		m_renderer.reset();
+
+		for (const auto& callback : m_closeCallbacks)
+		{
+			callback();
+		}
 	}
 
-	std::string Window::GetTitle() const
+	const std::string& Window::GetTitle() const
 	{
 		return m_title;
 	}
 
-	uint32_t Window::GetWidth() const
+	const glm::uvec2 Window::GetSize() const
 	{
-		return m_width;
-	}
-
-	uint32_t Window::GetHeight() const
-	{
-		return m_height;
+		return m_size;
 	}
 
 	bool Window::IsFullscreen() const
@@ -91,38 +87,33 @@ namespace Engine::OS
 		m_fullscreen = fullscreen;
 	}
 
-	void Window::NotifyResizeEvent(uint32_t width, uint32_t height)
+	void Window::RegisterResizeCallback(std::function<void(glm::uvec2)> callback)
 	{
-		if (m_width == width && m_height == height)
+		m_resizeCallbacks.push_back(callback);
+	}
+
+	void Window::RegisterCloseCallback(std::function<void(void)> callback)
+	{
+		m_closeCallbacks.push_back(callback);
+	}
+
+	void Window::OnResize(const glm::uvec2& size)
+	{
+		glm::uvec2 currentSize = m_size;
+		if (currentSize == size)
 		{
 			return;
 		}
 
-		m_width = width;
-		m_height = height;
-
-		Renderer* renderer = m_renderer.get();
-		if (renderer)
+		m_size = size;
+		for (const auto& callback : m_resizeCallbacks)
 		{
-			renderer->NotifyResizeEvent();
+			callback(size);
 		}
 	}
 
-	void Window::Resize(uint32_t width, uint32_t height)
+	void Window::Resize(const glm::uvec2& size)
 	{
-		m_width = width;
-		m_height = height;
-	}
-
-	Renderer* Window::CreateRenderer(RendererType rendererType, bool debug)
-	{
-		if (m_renderer.get() != nullptr)
-		{
-			Logger::Warning("Renderer already created, returning it instead.");
-			return m_renderer.get();
-		}
-
-		m_renderer = Renderer::Create(rendererType, *this, debug);
-		return m_renderer.get();
+		m_size = size;
 	}
 }

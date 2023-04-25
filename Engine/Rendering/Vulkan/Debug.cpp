@@ -48,35 +48,6 @@ namespace Engine::Rendering::Vulkan
 		return VK_FALSE;
 	}
 
-	VkResult CreateDebugUtilsMessengerEXT(const Instance& instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-		const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
-	{
-		VkInstance inst = instance.Get();
-
-		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(inst, "vkCreateDebugUtilsMessengerEXT");
-		if (func == nullptr)
-		{
-			return VK_ERROR_EXTENSION_NOT_PRESENT;
-		}
-
-		return func(inst, pCreateInfo, pAllocator, pDebugMessenger);
-	}
-
-	VkResult DestroyDebugUtilsMessengerEXT(const Instance& instance, const VkDebugUtilsMessengerEXT& debugMessenger,
-		const VkAllocationCallbacks* pAllocator)
-	{
-		VkInstance inst = instance.Get();
-
-		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(inst, "vkDestroyDebugUtilsMessengerEXT");
-		if (func == nullptr)
-		{
-			return VK_ERROR_EXTENSION_NOT_PRESENT;
-		}
-
-		func(inst, debugMessenger, pAllocator);
-		return VK_SUCCESS;
-	}
-
 	bool Debug::CheckValidationLayerSupport(const std::vector<const char*>& validationLayers) const
 	{
 		uint32_t layerCount;
@@ -104,25 +75,20 @@ namespace Engine::Rendering::Vulkan
 			});
 	}
 
-	void Debug::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) const
+	void Debug::PopulateDebugMessengerCreateInfo(vk::DebugUtilsMessengerCreateInfoEXT& createInfo) const
 	{
-		createInfo = {};
-		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-		createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-		createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+		createInfo.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+		createInfo.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
 		createInfo.pfnUserCallback = debugCallback;
 	}
 
-	bool Debug::SetupDebugCallback(const Instance& instance)
+	void Debug::SetupDebugCallback(const Instance& instance)
 	{
-		VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+		const vk::Instance& inst = instance.Get();
+
+		vk::DebugUtilsMessengerCreateInfoEXT createInfo;
 		PopulateDebugMessengerCreateInfo(createInfo);
 
-		return CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &m_debugMessenger) == VK_SUCCESS;
-	}
-
-	bool Debug::RemoveDebugCallback(const Instance& instance) const
-	{
-		return DestroyDebugUtilsMessengerEXT(instance, m_debugMessenger, nullptr) == VK_SUCCESS;
+		m_debugMessenger = inst.createDebugUtilsMessengerEXTUnique(createInfo);
 	}
 }

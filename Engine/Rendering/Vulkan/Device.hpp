@@ -10,15 +10,14 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		Device();
-		void Shutdown();
-		VkQueue GetGraphicsQueue() const;
-		VkQueue GetPresentQueue() const;
-		VkDevice Get() const;
-		bool CreateLogicalDevice(const PhysicalDevice& physicalDevice);
+		const vk::Queue& GetGraphicsQueue() const;
+		const vk::Queue& GetPresentQueue() const;
+		const vk::Device& Get() const;
+		bool Initialise(const PhysicalDevice& physicalDevice);
 
 	private:
-		VkDevice m_device;
-		VkQueue m_graphicsQueue;
-		VkQueue m_presentQueue;
+		vk::UniqueDevice m_device;
+		vk::Queue m_graphicsQueue;
+		vk::Queue m_presentQueue;
 	};
 }

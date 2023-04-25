@@ -16,7 +16,7 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	VkPhysicalDevice PhysicalDevice::Get() const
+	const vk::PhysicalDevice& PhysicalDevice::Get() const
 	{
 		return m_physicalDevice;
 	}
@@ -31,7 +31,24 @@ namespace Engine::Rendering::Vulkan
 		return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	}
 
-	QueueFamilyIndices FindQueueFamilies(const VkPhysicalDevice& device, const Surface& surface)
+	bool PhysicalDevice::FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties, uint32_t* memoryType) const
+	{
+		vk::PhysicalDeviceMemoryProperties memProperties = m_physicalDevice.getMemoryProperties();
+
+		for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i)
+		{
+			if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+			{
+				*memoryType = i;
+				return true;
+			}
+		}
+
+		Logger::Error("Failed to find suitable memory type.");
+		return false;
+	}
+
+	QueueFamilyIndices FindQueueFamilies(const vk::PhysicalDevice& device, const Surface& surface)
 	{
 		QueueFamilyIndices indices{};
 
@@ -41,7 +58,7 @@ namespace Engine::Rendering::Vulkan
 		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
-		VkSurfaceKHR surfaceImp = surface.Get();
+		const vk::SurfaceKHR& surfaceImp = surface.Get();
 
 		uint32_t index = 0;
 		for (const auto& queueFamily : queueFamilies)
@@ -52,7 +69,12 @@ namespace Engine::Rendering::Vulkan
 			}
 
 			VkBool32 presentSupport = false;
-			vkGetPhysicalDeviceSurfaceSupportKHR(device, index, surfaceImp, &presentSupport);
+			if (device.getSurfaceSupportKHR(index, surfaceImp, &presentSupport) != vk::Result::eSuccess)
+			{
+				Logger::Error("Error while fetching surface support.");
+				return indices;
+			}
+
 			if (presentSupport)
 			{
 				indices.PresentFamily = index;
@@ -72,7 +94,7 @@ namespace Engine::Rendering::Vulkan
 	struct DeviceCandidate
 	{
 		uint32_t Score;
-		VkPhysicalDevice Device;
+		vk::PhysicalDevice Device;
 		QueueFamilyIndices QueueFamilyIndices;
 		SwapChainSupportDetails SwapChainSupportDetails;
 
@@ -82,24 +104,9 @@ namespace Engine::Rendering::Vulkan
 		}
 	};
 
-	bool CheckRequiredDeviceExtensionsSupport(const VkPhysicalDevice& device, const std::vector<const char*>& requestedExtensions)
+	bool CheckRequiredDeviceExtensionsSupport(const vk::PhysicalDevice& device, const std::vector<const char*>& requestedExtensions)
 	{
-		uint32_t extensionCount = 0;
-		VkResult res = vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-		if (res != VK_SUCCESS)
-		{
-			Logger::Error("Failed to enumerate instance extension properties. Error code: {}", static_cast<int>(res));
-			return false;
-		}
-
-		std::vector<VkExtensionProperties> properties(extensionCount);
-		res = vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, &properties.front());
-		if (res != VK_SUCCESS)
-		{
-			Logger::Error("Failed to enumerate instance extension properties. Error code: {}", static_cast<int>(res));
-			return false;
-		}
-
+		std::vector<vk::ExtensionProperties> properties = device.enumerateDeviceExtensionProperties(nullptr);
 		return std::all_of(requestedExtensions.begin(), requestedExtensions.end(), [properties, requestedExtensions](const auto& extension)
 			{
 				return std::find_if(properties.begin(), properties.end(), [extension](const auto& prop)
@@ -109,7 +116,7 @@ namespace Engine::Rendering::Vulkan
 			});
 	}
 
-	std::optional<DeviceCandidate> ScoreDeviceSuitability(const VkPhysicalDevice& device, const Surface& surface, const std::vector<const char*>& extensionNames)
+	std::optional<DeviceCandidate> ScoreDeviceSuitability(const vk::PhysicalDevice& device, const Surface& surface, const std::vector<const char*>& extensionNames)
 	{
 		// Require graphics queue support.
 		QueueFamilyIndices indices = FindQueueFamilies(device, surface);
@@ -129,16 +136,13 @@ namespace Engine::Rendering::Vulkan
 			return std::nullopt;
 		}
 
-		VkPhysicalDeviceProperties deviceProperties;
-		vkGetPhysicalDeviceProperties(device, &deviceProperties);
-
-		VkPhysicalDeviceFeatures deviceFeatures;
-		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+		vk::PhysicalDeviceProperties deviceProperties = device.getProperties();
+		vk::PhysicalDeviceFeatures deviceFeatures = device.getFeatures();
 
 		uint32_t score = 0;
 
 		// Favour dedicated GPUs
-		if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+		if (deviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu)
 		{
 			score += 1000;
 		}
@@ -149,21 +153,17 @@ namespace Engine::Rendering::Vulkan
 		return DeviceCandidate { score, device, indices, swapChainSupport.value()};
 	}
 
-	bool PhysicalDevice::PickPhysicalDevice(const Instance& instance, const Surface& surface)
+	bool PhysicalDevice::Initialise(const Instance& instance, const Surface& surface)
 	{
-		VkInstance instanceImp = instance.Get();
+		const vk::Instance& instanceImp = instance.Get();
 
-		uint32_t deviceCount = 0;
-		vkEnumeratePhysicalDevices(instanceImp, &deviceCount, nullptr);
-
-		if (deviceCount == 0)
+		std::vector<vk::PhysicalDevice> devices = instanceImp.enumeratePhysicalDevices();
+		if (devices.empty())
 		{
 			Logger::Error("Failed to find GPUs with Vulkan support.");
 			return false;
 		}
 
-		std::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices(instanceImp, &deviceCount, devices.data());
 		std::vector<const char*> extensionNames = GetRequiredExtensions();
 
 		std::vector<DeviceCandidate> candidates;
@@ -175,7 +175,8 @@ namespace Engine::Rendering::Vulkan
 				candidates.emplace_back(candidate.value());
 			}
 		}
-		if (candidates.size() == 0)
+
+		if (candidates.empty())
 		{
 			Logger::Error("Failed to find GPU that met all requirements.");
 			return false;

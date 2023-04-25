@@ -12,11 +12,10 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		Framebuffer();
-		void Shutdown(const Device& device);
-		VkFramebuffer Get() const;
-		bool CreateFramebuffer(const Device& device, const VkExtent2D& swapChainExtent, const RenderPass& renderPass, const ImageView& imageView);
+		const vk::Framebuffer& Get() const;
+		bool Initialise(const Device& device, const vk::Extent2D& swapChainExtent, const RenderPass& renderPass, const ImageView& imageView);
 
 	private:
-		VkFramebuffer m_framebuffer;
+		vk::UniqueFramebuffer m_framebuffer;
 	};
 }

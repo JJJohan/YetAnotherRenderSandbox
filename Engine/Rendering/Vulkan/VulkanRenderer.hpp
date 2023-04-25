@@ -12,8 +12,11 @@
 #include "RenderPass.hpp"
 #include "Framebuffer.hpp"
 #include "CommandPool.hpp"
+#include "RenderMesh.hpp"
 #include <vulkan/vulkan.hpp>
 #include <thread>
+#include <unordered_map>
+#include <concurrent_queue.h>
 
 namespace Engine::Rendering::Vulkan
 {
@@ -24,35 +27,47 @@ namespace Engine::Rendering::Vulkan
 		virtual ~VulkanRenderer();
 
 		virtual bool Initialise();
-		virtual void Shutdown();
+		virtual void Destroy();
 		virtual void Render();
 
 		virtual Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs);
 		virtual void DestroyShader(Shader* shader);
 
+		virtual void BeginRenderingMesh(const Mesh& mesh, const Shader* shader);
+		virtual void UpdateMesh(const Mesh& mesh);
+		virtual void StopRenderingMesh(const Mesh& mesh);
+
+		virtual void Resize(glm::uvec2 size);
+
 	private:
-		bool RecordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex);
+		bool RecordCommandBuffer(const vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
 		bool CreateSyncObjects();
 		bool CreateCommandBuffers();
-		bool RecreateSwapChain();
+		bool RecreateSwapChain(const glm::uvec2& size);
 
-		Debug m_Debug;
-		Device m_device;
-		PhysicalDevice m_physicalDevice;
-		Instance m_instance;
-		Surface m_surface;
-		SwapChain m_swapChain;
-		RenderPass m_renderPass;
-		CommandPool m_commandPool;
+		std::unique_ptr<Debug> m_Debug;
+		std::unique_ptr<Device> m_device;
+		std::unique_ptr<PhysicalDevice> m_physicalDevice;
+		std::unique_ptr<Instance> m_instance;
+		std::unique_ptr<Surface> m_surface;
+		std::unique_ptr<SwapChain> m_swapChain;
+		std::unique_ptr<RenderPass> m_renderPass;
 
-		std::vector<VkCommandBuffer> m_commandBuffers;
-		std::vector<VkSemaphore> m_imageAvailableSemaphores;
-		std::vector<VkSemaphore> m_renderFinishedSemaphores;
-		std::vector<VkFence> m_inFlightFences;
+		std::unique_ptr<CommandPool> m_resourceCommandPool;
+		std::unique_ptr<CommandPool> m_renderCommandPool;
 
-		std::vector<PipelineLayout> m_pipelineLayouts;
+		std::vector<vk::UniqueCommandBuffer> m_renderCommandBuffers;
+		std::vector<vk::UniqueSemaphore> m_imageAvailableSemaphores;
+		std::vector<vk::UniqueSemaphore> m_renderFinishedSemaphores;
+		std::vector<vk::UniqueFence> m_inFlightFences;
+
+		std::vector<std::unique_ptr<PipelineLayout>> m_pipelineLayouts;
+		std::unordered_map<uint64_t, std::unique_ptr<RenderMesh>> m_renderMeshes;
+		concurrency::concurrent_queue<std::function<void()>> m_actionQueue;
+
 		std::thread m_renderThread;
 		bool m_running;
+		bool m_resized;
 		uint32_t m_currentFrame;
 		const uint32_t m_maxConcurrentFrames;
 	};

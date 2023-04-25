@@ -4,24 +4,18 @@
 #include <memory>
 #include "Core/Macros.hpp"
 #include "InputState.hpp"
-
-namespace Engine::Rendering
-{
-	class Renderer;
-	enum class RendererType;
-}
+#include <functional>
 
 namespace Engine::OS
 {
 	class Window
 	{
 	public:
-		EXPORT static std::unique_ptr<Window> Create(const std::string& title, uint32_t width, uint32_t height, bool fullscreen);
+		EXPORT static std::unique_ptr<Window> Create(const std::string& title, const glm::uvec2& size, bool fullscreen);
 		EXPORT virtual ~Window();
 
-		EXPORT std::string GetTitle() const;
-		EXPORT uint32_t GetWidth() const;
-		EXPORT uint32_t GetHeight() const;
+		EXPORT const std::string& GetTitle() const;
+		EXPORT const glm::uvec2 GetSize() const;
 		EXPORT bool IsFullscreen() const;
 		EXPORT bool IsClosed() const;
 		EXPORT virtual void* GetHandle() const;
@@ -29,23 +23,24 @@ namespace Engine::OS
 
 		EXPORT virtual void SetTitle(const std::string& title);
 		EXPORT virtual void SetFullscreen(bool fullscreen);
-		EXPORT virtual void Resize(uint32_t width, uint32_t height);
+		EXPORT virtual void Resize(const glm::uvec2& size);
 		EXPORT virtual void Close();
 		EXPORT virtual void Poll();
 
-		void NotifyResizeEvent(uint32_t width, uint32_t height);
+		EXPORT void RegisterResizeCallback(std::function<void(glm::uvec2)> callback);
+		EXPORT void RegisterCloseCallback(std::function<void(void)> callback);
 
-		EXPORT Engine::Rendering::Renderer* CreateRenderer(Engine::Rendering::RendererType rendererType, bool debug);
+		void OnResize(const glm::uvec2& size);
 
 		InputState InputState;
 
 	protected:
-		Window(const std::string& name, uint32_t width, uint32_t height, bool fullscreen);
-		std::unique_ptr<Engine::Rendering::Renderer> m_renderer;
+		Window(const std::string& name, const glm::uvec2& size, bool fullscreen);
 
+		std::vector<std::function<void(glm::uvec2)>> m_resizeCallbacks;
+		std::vector<std::function<void(void)>> m_closeCallbacks;
 		std::string m_title;
-		uint32_t m_width;
-		uint32_t m_height;
+		std::atomic<glm::uvec2> m_size;
 		bool m_fullscreen;
 		bool m_closed;
 	};

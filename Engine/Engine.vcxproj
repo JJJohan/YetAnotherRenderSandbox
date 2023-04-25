@@ -110,7 +110,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -149,15 +149,19 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Core\Colour.cpp" />
     <ClCompile Include="Core\Logging\Logger.cpp" />
+    <ClCompile Include="Core\Utils.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="OS\Files.cpp" />
     <ClCompile Include="OS\InputEnums.hpp" />
     <ClCompile Include="OS\InputState.cpp" />
     <ClCompile Include="OS\Win32\Win32Window.cpp" />
     <ClCompile Include="OS\Window.cpp" />
+    <ClCompile Include="Rendering\Mesh.cpp" />
     <ClCompile Include="Rendering\Renderer.cpp" />
     <ClCompile Include="Rendering\Shader.cpp" />
+    <ClCompile Include="Rendering\Vulkan\Buffer.cpp" />
     <ClCompile Include="Rendering\Vulkan\CommandPool.cpp" />
     <ClCompile Include="Rendering\Vulkan\Debug.cpp" />
     <ClCompile Include="Rendering\Vulkan\Device.cpp" />
@@ -165,6 +169,7 @@
     <ClCompile Include="Rendering\Vulkan\ImageView.cpp" />
     <ClCompile Include="Rendering\Vulkan\Instance.cpp" />
     <ClCompile Include="Rendering\Vulkan\PhysicalDevice.cpp" />
+    <ClCompile Include="Rendering\Vulkan\RenderMesh.cpp" />
     <ClCompile Include="Rendering\Vulkan\RenderPass.cpp" />
     <ClCompile Include="Rendering\Vulkan\PipelineLayout.cpp" />
     <ClCompile Include="Rendering\Vulkan\VulkanRenderer.cpp" />
@@ -172,14 +177,18 @@
     <ClCompile Include="Rendering\Vulkan\SwapChain.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Core\Colour.hpp" />
     <ClInclude Include="Core\Logging\Logger.hpp" />
     <ClInclude Include="Core\Macros.hpp" />
+    <ClInclude Include="Core\Utils.hpp" />
     <ClInclude Include="OS\Files.hpp" />
     <ClInclude Include="OS\InputState.hpp" />
     <ClInclude Include="OS\Win32\Win32Window.hpp" />
     <ClInclude Include="OS\Window.hpp" />
+    <ClInclude Include="Rendering\Mesh.hpp" />
     <ClInclude Include="Rendering\Renderer.hpp" />
     <ClInclude Include="Rendering\Shader.hpp" />
+    <ClInclude Include="Rendering\Vulkan\Buffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\CommandPool.hpp" />
     <ClInclude Include="Rendering\Vulkan\Debug.hpp" />
     <ClInclude Include="Rendering\Vulkan\Device.hpp" />
@@ -188,6 +197,7 @@
     <ClInclude Include="Rendering\Vulkan\Instance.hpp" />
     <ClInclude Include="Rendering\Vulkan\PhysicalDevice.hpp" />
     <ClInclude Include="Rendering\Vulkan\QueueFamilyIndices.hpp" />
+    <ClInclude Include="Rendering\Vulkan\RenderMesh.hpp" />
     <ClInclude Include="Rendering\Vulkan\RenderPass.hpp" />
     <ClInclude Include="Rendering\Vulkan\PipelineLayout.hpp" />
     <ClInclude Include="Rendering\Vulkan\VulkanRenderer.hpp" />

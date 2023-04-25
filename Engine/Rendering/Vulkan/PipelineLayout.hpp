@@ -17,13 +17,12 @@ namespace Engine::Rendering::Vulkan
 		PipelineLayout();
 
 		virtual bool IsValid() const;
-		VkPipeline GetGraphicsPipeline() const;
+		const vk::Pipeline& GetGraphicsPipeline() const;
 
-		bool Create(const Device& device, const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs, const RenderPass& renderPass);
-		void Destroy(const Device& device);
+		bool Initialise(const Device& device, const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs, const RenderPass& renderPass);
 	
 	private:
-		VkPipelineLayout m_pipelineLayout;
-		VkPipeline m_graphicsPipeline;
+		vk::UniquePipelineLayout m_pipelineLayout;
+		vk::UniquePipeline m_graphicsPipeline;
 	};
 }

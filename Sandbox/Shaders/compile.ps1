@@ -16,3 +16,5 @@ foreach ($shader in $fragmentShaders)
 {
 	Compile-Shader $shader
 }
+
+Pause

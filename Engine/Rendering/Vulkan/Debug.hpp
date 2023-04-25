@@ -11,12 +11,11 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		Debug();
-		bool SetupDebugCallback(const Instance& instance);
-		bool RemoveDebugCallback(const Instance& instance) const;
+		void SetupDebugCallback(const Instance& instance);
 		bool CheckValidationLayerSupport(const std::vector<const char*>& validationLayers) const;
-		void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) const;
+		void PopulateDebugMessengerCreateInfo(vk::DebugUtilsMessengerCreateInfoEXT& createInfo) const;
 
 	private:
-		VkDebugUtilsMessengerEXT m_debugMessenger;
+		vk::UniqueDebugUtilsMessengerEXT m_debugMessenger;
 	};
 }

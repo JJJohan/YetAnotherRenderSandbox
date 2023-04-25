@@ -10,54 +10,43 @@ namespace Engine::Rendering::Vulkan
 	RenderPass::RenderPass()
 		: m_renderPass(nullptr)
 	{
-
 	}
 
-	VkRenderPass RenderPass::Get() const
+	const vk::RenderPass& RenderPass::Get() const
 	{
-		return m_renderPass;
+		return m_renderPass.get();
 	}
 
-	void RenderPass::Shutdown(const Device& device)
+	bool RenderPass::Initialise(const Device& device, const SwapChain& swapChain)
 	{
-		if (m_renderPass)
-		{
-			vkDestroyRenderPass(device.Get(), m_renderPass, nullptr);
-			m_renderPass = nullptr;
-		}
-	}
-
-	bool RenderPass::CreateRenderPass(const Device& device, const SwapChain& swapChain)
-	{
-		VkAttachmentDescription colorAttachment{};
+		vk::AttachmentDescription colorAttachment;
 		colorAttachment.format = swapChain.GetFormat();
-		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		colorAttachment.samples = vk::SampleCountFlagBits::e1;
+		colorAttachment.loadOp = vk::AttachmentLoadOp::eClear;
+		colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
+		colorAttachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+		colorAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+		colorAttachment.initialLayout = vk::ImageLayout::eUndefined;
+		colorAttachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
 
-		VkAttachmentReference colorAttachmentRef{};
+		vk::AttachmentReference colorAttachmentRef;
 		colorAttachmentRef.attachment = 0;
-		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		colorAttachmentRef.layout = vk::ImageLayout::eColorAttachmentOptimal;
 
-		VkSubpassDescription subpass{};
-		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		vk::SubpassDescription subpass;
+		subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
 
-		VkSubpassDependency dependency{};
+		vk::SubpassDependency dependency;
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependency.dstSubpass = 0;
-		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency.srcAccessMask = 0;
-		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependency.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		dependency.srcAccessMask = vk::AccessFlagBits::eNone;
+		dependency.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
 
-		VkRenderPassCreateInfo renderPassInfo{};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		vk::RenderPassCreateInfo renderPassInfo;
 		renderPassInfo.attachmentCount = 1;
 		renderPassInfo.pAttachments = &colorAttachment;
 		renderPassInfo.subpassCount = 1;
@@ -65,12 +54,7 @@ namespace Engine::Rendering::Vulkan
 		renderPassInfo.dependencyCount = 1;
 		renderPassInfo.pDependencies = &dependency;
 
-		if (vkCreateRenderPass(device.Get(), &renderPassInfo, nullptr, &m_renderPass) != VK_SUCCESS)
-		{
-			Logger::Error("Failed to create render pass.");
-			return false;
-		}
-
+		m_renderPass = device.Get().createRenderPassUnique(renderPassInfo);
 		return true;
 	}
 }
