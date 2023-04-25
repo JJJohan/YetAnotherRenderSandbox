@@ -129,7 +129,7 @@ namespace Engine::Rendering::Vulkan
 
 		for (const auto& renderMesh : m_renderMeshes)
 		{
-			renderMesh.second->Draw(commandBuffer);
+			renderMesh.second->Draw(commandBuffer, renderPassInfo.renderArea.extent, m_currentFrame);
 		}
 
 		commandBuffer.endRenderPass();
@@ -167,7 +167,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_actionQueue.push([&, pipelineLayout]() 
 			{ 
-				std::unique_ptr<RenderMesh> renderMesh = std::make_unique<RenderMesh>(pipelineLayout);
+				std::unique_ptr<RenderMesh> renderMesh = std::make_unique<RenderMesh>(pipelineLayout, m_maxConcurrentFrames);
 				if (renderMesh->Initialise(*m_physicalDevice, *m_device, *m_resourceCommandPool, mesh))
 				{
 					m_renderMeshes.insert(std::make_pair(mesh.Id, std::move(renderMesh)));

@@ -16,12 +16,18 @@ namespace Engine::Rendering::Vulkan
 		: Shader()
 		, m_pipelineLayout(nullptr)
 		, m_graphicsPipeline(nullptr)
+		, m_uboDescriptorSetLayout(nullptr)
 	{
 	}
 
 	bool PipelineLayout::IsValid() const
 	{
 		return m_graphicsPipeline.get() && m_pipelineLayout.get();
+	}
+
+	const vk::PipelineLayout& PipelineLayout::Get() const
+	{
+		return m_pipelineLayout.get();
 	}
 
 	const vk::Pipeline& PipelineLayout::GetGraphicsPipeline() const
@@ -43,7 +49,29 @@ namespace Engine::Rendering::Vulkan
 		}
 	}
 
-	bool PipelineLayout::Initialise(const Device& device, const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs, const RenderPass& renderPass)
+	bool PipelineLayout::SetupUniformBufferDescriptorSetLayout(const Device& device)
+	{
+		vk::DescriptorSetLayoutBinding uniformBufferLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex);
+		vk::DescriptorSetLayoutCreateInfo layoutInfo(vk::DescriptorSetLayoutCreateFlags(), 1, &uniformBufferLayoutBinding);
+
+		const vk::Device& deviceImp = device.Get();
+		m_uboDescriptorSetLayout = deviceImp.createDescriptorSetLayoutUnique(layoutInfo);
+		if (!m_uboDescriptorSetLayout.get())
+		{
+			Logger::Error("Failed to create descriptor set layout.");
+			return false;
+		}
+
+		return true;
+	}
+
+	std::vector<vk::DescriptorSetLayout> PipelineLayout::GetDescriptorSetLayouts() const
+	{
+		return { m_uboDescriptorSetLayout.get() }; // hard-coded to 1 for now.
+	}
+
+	bool PipelineLayout::Initialise(const Device& device, const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs, 
+		const RenderPass& renderPass)
 	{
 		m_name = name;
 
@@ -64,6 +92,11 @@ namespace Engine::Rendering::Vulkan
 
 			vk::ShaderStageFlagBits stage = GetShaderStage(program.first);
 			shaderModules.push_back(std::make_pair(stage, std::move(shaderModule)));
+		}
+
+		if (!SetupUniformBufferDescriptorSetLayout(device))
+		{
+			return false;
 		}
 
 		std::vector<vk::PipelineShaderStageCreateInfo> shaderStageInfos{};
@@ -116,7 +149,7 @@ namespace Engine::Rendering::Vulkan
 		rasterizer.polygonMode = vk::PolygonMode::eFill;
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = vk::CullModeFlagBits::eBack;
-		rasterizer.frontFace = vk::FrontFace::eClockwise;
+		rasterizer.frontFace = vk::FrontFace::eCounterClockwise;
 
 		// Multisampling state
 		vk::PipelineMultisampleStateCreateInfo multisampling{};
@@ -154,8 +187,8 @@ namespace Engine::Rendering::Vulkan
 
 		// Pipeline layout
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
-		pipelineLayoutInfo.setLayoutCount = 0; // Optional
-		pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
+		pipelineLayoutInfo.setLayoutCount = 1;
+		pipelineLayoutInfo.pSetLayouts = &m_uboDescriptorSetLayout.get();
 		pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
 		pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 

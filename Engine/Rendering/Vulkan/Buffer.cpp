@@ -84,4 +84,9 @@ namespace Engine::Rendering::Vulkan
 	{
 		return m_buffer.get();
 	}
+
+	const vk::DeviceMemory& Buffer::GetMemory() const
+	{
+		return m_bufferMemory.get();
+	}
 }

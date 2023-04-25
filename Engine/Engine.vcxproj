@@ -110,7 +110,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -131,7 +131,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -164,6 +164,7 @@
     <ClCompile Include="Rendering\Vulkan\Buffer.cpp" />
     <ClCompile Include="Rendering\Vulkan\CommandPool.cpp" />
     <ClCompile Include="Rendering\Vulkan\Debug.cpp" />
+    <ClCompile Include="Rendering\Vulkan\DescriptorPool.cpp" />
     <ClCompile Include="Rendering\Vulkan\Device.cpp" />
     <ClCompile Include="Rendering\Vulkan\Framebuffer.cpp" />
     <ClCompile Include="Rendering\Vulkan\ImageView.cpp" />
@@ -191,6 +192,7 @@
     <ClInclude Include="Rendering\Vulkan\Buffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\CommandPool.hpp" />
     <ClInclude Include="Rendering\Vulkan\Debug.hpp" />
+    <ClInclude Include="Rendering\Vulkan\DescriptorPool.hpp" />
     <ClInclude Include="Rendering\Vulkan\Device.hpp" />
     <ClInclude Include="Rendering\Vulkan\Framebuffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\ImageView.hpp" />

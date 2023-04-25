@@ -17,6 +17,7 @@ namespace Engine::Rendering::Vulkan
 		bool UpdateContents(const Device& device, vk::DeviceSize offset, const void* data, vk::DeviceSize size);
 		vk::UniqueCommandBuffer Copy(const Device& device, const CommandPool& commandPool, const Buffer& destination, vk::DeviceSize size);
 		const vk::Buffer& Get() const;
+		const vk::DeviceMemory& GetMemory() const;
 
 	private:
 		vk::UniqueBuffer m_buffer;

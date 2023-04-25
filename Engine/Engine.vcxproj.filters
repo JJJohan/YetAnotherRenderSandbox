@@ -97,6 +97,9 @@
     <ClCompile Include="Rendering\Vulkan\Buffer.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\DescriptorPool.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Logging\Logger.hpp">
@@ -178,6 +181,9 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\Vulkan\Buffer.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\DescriptorPool.hpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClInclude>
   </ItemGroup>
