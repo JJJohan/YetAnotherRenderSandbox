@@ -66,6 +66,7 @@ namespace Engine::Rendering
 		std::vector<bool> m_active;
 		std::mutex m_creationMutex;
 		std::vector<MeshUpdateFlagBits> m_updateFlags;
+		uint32_t m_meshCapacity;
 
 		std::vector<std::vector<glm::vec3>> m_positionArrays;
 		std::vector<std::vector<Colour>> m_vertexColourArrays;

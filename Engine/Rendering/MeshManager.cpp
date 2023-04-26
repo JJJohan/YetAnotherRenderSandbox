@@ -18,9 +18,8 @@ namespace Engine::Rendering
 		}
 		else
 		{
-			static std::atomic<uint32_t> id_counter {0};
 			IncrementSize();
-			id = id_counter++;
+			id = m_meshCapacity++;
 		}
 
 		m_positionArrays[id] = positions;

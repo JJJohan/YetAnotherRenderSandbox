@@ -57,13 +57,14 @@ namespace Engine::Rendering::Vulkan
 		const vk::Device& deviceImp = m_device->Get();
 		deviceImp.waitIdle();
 
+		m_meshManager.reset();
+
 		m_imageAvailableSemaphores.clear();
 		m_renderFinishedSemaphores.clear();
 		m_inFlightFences.clear();
 		m_renderCommandBuffers.clear();
 		m_pipelineLayouts.clear();
 
-		m_meshManager.reset();
 		m_Debug.reset();
 		m_renderCommandPool.reset();
 		m_resourceCommandPool.reset();

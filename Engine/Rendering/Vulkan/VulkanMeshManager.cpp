@@ -55,8 +55,6 @@ namespace Engine::Rendering::Vulkan
 	{
 		const std::lock_guard<std::mutex> lock(m_creationMutex);
 
-		// Reset versions?
-
 		MeshManager::DestroyMesh(id);
 	}
 
@@ -110,7 +108,6 @@ namespace Engine::Rendering::Vulkan
 		{
 			return false;
 		}
-
 
 		if (!stagingBuffer->UpdateContents(device, 0, data, size))
 			return false;
@@ -206,8 +203,7 @@ namespace Engine::Rendering::Vulkan
 		std::vector<std::unique_ptr<Buffer>> temporaryBuffers;
 		std::vector<uint32_t> toDelete;
 
-		uint32_t meshCount = static_cast<uint32_t>(m_vertexCounts.size());
-		for (uint32_t id = 0; id < meshCount; ++id)
+		for (uint32_t id = 0; id < m_meshCapacity; ++id)
 		{
 			if (!m_active[id])
 			{
@@ -275,12 +271,12 @@ namespace Engine::Rendering::Vulkan
 			for (uint32_t id : toDelete)
 			{
 				m_vertexCounts[id] = 0;
-				m_positionBuffers[id].release();
-				m_colourBuffers[id].release();
-				m_indexBuffers[id].release();
+				m_positionBuffers[id].reset();
+				m_colourBuffers[id].reset();
+				m_indexBuffers[id].reset();
 				m_uniformBufferArrays[id].clear();
 				m_uniformBuffersMappedArrays[id].clear();
-				m_descriptorPools[id].release();
+				m_descriptorPools[id].reset();
 				m_descriptorSetArrays[id].clear();
 			}
 		}
@@ -317,10 +313,9 @@ namespace Engine::Rendering::Vulkan
 	{
 		const std::lock_guard<std::mutex> lock(m_creationMutex); // Ideally have a set of data for 'next' frame so no locking?
 
-		uint32_t meshCount = static_cast<uint32_t>(m_vertexCounts.size());
-		for (uint32_t id = 0; id < meshCount; ++id)
+		for (uint32_t id = 0; id < m_meshCapacity; ++id)
 		{
-			if (!m_active[id])
+			if (!m_active[id] || m_vertexCounts[id] == 0)
 				continue;
 
 			// Update uniform buffers
