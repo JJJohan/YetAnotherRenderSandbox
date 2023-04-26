@@ -27,7 +27,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	vk::UniqueCommandBuffer Buffer::Copy(const Device& device, const CommandPool& commandPool, const Buffer& destination, vk::DeviceSize size)
+	vk::UniqueCommandBuffer Buffer::Copy(const Device& device, const CommandPool& commandPool, const Buffer& destination, vk::DeviceSize size) const
 	{
 		vk::CommandBufferAllocateInfo allocInfo(commandPool.Get(), vk::CommandBufferLevel::ePrimary, 1);
 		std::vector<vk::UniqueCommandBuffer> commandBuffers = device.Get().allocateCommandBuffersUnique(allocInfo);

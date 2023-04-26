@@ -1,6 +1,7 @@
 #include "Renderer.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "Vulkan/VulkanRenderer.hpp"
+#include "MeshManager.hpp"
 #include "OS/Window.hpp"
 #include "OS/Files.hpp"
 
@@ -33,8 +34,9 @@ namespace Engine::Rendering
 		}
 	}
 
-	void Renderer::Resize(glm::uvec2 size)
+	MeshManager* Renderer::GetMeshManager() const
 	{
+		return nullptr;
 	}
 
 	void Renderer::SetClearColour(const glm::vec4& clearColour)
@@ -75,25 +77,9 @@ namespace Engine::Rendering
 	{
 	}
 
-	void Renderer::BeginRenderingMesh(const Mesh& mesh, const Shader* shader)
-	{
-	}
-
-	void Renderer::UpdateMesh(const Mesh& mesh)
-	{
-	}
-
-	void Renderer::StopRenderingMesh(const Mesh& mesh)
-	{
-	}
-
 	bool Renderer::Initialise()
 	{
 		return true;
-	}
-
-	void Renderer::Destroy()
-	{
 	}
 
 	void Renderer::Render()

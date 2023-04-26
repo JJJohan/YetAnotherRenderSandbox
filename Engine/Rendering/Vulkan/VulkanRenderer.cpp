@@ -2,7 +2,7 @@
 #include "OS/Window.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "PipelineLayout.hpp"
-#include "../Mesh.hpp"
+#include "VulkanMeshManager.hpp"
 
 #define DEFAULT_MAX_CONCURRENT_FRAMES 2
 
@@ -27,7 +27,7 @@ namespace Engine::Rendering::Vulkan
 		, m_pipelineLayouts()
 		, m_renderThread()
 		, m_renderCommandBuffers()
-		, m_renderMeshes()
+		, m_meshManager()
 		, m_imageAvailableSemaphores()
 		, m_renderFinishedSemaphores()
 		, m_inFlightFences()
@@ -62,8 +62,8 @@ namespace Engine::Rendering::Vulkan
 		m_inFlightFences.clear();
 		m_renderCommandBuffers.clear();
 		m_pipelineLayouts.clear();
-		m_renderMeshes.clear();
 
+		m_meshManager.reset();
 		m_Debug.reset();
 		m_renderCommandPool.reset();
 		m_resourceCommandPool.reset();
@@ -79,11 +79,6 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	void VulkanRenderer::Resize(glm::uvec2 size)
-	{
-		m_resized = true;
-	}
-
 	Shader* VulkanRenderer::CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs)
 	{
 		std::unique_ptr<PipelineLayout>& pipelineLayout = m_pipelineLayouts.emplace_back(std::make_unique<PipelineLayout>());
@@ -97,7 +92,7 @@ namespace Engine::Rendering::Vulkan
 
 	bool VulkanRenderer::RecordCommandBuffer(const vk::CommandBuffer& commandBuffer, uint32_t imageIndex)
 	{
-		vk::CommandBufferBeginInfo beginInfo;				
+		vk::CommandBufferBeginInfo beginInfo;
 		if (commandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
 		{
 			Logger::Error("Failed to begin recording command buffer.");
@@ -127,10 +122,7 @@ namespace Engine::Rendering::Vulkan
 		vk::Rect2D scissor(renderPassInfo.renderArea.offset, renderPassInfo.renderArea.extent);
 		commandBuffer.setScissor(0, 1, &scissor);
 
-		for (const auto& renderMesh : m_renderMeshes)
-		{
-			renderMesh.second->Draw(commandBuffer, renderPassInfo.renderArea.extent, m_currentFrame);
-		}
+		m_meshManager->Draw(commandBuffer, renderPassInfo.renderArea.extent, m_currentFrame);
 
 		commandBuffer.endRenderPass();
 		commandBuffer.end();
@@ -141,66 +133,27 @@ namespace Engine::Rendering::Vulkan
 	void VulkanRenderer::DestroyShader(Shader* shader)
 	{
 		PipelineLayout* pipelineLayout = static_cast<PipelineLayout*>(shader);
-		const auto& result = std::find_if(m_pipelineLayouts.begin(), m_pipelineLayouts.end(), [pipelineLayout](const std::unique_ptr<PipelineLayout>& s)
+
+		m_actionQueue.push([&, pipelineLayout]()
 			{
-				return std::addressof(*s) == pipelineLayout;
-			});
+				const auto& result = std::find_if(m_pipelineLayouts.begin(), m_pipelineLayouts.end(), [pipelineLayout](const std::unique_ptr<PipelineLayout>& s)
+					{
+						return std::addressof(*s) == pipelineLayout;
+					});
 
-		if (result == m_pipelineLayouts.end())
-		{
-			Logger::Error("Shader was not found.");
-			return;
-		}
-
-		m_actionQueue.push([&]() { m_pipelineLayouts.erase(result); });
-	}
-
-	void VulkanRenderer::BeginRenderingMesh(const Mesh& mesh, const Shader* shader)
-	{
-		if (m_renderMeshes.contains(mesh.Id))
-		{
-			Logger::Error("Mesh is already being rendered.");
-			return;
-		}
-
-		const PipelineLayout* pipelineLayout = static_cast<const PipelineLayout*>(shader);
-
-		m_actionQueue.push([&, pipelineLayout]() 
-			{ 
-				std::unique_ptr<RenderMesh> renderMesh = std::make_unique<RenderMesh>(pipelineLayout, m_maxConcurrentFrames);
-				if (renderMesh->Initialise(*m_physicalDevice, *m_device, *m_resourceCommandPool, mesh))
+				if (result == m_pipelineLayouts.end())
 				{
-					m_renderMeshes.insert(std::make_pair(mesh.Id, std::move(renderMesh)));
+					Logger::Error("Shader was not found.");
+					return;
 				}
+
+				m_pipelineLayouts.erase(result);
 			});
 	}
 
-	void VulkanRenderer::UpdateMesh(const Mesh& mesh)
+	MeshManager* VulkanRenderer::GetMeshManager() const
 	{
-		const auto& result = m_renderMeshes.find(mesh.Id);
-		if (result == m_renderMeshes.end())
-		{
-			Logger::Error("Mesh was not found.");
-			return;
-		}
-
-		// TODO
-	}
-
-	void VulkanRenderer::StopRenderingMesh(const Mesh& mesh)
-	{
-		if (!m_renderMeshes.contains(mesh.Id))
-		{
-			Logger::Error("Mesh was not found.");
-			return;
-		}
-
-		uint32_t id = mesh.Id;
-		m_actionQueue.push([&, id]()
-			{ 
-				m_device->Get().waitIdle(); // Dodgy..
-				m_renderMeshes.erase(id);
-			});
+		return m_meshManager.get();
 	}
 
 	bool VulkanRenderer::CreateSyncObjects()
@@ -254,6 +207,7 @@ namespace Engine::Rendering::Vulkan
 		m_resourceCommandPool = std::make_unique<CommandPool>();
 		m_renderCommandPool = std::make_unique<CommandPool>();
 		m_Debug = std::make_unique<Debug>();
+		m_meshManager = std::make_unique<VulkanMeshManager>(m_maxConcurrentFrames);
 
 		if (!m_instance->Initialise(title, *m_Debug, m_debug)
 			|| !m_surface->Initialise(*m_instance, m_window)
@@ -285,7 +239,7 @@ namespace Engine::Rendering::Vulkan
 	{
 		m_device->Get().waitIdle();
 
-		m_resized = false;
+		m_swapChainOutOfDate = false;
 
 		return m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, size)
 			&& m_swapChain->CreateFramebuffers(*m_device, *m_renderPass);
@@ -306,6 +260,12 @@ namespace Engine::Rendering::Vulkan
 				action();
 			}
 
+			if (!m_meshManager->Update(*m_physicalDevice, *m_device, *m_resourceCommandPool))
+			{
+				Logger::Error("Failed to update meshes.");
+				return;
+			}
+
 			// Skip rendering in minimised state.
 			const glm::uvec2& windowSize = m_window.GetSize();
 			if (windowSize.x == 0 || windowSize.y == 0)
@@ -313,7 +273,7 @@ namespace Engine::Rendering::Vulkan
 				continue;
 			}
 
-			if (m_resized)
+			if (m_swapChainOutOfDate)
 			{
 				RecreateSwapChain(windowSize);
 				continue;
@@ -331,7 +291,7 @@ namespace Engine::Rendering::Vulkan
 			vk::Result acquireNextImageResult = deviceImp.acquireNextImageKHR(swapchainImp, UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame].get(), VK_NULL_HANDLE, &imageIndex);
 			if (acquireNextImageResult == vk::Result::eErrorOutOfDateKHR)
 			{
-				m_resized = true;
+				m_swapChainOutOfDate = true;
 				continue; // Restart rendering.
 			}
 			else if (acquireNextImageResult != vk::Result::eSuccess && acquireNextImageResult != vk::Result::eSuboptimalKHR)
@@ -373,7 +333,7 @@ namespace Engine::Rendering::Vulkan
 			}
 			catch (vk::OutOfDateKHRError)
 			{
-				m_resized = true;
+				m_swapChainOutOfDate = true;
 				continue; // Restart rendering, don't increment current frame index.
 			}
 			catch (std::exception ex)

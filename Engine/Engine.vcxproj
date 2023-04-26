@@ -151,14 +151,13 @@
   <ItemGroup>
     <ClCompile Include="Core\Colour.cpp" />
     <ClCompile Include="Core\Logging\Logger.cpp" />
-    <ClCompile Include="Core\Utils.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="OS\Files.cpp" />
     <ClCompile Include="OS\InputEnums.hpp" />
     <ClCompile Include="OS\InputState.cpp" />
     <ClCompile Include="OS\Win32\Win32Window.cpp" />
     <ClCompile Include="OS\Window.cpp" />
-    <ClCompile Include="Rendering\Mesh.cpp" />
+    <ClCompile Include="Rendering\MeshManager.cpp" />
     <ClCompile Include="Rendering\Renderer.cpp" />
     <ClCompile Include="Rendering\Shader.cpp" />
     <ClCompile Include="Rendering\Vulkan\Buffer.cpp" />
@@ -170,7 +169,7 @@
     <ClCompile Include="Rendering\Vulkan\ImageView.cpp" />
     <ClCompile Include="Rendering\Vulkan\Instance.cpp" />
     <ClCompile Include="Rendering\Vulkan\PhysicalDevice.cpp" />
-    <ClCompile Include="Rendering\Vulkan\RenderMesh.cpp" />
+    <ClCompile Include="Rendering\Vulkan\VulkanMeshManager.cpp" />
     <ClCompile Include="Rendering\Vulkan\RenderPass.cpp" />
     <ClCompile Include="Rendering\Vulkan\PipelineLayout.cpp" />
     <ClCompile Include="Rendering\Vulkan\VulkanRenderer.cpp" />
@@ -181,12 +180,11 @@
     <ClInclude Include="Core\Colour.hpp" />
     <ClInclude Include="Core\Logging\Logger.hpp" />
     <ClInclude Include="Core\Macros.hpp" />
-    <ClInclude Include="Core\Utils.hpp" />
     <ClInclude Include="OS\Files.hpp" />
     <ClInclude Include="OS\InputState.hpp" />
     <ClInclude Include="OS\Win32\Win32Window.hpp" />
     <ClInclude Include="OS\Window.hpp" />
-    <ClInclude Include="Rendering\Mesh.hpp" />
+    <ClInclude Include="Rendering\MeshManager.hpp" />
     <ClInclude Include="Rendering\Renderer.hpp" />
     <ClInclude Include="Rendering\Shader.hpp" />
     <ClInclude Include="Rendering\Vulkan\Buffer.hpp" />
@@ -199,7 +197,7 @@
     <ClInclude Include="Rendering\Vulkan\Instance.hpp" />
     <ClInclude Include="Rendering\Vulkan\PhysicalDevice.hpp" />
     <ClInclude Include="Rendering\Vulkan\QueueFamilyIndices.hpp" />
-    <ClInclude Include="Rendering\Vulkan\RenderMesh.hpp" />
+    <ClInclude Include="Rendering\Vulkan\VulkanMeshManager.hpp" />
     <ClInclude Include="Rendering\Vulkan\RenderPass.hpp" />
     <ClInclude Include="Rendering\Vulkan\PipelineLayout.hpp" />
     <ClInclude Include="Rendering\Vulkan\VulkanRenderer.hpp" />

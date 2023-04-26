@@ -4,7 +4,8 @@
 #include <OS/Files.hpp>
 #include <Rendering/Renderer.hpp>
 #include <Rendering/Shader.hpp>
-#include <Rendering/Mesh.hpp>
+#include <Rendering/MeshManager.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 using namespace Engine;
 using namespace Engine::Rendering;
@@ -17,15 +18,22 @@ const bool debug = true;
 const bool debug = false;
 #endif
 
+uint32_t CreateTestMesh(const Renderer& renderer, const Shader* shader)
+{
+	return renderer.GetMeshManager()->CreateMesh(shader,
+		{ glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(-0.5f, 0.5f, 0.0f) },
+		{ Colour(1.0f, 1.0f, 0.0f), Colour(0.0f, 1.0f, 0.0f), Colour(0.0f, 0.0f, 1.0f), Colour(1.0f, 0.0f, 0.0f) },
+		{ 0, 1, 2, 2, 3, 0 },
+		Colour(),
+		glm::mat4(1.0f));
+}
+
 int main()
 {
 	Logger::SetLogOutputLevel(LogLevel::VERBOSE);
 
 	std::unique_ptr<Window> window = Window::Create("Test", glm::uvec2(1280, 720), false);
 	std::unique_ptr<Renderer> renderer = Renderer::Create(RendererType::VULKAN, *window, debug);
-
-	window->RegisterResizeCallback([&renderer](glm::uvec2 size) { renderer->Resize(size); });
-	window->RegisterCloseCallback([&renderer]() { renderer->Destroy(); });
 
 	renderer->SetClearColour(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 
@@ -46,12 +54,16 @@ int main()
 		return 1;
 	}
 
-	std::unique_ptr<Mesh> mesh = std::make_unique<Mesh>();
-	mesh->SetPositions({ glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(-0.5f, 0.5f, 0.0f)});
-	mesh->SetColours({ Colour(1.0f, 1.0f, 0.0f), Colour(0.0f, 1.0f, 0.0f), Colour(0.0f, 0.0f, 1.0f), Colour(1.0f, 0.0f, 0.0f) });
-	mesh->SetIndices({ 0, 1, 2, 2, 3, 0 });
+	uint32_t mesh1 = CreateTestMesh(*renderer, shader);
 
-	renderer->BeginRenderingMesh(*mesh, shader);
+	uint32_t mesh2 = renderer->GetMeshManager()->CreateMesh(shader,
+		{ glm::vec3(-0.5f, -1.0f + -0.5f, 0.0f), glm::vec3(0.5f, -1.0f + -0.5f, 0.0f), glm::vec3(0.5f, -1.0f + 0.5f, 0.0f), glm::vec3(-0.5f, -1.0f + 0.5f, 0.0f) },
+		{ Colour(0.0f, 1.0f, 1.0f), Colour(1.0f, 0.0f, 1.0f), Colour(1.0f, 1.0f, 1.0f), Colour(0.0f, 0.0f, 0.0f) },
+		{ 0, 1, 2, 2, 3, 0 },
+		Colour(),
+		glm::mat4(1.0f));
+
+	static auto startTime = std::chrono::high_resolution_clock::now();
 
 	bool drawingMesh = true;
 
@@ -59,16 +71,19 @@ int main()
 	{
 		if (window->InputState.KeyDown(KeyCode::V))
 		{
-			renderer->SetClearColour(glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+			auto currentTime = std::chrono::high_resolution_clock::now();
+			float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+			glm::mat4 model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			renderer->GetMeshManager()->SetTransform(mesh1, model);
 		}
 
 		if (window->InputState.KeyDown(KeyCode::B))
 		{
 			drawingMesh = !drawingMesh;
 			if (drawingMesh)
-				renderer->BeginRenderingMesh(*mesh, shader);
+				mesh1 = CreateTestMesh(*renderer, shader);
 			else
-				renderer->StopRenderingMesh(*mesh);
+				renderer->GetMeshManager()->DestroyMesh(mesh1);
 		}
 
 		window->Poll();

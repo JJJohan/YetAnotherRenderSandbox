@@ -15,7 +15,7 @@ namespace Engine::OS
 
 namespace Engine::Rendering
 {
-	class Mesh;
+	class MeshManager;
 
 	enum class RendererType
 	{
@@ -29,7 +29,6 @@ namespace Engine::Rendering
 		EXPORT virtual ~Renderer();
 
 		EXPORT virtual bool Initialise();
-		EXPORT virtual void Destroy();
 		EXPORT virtual void Render();
 
 		EXPORT void SetClearColour(const glm::vec4& colour);
@@ -39,11 +38,7 @@ namespace Engine::Rendering
 		EXPORT Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::string>& programs);
 		EXPORT virtual void DestroyShader(Shader* shader);
 
-		EXPORT virtual void BeginRenderingMesh(const Mesh& mesh, const Shader* shader);
-		EXPORT virtual void UpdateMesh(const Mesh& mesh);
-		EXPORT virtual void StopRenderingMesh(const Mesh& mesh);
-
-		EXPORT virtual void Resize(glm::uvec2 size);
+		EXPORT virtual MeshManager* GetMeshManager() const;
 
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);

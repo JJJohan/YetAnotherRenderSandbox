@@ -12,11 +12,16 @@
 #include "RenderPass.hpp"
 #include "Framebuffer.hpp"
 #include "CommandPool.hpp"
-#include "RenderMesh.hpp"
+#include "VulkanMeshManager.hpp"
 #include <vulkan/vulkan.hpp>
 #include <thread>
 #include <unordered_map>
 #include <concurrent_queue.h>
+
+namespace Engine::Rendering
+{
+	class MeshManager;
+}
 
 namespace Engine::Rendering::Vulkan
 {
@@ -33,11 +38,7 @@ namespace Engine::Rendering::Vulkan
 		virtual Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs);
 		virtual void DestroyShader(Shader* shader);
 
-		virtual void BeginRenderingMesh(const Mesh& mesh, const Shader* shader);
-		virtual void UpdateMesh(const Mesh& mesh);
-		virtual void StopRenderingMesh(const Mesh& mesh);
-
-		virtual void Resize(glm::uvec2 size);
+		virtual MeshManager* GetMeshManager() const;
 
 	private:
 		bool RecordCommandBuffer(const vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
@@ -61,13 +62,13 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::UniqueSemaphore> m_renderFinishedSemaphores;
 		std::vector<vk::UniqueFence> m_inFlightFences;
 
+		std::unique_ptr<VulkanMeshManager> m_meshManager;
 		std::vector<std::unique_ptr<PipelineLayout>> m_pipelineLayouts;
-		std::unordered_map<uint64_t, std::unique_ptr<RenderMesh>> m_renderMeshes;
 		concurrency::concurrent_queue<std::function<void()>> m_actionQueue;
 
 		std::thread m_renderThread;
 		bool m_running;
-		bool m_resized;
+		bool m_swapChainOutOfDate;
 		uint32_t m_currentFrame;
 		const uint32_t m_maxConcurrentFrames;
 	};
