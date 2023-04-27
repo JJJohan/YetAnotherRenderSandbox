@@ -2,12 +2,14 @@
 #include "PhysicalDevice.hpp"
 #include "Device.hpp"
 #include "CommandBuffer.hpp"
+#include "DescriptorPool.hpp"
+#include "Buffer.hpp"
 #include "CommandPool.hpp"
 #include "PipelineLayout.hpp"
 #include "Core/Logging/Logger.hpp"
-#include <chrono>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <vma/vk_mem_alloc.h>
 
 using namespace Engine::Logging;
 
@@ -39,11 +41,12 @@ namespace Engine::Rendering::Vulkan
 		const std::vector<Colour>& vertexColours,
 		const std::vector<uint32_t>& indices,
 		const Colour& colour,
-		const glm::mat4& transform)
+		const glm::mat4& transform,
+		std::shared_ptr<Image> image)
 	{
 		const std::lock_guard<std::mutex> lock(m_creationMutex);
 
-		uint32_t id = MeshManager::CreateMesh(shader, positions, vertexColours, indices, colour, transform);
+		uint32_t id = MeshManager::CreateMesh(shader, positions, vertexColours, indices, colour, transform, std::move(image));
 
 		const PipelineLayout* pipelineLayout = static_cast<const PipelineLayout*>(shader);
 		m_pipelineLayouts[id] = pipelineLayout;
@@ -58,61 +61,68 @@ namespace Engine::Rendering::Vulkan
 		MeshManager::DestroyMesh(id);
 	}
 
-	bool VulkanMeshManager::SetupPositionBuffer(const PhysicalDevice& physicalDevice, const Device& device, uint32_t id)
+	bool VulkanMeshManager::SetupPositionBuffer(VmaAllocator allocator, uint32_t id)
 	{
 		const std::vector<glm::vec3>& positions = m_positionArrays[id];
 		m_vertexCounts[id] = static_cast<uint32_t>(positions.size());
 		uint64_t positionsSize = static_cast<uint64_t>(sizeof(glm::vec3) * m_vertexCounts[id]);
 
-		m_positionBuffers[id] = std::make_unique<Buffer>();
-		return m_positionBuffers[id]->Initialise(physicalDevice, device, positionsSize,
+		m_positionBuffers[id] = std::make_unique<Buffer>(allocator);
+		return m_positionBuffers[id]->Initialise(positionsSize,
 			vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
-			vk::MemoryPropertyFlagBits::eDeviceLocal,
+			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+			0,
 			vk::SharingMode::eExclusive);
 	}
 
-	bool VulkanMeshManager::SetupColourBuffer(const PhysicalDevice& physicalDevice, const Device& device, uint32_t id)
+	bool VulkanMeshManager::SetupColourBuffer(VmaAllocator allocator, uint32_t id)
 	{
 		const std::vector<Colour>& vertexColours = m_vertexColourArrays[id];
 		uint64_t coloursSize = static_cast<uint64_t>(sizeof(uint32_t) * vertexColours.size());
 
-		m_colourBuffers[id] = std::make_unique<Buffer>();
-		return m_colourBuffers[id]->Initialise(physicalDevice, device, coloursSize,
+		m_colourBuffers[id] = std::make_unique<Buffer>(allocator);
+		return m_colourBuffers[id]->Initialise(coloursSize,
 			vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
-			vk::MemoryPropertyFlagBits::eDeviceLocal,
+			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+			0,
 			vk::SharingMode::eExclusive);
 	}
 
-	bool VulkanMeshManager::SetupIndexBuffer(const PhysicalDevice& physicalDevice, const Device& device, uint32_t id)
+	bool VulkanMeshManager::SetupIndexBuffer(VmaAllocator allocator, uint32_t id)
 	{
 		const std::vector<uint32_t>& indices = m_indexArrays[id];
 		m_indexCounts[id] = static_cast<uint32_t>(indices.size());
 		uint64_t indicesSize = static_cast<uint64_t>(sizeof(uint32_t) * m_indexCounts[id]);
 
-		m_indexBuffers[id] = std::make_unique<Buffer>();
-		return m_indexBuffers[id]->Initialise(physicalDevice, device, indicesSize,
+		m_indexBuffers[id] = std::make_unique<Buffer>(allocator);
+		return m_indexBuffers[id]->Initialise(indicesSize,
 			vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
-			vk::MemoryPropertyFlagBits::eDeviceLocal,
+			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+			0,
 			vk::SharingMode::eExclusive);
 	}
 
-	bool VulkanMeshManager::CreateStagingBuffer(const PhysicalDevice& physicalDevice, const Device& device,
-		const CommandPool& resourceCommandPool, const Buffer& destinationBuffer, const void* data, uint64_t size,
+	bool VulkanMeshManager::CreateStagingBuffer(VmaAllocator allocator, const Device& device,
+		const CommandPool& resourceCommandPool, const Buffer* destinationBuffer, const void* data, uint64_t size,
 		std::vector<std::unique_ptr<Buffer>>& copyBufferCollection, std::vector<vk::UniqueCommandBuffer>& copyCommandCollection)
 	{
-		Buffer* stagingBuffer = copyBufferCollection.emplace_back(std::make_unique<Buffer>()).get();
-		if (!stagingBuffer->Initialise(physicalDevice, device, size,
+		Buffer* stagingBuffer = copyBufferCollection.emplace_back(std::make_unique<Buffer>(allocator)).get();
+		if (!stagingBuffer->Initialise(size,
 			vk::BufferUsageFlagBits::eTransferSrc,
-			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+			VMA_MEMORY_USAGE_AUTO,
+			VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
 			vk::SharingMode::eExclusive))
 		{
 			return false;
 		}
 
-		if (!stagingBuffer->UpdateContents(device, 0, data, size))
+		if (data != nullptr && !stagingBuffer->UpdateContents(data, size))
 			return false;
 
-		copyCommandCollection.emplace_back(stagingBuffer->Copy(device, resourceCommandPool, destinationBuffer, size));
+		if (destinationBuffer != nullptr)
+		{
+			copyCommandCollection.emplace_back(stagingBuffer->Copy(device, resourceCommandPool, *destinationBuffer, size));
+		}
 
 		return true;
 	}
@@ -125,9 +135,8 @@ namespace Engine::Rendering::Vulkan
 		glm::mat4 proj;
 	};
 
-	bool VulkanMeshManager::SetupUniformBuffers(const PhysicalDevice& physicalDevice, const Device& device, uint32_t id)
+	bool VulkanMeshManager::SetupUniformBuffers(VmaAllocator allocator, uint32_t id)
 	{
-		const vk::Device& deviceImp = device.Get();
 		vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
 
 		m_uniformBufferArrays[id].resize(m_maxConcurrentFrames);
@@ -139,27 +148,32 @@ namespace Engine::Rendering::Vulkan
 
 		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
 		{
-			uniformBuffers[i] = std::make_unique<Buffer>();
+			uniformBuffers[i] = std::make_unique<Buffer>(allocator);
 			Buffer& buffer = *uniformBuffers[i];
 
-			if (!buffer.Initialise(physicalDevice, device, bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, vk::SharingMode::eExclusive))
+			if (!buffer.Initialise(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_AUTO, 
+				VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, vk::SharingMode::eExclusive))
 			{
 				return false;
 			}
 
-			mappedBuffers[i] = deviceImp.mapMemory(buffer.GetMemory(), 0, bufferSize);
+			if (!buffer.GetMappedMemory(&mappedBuffers[i]))
+			{
+				return false;
+			}
+
 			memcpy(mappedBuffers[i], &model, sizeof(glm::mat4)); // Only copy model matrix
 		}
 
 		return true;
 	}
 
-	bool VulkanMeshManager::CreateMeshResources(const PhysicalDevice& physicalDevice, const Device& device, uint32_t id)
+	bool VulkanMeshManager::CreateMeshResources(VmaAllocator allocator, const Device& device, uint32_t id)
 	{
-		if (!SetupPositionBuffer(physicalDevice, device, id)
-			|| !SetupColourBuffer(physicalDevice, device, id)
-			|| !SetupIndexBuffer(physicalDevice, device, id)
-			|| !SetupUniformBuffers(physicalDevice, device, id))
+		if (!SetupPositionBuffer(allocator, id)
+			|| !SetupColourBuffer(allocator, id)
+			|| !SetupIndexBuffer(allocator, id)
+			|| !SetupUniformBuffers(allocator, id))
 		{
 			return false;
 		}
@@ -193,7 +207,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanMeshManager::Update(const PhysicalDevice& physicalDevice, const Device& device, const CommandPool& resourceCommandPool)
+	bool VulkanMeshManager::Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool)
 	{
 		const std::lock_guard<std::mutex> lock(m_creationMutex);
 
@@ -216,7 +230,7 @@ namespace Engine::Rendering::Vulkan
 
 			if (m_vertexCounts[id] == 0)
 			{
-				if (!CreateMeshResources(physicalDevice, device, id))
+				if (!CreateMeshResources(allocator, device, id))
 					return false;
 			}
 
@@ -226,31 +240,38 @@ namespace Engine::Rendering::Vulkan
 
 			if ((updateBits & MeshUpdateFlagBits::Positions) == MeshUpdateFlagBits::Positions)
 			{
-				if (!CreateStagingBuffer(physicalDevice, device, resourceCommandPool, *m_positionBuffers[id], m_positionArrays[id].data(),
+				if (!CreateStagingBuffer(allocator, device, resourceCommandPool, m_positionBuffers[id].get(), m_positionArrays[id].data(),
 					static_cast<uint64_t>(m_positionArrays[id].size()) * sizeof(glm::vec3), temporaryBuffers, copyCommands))
 					return false;
 			}
 
 			if ((updateBits & MeshUpdateFlagBits::VertexColours) == MeshUpdateFlagBits::VertexColours)
 			{
-				if (!CreateStagingBuffer(physicalDevice, device, resourceCommandPool, *m_colourBuffers[id], m_vertexColourArrays[id].data(),
+				if (!CreateStagingBuffer(allocator, device, resourceCommandPool, m_colourBuffers[id].get(), m_vertexColourArrays[id].data(),
 					static_cast<uint64_t>(m_vertexColourArrays[id].size()) * sizeof(Colour), temporaryBuffers, copyCommands))
 					return false;
 			}
 
 			if ((updateBits & MeshUpdateFlagBits::Indices) == MeshUpdateFlagBits::Indices)
 			{
-				if (!CreateStagingBuffer(physicalDevice, device, resourceCommandPool, *m_indexBuffers[id], m_indexArrays[id].data(),
+				if (!CreateStagingBuffer(allocator, device, resourceCommandPool, m_indexBuffers[id].get(), m_indexArrays[id].data(),
 					static_cast<uint64_t>(m_indexArrays[id].size()) * sizeof(uint32_t), temporaryBuffers, copyCommands))
 					return false;
 			}
 
-			if ((updateBits & MeshUpdateFlagBits::Colour) == MeshUpdateFlagBits::Colour)
+			if ((updateBits & MeshUpdateFlagBits::Image) == MeshUpdateFlagBits::Image)
 			{
+				const std::vector<uint8_t>& pixels = m_images[id]->GetPixels();
+
+				if (!CreateStagingBuffer(allocator, device, resourceCommandPool, nullptr, pixels.data(),
+					static_cast<uint64_t>(pixels.size()), temporaryBuffers, copyCommands))
+					return false;
+
 				// TODO
+				m_images[id].reset();
 			}
 
-			if ((updateBits & MeshUpdateFlagBits::Transform) == MeshUpdateFlagBits::Transform)
+			if ((updateBits & MeshUpdateFlagBits::Uniforms) == MeshUpdateFlagBits::Uniforms)
 			{
 				const glm::mat4 model = m_transforms[id];
 				std::vector<void*>& mappedBuffers = m_uniformBuffersMappedArrays[id];

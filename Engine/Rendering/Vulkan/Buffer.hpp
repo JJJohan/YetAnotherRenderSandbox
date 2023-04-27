@@ -1,26 +1,29 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
+#include <vma/vk_mem_alloc.h>
 
 namespace Engine::Rendering::Vulkan
 {
 	class Device;
-	class PhysicalDevice;
 	class CommandPool;
 
 	class Buffer
 	{
 	public:
-		Buffer();
-		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, uint64_t size, vk::BufferUsageFlags usage,
-			vk::MemoryPropertyFlags memoryPropertyFlags, vk::SharingMode sharingMode);
-		bool UpdateContents(const Device& device, vk::DeviceSize offset, const void* data, vk::DeviceSize size);
+		Buffer(VmaAllocator allocator);
+		~Buffer();
+		bool Initialise(uint64_t size, vk::BufferUsageFlags bufferUsage,
+			VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode);
+		bool UpdateContents(const void* data, vk::DeviceSize size);
 		vk::UniqueCommandBuffer Copy(const Device& device, const CommandPool& commandPool, const Buffer& destination, vk::DeviceSize size) const;
-		const vk::Buffer& Get() const;
-		const vk::DeviceMemory& GetMemory() const;
+		const VkBuffer& Get() const;
+		bool GetMappedMemory(void** mappedMemory) const;
 
 	private:
-		vk::UniqueBuffer m_buffer;
-		vk::UniqueDeviceMemory m_bufferMemory;
+		VkBuffer m_buffer;
+		VmaAllocation m_bufferAlloc;
+		VmaAllocationInfo m_bufferAllocInfo;
+		VmaAllocator m_allocator; // Bit gnarly, but makes RAII easier.
 	};
 }

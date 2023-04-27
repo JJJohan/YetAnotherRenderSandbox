@@ -3,6 +3,8 @@
 #include "PhysicalDevice.hpp"
 #include "Surface.hpp"
 #include "RenderPass.hpp"
+#include "ImageView.hpp"
+#include "Framebuffer.hpp"
 #include "Core/Logging/Logger.hpp"
 
 using namespace Engine::Logging;

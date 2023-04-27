@@ -1,30 +1,34 @@
 #pragma once
 
 #include "../Renderer.hpp"
-#include "../Shader.hpp"
-#include "Debug.hpp"
-#include "Device.hpp"
-#include "PhysicalDevice.hpp"
-#include "Instance.hpp"
-#include "Surface.hpp"
-#include "PipelineLayout.hpp"
-#include "SwapChain.hpp"
-#include "RenderPass.hpp"
-#include "Framebuffer.hpp"
-#include "CommandPool.hpp"
-#include "VulkanMeshManager.hpp"
 #include <vulkan/vulkan.hpp>
 #include <thread>
 #include <unordered_map>
 #include <concurrent_queue.h>
+#include <functional>
+
+struct VmaAllocator_T;
 
 namespace Engine::Rendering
 {
+	class Shader;
 	class MeshManager;
 }
 
 namespace Engine::Rendering::Vulkan
 {
+	class Debug;
+	class Device;
+	class PhysicalDevice;
+	class Instance;
+	class Surface;
+	class PipelineLayout;
+	class SwapChain;
+	class RenderPass;
+	class Framebuffer;
+	class CommandPool;
+	class VulkanMeshManager;
+
 	class VulkanRenderer : public Renderer
 	{
 	public:
@@ -32,7 +36,6 @@ namespace Engine::Rendering::Vulkan
 		virtual ~VulkanRenderer();
 
 		virtual bool Initialise();
-		virtual void Destroy();
 		virtual void Render();
 
 		virtual Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs);
@@ -43,7 +46,7 @@ namespace Engine::Rendering::Vulkan
 	private:
 		bool RecordCommandBuffer(const vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
 		bool CreateSyncObjects();
-		bool CreateCommandBuffers();
+		bool CreateAllocator();
 		bool RecreateSwapChain(const glm::uvec2& size);
 
 		std::unique_ptr<Debug> m_Debug;
@@ -53,6 +56,7 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<Surface> m_surface;
 		std::unique_ptr<SwapChain> m_swapChain;
 		std::unique_ptr<RenderPass> m_renderPass;
+		struct VmaAllocator_T* m_allocator;
 
 		std::unique_ptr<CommandPool> m_resourceCommandPool;
 		std::unique_ptr<CommandPool> m_renderCommandPool;

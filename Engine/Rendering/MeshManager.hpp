@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include "Core/Macros.hpp"
 #include "Core/Colour.hpp"
+#include "Core/Image.hpp"
 #include <vector>
 #include <stack>
 #include <mutex>
@@ -17,8 +18,8 @@ namespace Engine::Rendering
 		Positions = 1 << 0,
 		VertexColours = 1 << 1,
 		Indices = 1 << 2,
-		Colour = 1 << 3,
-		Transform = 1 << 4,
+		Uniforms = 1 << 3,
+		Image = 1 << 4,
 		All = 0xFF
 	};
 
@@ -40,7 +41,8 @@ namespace Engine::Rendering
 			const std::vector<Colour>& vertexColours,
 			const std::vector<uint32_t>& indices,
 			const Colour& colour,
-			const glm::mat4& transform);
+			const glm::mat4& transform,
+			std::shared_ptr<Image> image);
 
 		EXPORT virtual void DestroyMesh(uint32_t id);
 
@@ -59,6 +61,8 @@ namespace Engine::Rendering
 		EXPORT void SetTransform(uint32_t id, const glm::mat4& transform);
 		EXPORT const glm::mat4& GetTransform(uint32_t id) const;
 
+		EXPORT void SetImage(uint32_t id, std::shared_ptr<Image> image); // released on load
+
 		virtual void IncrementSize();
 
 	protected:
@@ -73,5 +77,6 @@ namespace Engine::Rendering
 		std::vector<std::vector<uint32_t>> m_indexArrays;
 		std::vector<Colour> m_colours;
 		std::vector<glm::mat4> m_transforms;
+		std::vector<std::shared_ptr<Image>> m_images;
 	};
 }

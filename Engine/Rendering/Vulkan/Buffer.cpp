@@ -1,29 +1,56 @@
 #include "Buffer.hpp"
-#include "PhysicalDevice.hpp"
 #include "Device.hpp"
 #include "CommandPool.hpp"
 #include "Core/Logging/Logger.hpp"
-#include <vulkan/vulkan_handles.hpp>
+#include <vma/vk_mem_alloc.h>
 
 using namespace Engine::Logging;
 
 namespace Engine::Rendering::Vulkan
 {
-	Buffer::Buffer()
+	Buffer::Buffer(VmaAllocator allocator)
 		: m_buffer(nullptr)
-		, m_bufferMemory(nullptr)
+		, m_bufferAlloc(nullptr)
+		, m_bufferAllocInfo()
+		, m_allocator(allocator)
 	{
 	}
 
-	bool Buffer::UpdateContents(const Device& device, vk::DeviceSize offset, const void* data, vk::DeviceSize size)
+	Buffer::~Buffer()
 	{
-		const vk::Device& deviceImp = device.Get();
-		const vk::DeviceMemory& memory = m_bufferMemory.get();
+		if (m_bufferAlloc != nullptr)
+			vmaDestroyBuffer(m_allocator, m_buffer, m_bufferAlloc);
+	}
 
-		void* mappedMemory = deviceImp.mapMemory(memory, 0, size);
-		memcpy(mappedMemory, data, static_cast<size_t>(size));
-		deviceImp.unmapMemory(memory);
+	bool Buffer::UpdateContents(const void* data, vk::DeviceSize size)
+	{
+		if (m_bufferAllocInfo.pMappedData == nullptr)
+		{
+			void* mappedData = nullptr;
+			VkResult result = vmaMapMemory(m_allocator, m_bufferAlloc, &mappedData);
+			if (result != VK_SUCCESS)
+			{
+				Logger::Error("Failed to map memory.");
+				return false;
+			}
 
+			memcpy(mappedData, data, size);
+			vmaUnmapMemory(m_allocator, m_bufferAlloc);
+		}
+
+		memcpy(m_bufferAllocInfo.pMappedData, data, size);
+		return true;
+	}
+
+	bool Buffer::GetMappedMemory(void** mappedMemory) const
+	{
+		if (m_bufferAllocInfo.pMappedData == nullptr)
+		{
+			Logger::Error("Memory is not mapped.");
+			return false;
+		}
+
+		*mappedMemory = m_bufferAllocInfo.pMappedData;
 		return true;
 	}
 
@@ -37,56 +64,38 @@ namespace Engine::Rendering::Vulkan
 		vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 		commandBuffer->begin(beginInfo);
 
+
 		vk::BufferCopy copyRegion(0, 0, size);
-		commandBuffer->copyBuffer(m_buffer.get(), destination.m_buffer.get(), 1, &copyRegion);
+		commandBuffer->copyBuffer(m_buffer, destination.m_buffer, 1, &copyRegion);
 		commandBuffer->end();
 
 		return commandBuffer;
 	}
 
-	bool Buffer::Initialise(const PhysicalDevice& physicalDevice, const Device& device, uint64_t size, vk::BufferUsageFlags usage,
-		vk::MemoryPropertyFlags memoryPropertyFlags, vk::SharingMode sharingMode)
+	bool Buffer::Initialise(uint64_t size, vk::BufferUsageFlags bufferUsage,
+		VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode)
 	{
-		const vk::Device& deviceImp = device.Get();
+		vk::BufferCreateInfo bufferInfo(vk::BufferCreateFlags(), size, bufferUsage, sharingMode);
 
-		vk::BufferCreateInfo bufferInfo(vk::BufferCreateFlags(), size, usage, sharingMode);
-		m_buffer = deviceImp.createBufferUnique(bufferInfo);
-		if (!m_buffer.get())
+		VmaAllocationCreateInfo allocCreateInfo = {};
+		allocCreateInfo.usage = memoryUsage;
+		allocCreateInfo.flags = createFlags;
+
+		VkBuffer stagingVertexBuffer = nullptr;
+		VmaAllocation stagingVertexBufferAlloc = VK_NULL_HANDLE;
+		VkBufferCreateInfo bufferInfoImp = static_cast<VkBufferCreateInfo>(bufferInfo);
+		VkResult createResult = vmaCreateBuffer(m_allocator, &bufferInfoImp, &allocCreateInfo, &m_buffer, &m_bufferAlloc, &m_bufferAllocInfo);
+		if (createResult != VK_SUCCESS)
 		{
 			Logger::Error("Failed to create buffer.");
 			return false;
 		}
 
-		vk::MemoryRequirements memoryRequirements = deviceImp.getBufferMemoryRequirements(m_buffer.get());
-
-		uint32_t memoryTypeIndex = 0;
-		if (!physicalDevice.FindMemoryType(memoryRequirements.memoryTypeBits, memoryPropertyFlags, &memoryTypeIndex))
-		{
-			Logger::Error("Failed to find memory type for buffer memory.");
-			return false;
-		}
-
-		vk::MemoryAllocateInfo allocInfo(memoryRequirements.size, memoryTypeIndex);
-		m_bufferMemory = deviceImp.allocateMemoryUnique(allocInfo);
-
-		if (!m_bufferMemory.get())
-		{
-			Logger::Error("Failed to allocate buffer memory.");
-			return false;
-		}
-
-		deviceImp.bindBufferMemory(m_buffer.get(), m_bufferMemory.get(), 0);
-
 		return true;
 	}
 
-	const vk::Buffer& Buffer::Get() const
+	const VkBuffer& Buffer::Get() const
 	{
-		return m_buffer.get();
-	}
-
-	const vk::DeviceMemory& Buffer::GetMemory() const
-	{
-		return m_bufferMemory.get();
+		return m_buffer;
 	}
 }

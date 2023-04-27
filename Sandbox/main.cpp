@@ -1,5 +1,6 @@
 #include <Core/Logging/Logger.hpp>
 #include <Core/Colour.hpp>
+#include <Core/Image.hpp>
 #include <OS/Window.hpp>
 #include <OS/Files.hpp>
 #include <Rendering/Renderer.hpp>
@@ -18,14 +19,15 @@ const bool debug = true;
 const bool debug = false;
 #endif
 
-uint32_t CreateTestMesh(const Renderer& renderer, const Shader* shader)
+uint32_t CreateTestMesh(const Renderer& renderer, const Shader* shader, std::shared_ptr<Image>& image)
 {
 	return renderer.GetMeshManager()->CreateMesh(shader,
 		{ glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(-0.5f, 0.5f, 0.0f) },
 		{ Colour(1.0f, 1.0f, 0.0f), Colour(0.0f, 1.0f, 0.0f), Colour(0.0f, 0.0f, 1.0f), Colour(1.0f, 0.0f, 0.0f) },
 		{ 0, 1, 2, 2, 3, 0 },
 		Colour(),
-		glm::mat4(1.0f));
+		glm::mat4(1.0f),
+		image);
 }
 
 int main()
@@ -54,14 +56,21 @@ int main()
 		return 1;
 	}
 
-	uint32_t mesh1 = CreateTestMesh(*renderer, shader);
+	std::shared_ptr<Image> image = std::make_shared<Image>();
+	if (!image->LoadFromFile("C:/Users/Johan/Desktop/texture.jpg"))
+	{
+		return 1;
+	}
+
+	uint32_t mesh1 = CreateTestMesh(*renderer, shader, image);
 
 	uint32_t mesh2 = renderer->GetMeshManager()->CreateMesh(shader,
 		{ glm::vec3(-0.5f, -1.0f + -0.5f, 0.0f), glm::vec3(0.5f, -1.0f + -0.5f, 0.0f), glm::vec3(0.5f, -1.0f + 0.5f, 0.0f), glm::vec3(-0.5f, -1.0f + 0.5f, 0.0f) },
 		{ Colour(0.0f, 1.0f, 1.0f), Colour(1.0f, 0.0f, 1.0f), Colour(1.0f, 1.0f, 1.0f), Colour(0.0f, 0.0f, 0.0f) },
 		{ 0, 1, 2, 2, 3, 0 },
 		Colour(),
-		glm::mat4(1.0f));
+		glm::mat4(1.0f),
+		image);
 
 	static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -69,24 +78,22 @@ int main()
 
 	while (!window->IsClosed())
 	{
-		if (window->InputState.KeyDown(KeyCode::V))
-		{
-			auto currentTime = std::chrono::high_resolution_clock::now();
-			float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-			glm::mat4 model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-			renderer->GetMeshManager()->SetTransform(mesh1, model);
-		}
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+		glm::mat4 model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		renderer->GetMeshManager()->SetTransform(mesh1, model);
 
 		if (window->InputState.KeyDown(KeyCode::B))
 		{
 			drawingMesh = !drawingMesh;
 			if (drawingMesh)
-				mesh1 = CreateTestMesh(*renderer, shader);
+				mesh1 = CreateTestMesh(*renderer, shader, image);
 			else
 				renderer->GetMeshManager()->DestroyMesh(mesh1);
 		}
 
 		window->Poll();
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 
 	return 0;

@@ -22,9 +22,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
-    <ClCompile Include="Core\Logging\Logger.cpp">
-      <Filter>Core\Logging</Filter>
-    </ClCompile>
     <ClCompile Include="OS\Window.cpp">
       <Filter>OS</Filter>
     </ClCompile>
@@ -97,11 +94,14 @@
     <ClCompile Include="Rendering\Vulkan\DescriptorPool.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="Core\Image.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Logging\Logger.cpp">
+      <Filter>Core\Logging</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Core\Logging\Logger.hpp">
-      <Filter>Core\Logging</Filter>
-    </ClInclude>
     <ClInclude Include="Core\Macros.hpp">
       <Filter>Core</Filter>
     </ClInclude>
@@ -179,6 +179,12 @@
     </ClInclude>
     <ClInclude Include="Rendering\Vulkan\DescriptorPool.hpp">
       <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Image.hpp">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Logging\Logger.hpp">
+      <Filter>Core\Logging</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

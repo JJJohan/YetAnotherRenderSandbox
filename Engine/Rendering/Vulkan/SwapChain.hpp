@@ -2,8 +2,6 @@
 
 #include <vulkan/vulkan.hpp>
 #include "SwapChainSupportDetails.hpp"
-#include "ImageView.hpp"
-#include "Framebuffer.hpp"
 #include <glm/glm.hpp>
 
 namespace Engine::Rendering::Vulkan
@@ -12,6 +10,8 @@ namespace Engine::Rendering::Vulkan
 	class PhysicalDevice;
 	class Surface;
 	class RenderPass;
+	class Framebuffer;
+	class ImageView;
 
 	class SwapChain
 	{

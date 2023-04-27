@@ -28,7 +28,7 @@ namespace Engine::Rendering::Vulkan
 
 	std::vector<const char*> PhysicalDevice::GetRequiredExtensions() const
 	{
-		return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+		return { VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME };
 	}
 
 	bool PhysicalDevice::FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties, uint32_t* memoryType) const

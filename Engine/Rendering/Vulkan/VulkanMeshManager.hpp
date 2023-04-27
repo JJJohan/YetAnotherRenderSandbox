@@ -1,17 +1,26 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
-#include "Buffer.hpp"
-#include "DescriptorPool.hpp"
 #include "../MeshManager.hpp"
+#include <memory>
+
+struct VmaAllocator_T;
+typedef struct VmaAllocator_T* VmaAllocator;
+
+namespace Engine
+{
+	class Image;
+}
 
 namespace Engine::Rendering::Vulkan
 {
+	class Buffer;
 	class Device;
 	class PhysicalDevice;
 	class PipelineLayout;
 	class CommandPool;
 	class CommandBuffer;
+	class DescriptorPool;
 
 	class VulkanMeshManager : public MeshManager
 	{
@@ -24,25 +33,26 @@ namespace Engine::Rendering::Vulkan
 			const std::vector<Colour>& vertexColours,
 			const std::vector<uint32_t>& indices,
 			const Colour& colour,
-			const glm::mat4& transform);
+			const glm::mat4& transform,
+			std::shared_ptr<Image> image);
 
 		virtual void DestroyMesh(uint32_t id);
 
-		bool Update(const PhysicalDevice& physicalDevice, const Device& device, const CommandPool& resourceCommandPool);
+		bool Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool);
 
 		void Draw(const vk::CommandBuffer& commandBuffer, const vk::Extent2D& viewSize, uint32_t currentFrameIndex);
 
 		virtual void IncrementSize();
 
 	private:
-		bool SetupPositionBuffer(const PhysicalDevice& physicalDevice, const Device& device, uint32_t id);
-		bool SetupColourBuffer(const PhysicalDevice& physicalDevice, const Device& device, uint32_t id);
-		bool SetupIndexBuffer(const PhysicalDevice& physicalDevice, const Device& device, uint32_t id);
-		bool SetupUniformBuffers(const PhysicalDevice& physicalDevice, const Device& device, uint32_t id);
-		bool CreateMeshResources(const PhysicalDevice& physicalDevice, const Device& device, uint32_t id);
+		bool SetupPositionBuffer(VmaAllocator allocator, uint32_t id);
+		bool SetupColourBuffer(VmaAllocator allocator, uint32_t id);
+		bool SetupIndexBuffer(VmaAllocator allocator, uint32_t id);
+		bool SetupUniformBuffers(VmaAllocator allocator, uint32_t id);
+		bool CreateMeshResources(VmaAllocator allocator, const Device& device, uint32_t id);
 
-		bool CreateStagingBuffer(const PhysicalDevice& physicalDevice, const Device& device,
-			const CommandPool& resourceCommandPool, const Buffer& destinationBuffer, const void* data,
+		bool CreateStagingBuffer(VmaAllocator allocator, const Device& device,
+			const CommandPool& resourceCommandPool, const Buffer* destinationBuffer, const void* data,
 			uint64_t size, std::vector<std::unique_ptr<Buffer>>& copyBufferCollection,
 			std::vector<vk::UniqueCommandBuffer>& copyCommandCollection);
 

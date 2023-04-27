@@ -1,8 +1,24 @@
+#define VMA_IMPLEMENTATION
+#include <vma/vk_mem_alloc.h>
+
 #include "VulkanRenderer.hpp"
 #include "OS/Window.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "PipelineLayout.hpp"
 #include "VulkanMeshManager.hpp"
+#include "../Shader.hpp"
+#include "Debug.hpp"
+#include "Device.hpp"
+#include "Buffer.hpp"
+#include "DescriptorPool.hpp"
+#include "PhysicalDevice.hpp"
+#include "Instance.hpp"
+#include "Surface.hpp"
+#include "SwapChain.hpp"
+#include "RenderPass.hpp"
+#include "Framebuffer.hpp"
+#include "CommandPool.hpp"
+#include "ImageView.hpp"
 
 #define DEFAULT_MAX_CONCURRENT_FRAMES 2
 
@@ -33,6 +49,8 @@ namespace Engine::Rendering::Vulkan
 		, m_inFlightFences()
 		, m_actionQueue()
 		, m_running(false)
+		, m_currentFrame(0)
+		, m_allocator()
 		, m_maxConcurrentFrames(DEFAULT_MAX_CONCURRENT_FRAMES)
 	{
 	}
@@ -65,19 +83,22 @@ namespace Engine::Rendering::Vulkan
 		m_renderCommandBuffers.clear();
 		m_pipelineLayouts.clear();
 
-		m_Debug.reset();
 		m_renderCommandPool.reset();
 		m_resourceCommandPool.reset();
 		m_swapChain->DestroyFramebuffers(*m_device);
 		m_renderPass.reset();
 		m_swapChain.reset();
-		m_surface.reset();
-		m_device.reset();
-		m_instance.reset();
-	}
 
-	void VulkanRenderer::Destroy()
-	{
+		if (m_allocator != nullptr)
+		{
+			vmaDestroyAllocator(m_allocator);
+			m_allocator = nullptr;
+		}
+
+		m_Debug.reset();
+		m_device.reset();
+		m_surface.reset();
+		m_instance.reset();
 	}
 
 	Shader* VulkanRenderer::CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs)
@@ -186,6 +207,24 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
+	bool VulkanRenderer::CreateAllocator()
+	{
+		VmaAllocatorCreateInfo allocatorInfo = {};
+		allocatorInfo.physicalDevice = m_physicalDevice->Get();
+		allocatorInfo.device = m_device->Get();
+		allocatorInfo.instance = m_instance->Get();
+		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+
+		allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+		allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
+		allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+		allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+		allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
+
+		VkResult result = vmaCreateAllocator(&allocatorInfo, &m_allocator);
+		return result == VK_SUCCESS;
+	}
+
 	bool VulkanRenderer::Initialise()
 	{
 		Logger::Verbose("Initialising Vulkan renderer...");
@@ -214,6 +253,7 @@ namespace Engine::Rendering::Vulkan
 			|| !m_surface->Initialise(*m_instance, m_window)
 			|| !m_physicalDevice->Initialise(*m_instance, *m_surface)
 			|| !m_device->Initialise(*m_physicalDevice)
+			|| !CreateAllocator()
 			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, size)
 			|| !m_renderPass->Initialise(*m_device, *m_swapChain)
 			|| !m_swapChain->CreateFramebuffers(*m_device, *m_renderPass)
@@ -261,7 +301,7 @@ namespace Engine::Rendering::Vulkan
 				action();
 			}
 
-			if (!m_meshManager->Update(*m_physicalDevice, *m_device, *m_resourceCommandPool))
+			if (!m_meshManager->Update(m_allocator, *m_device, *m_resourceCommandPool))
 			{
 				Logger::Error("Failed to update meshes.");
 				return;

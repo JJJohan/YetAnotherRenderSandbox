@@ -45,16 +45,20 @@ namespace Engine::Rendering::Vulkan
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
-		vk::PhysicalDeviceFeatures deviceFeatures;
+		vk::PhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures;
+		bufferDeviceAddressFeatures.bufferDeviceAddress = true;
+		vk::PhysicalDeviceFeatures2 deviceFeatures2;
+		deviceFeatures2.pNext = &bufferDeviceAddressFeatures;
+
 		std::vector<const char*> extensionNames = physicalDevice.GetRequiredExtensions();
 
 		vk::DeviceCreateInfo createInfo;
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
 		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-		createInfo.pEnabledFeatures = &deviceFeatures;
 		createInfo.ppEnabledExtensionNames = extensionNames.data();
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(extensionNames.size());
 		createInfo.enabledLayerCount = 0;
+		createInfo.pNext = &deviceFeatures2;
 
 		m_device = physicalDevice.Get().createDeviceUnique(createInfo);
 		if (!m_device.get())

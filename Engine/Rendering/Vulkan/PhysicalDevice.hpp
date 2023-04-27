@@ -2,7 +2,6 @@
 
 #include <vulkan/vulkan.hpp>
 #include "QueueFamilyIndices.hpp"
-#include "SwapChainSupportDetails.hpp"
 
 namespace Engine::Rendering::Vulkan
 {

@@ -8,7 +8,8 @@ namespace Engine::Rendering
 		const std::vector<Colour>& vertexColours,
 		const std::vector<uint32_t>& indices, 
 		const Colour& colour, 
-		const glm::mat4& transform)
+		const glm::mat4& transform,
+		std::shared_ptr<Image> image)
 	{
 		uint32_t id;
 		if (!m_recycledIds.empty())
@@ -27,6 +28,7 @@ namespace Engine::Rendering
 		m_indexArrays[id] = indices;
 		m_colours[id] = colour;
 		m_transforms[id] = transform;
+		m_images[id] = image;
 		m_updateFlags[id] = MeshUpdateFlagBits::None; // Creation will update everything.
 
 		m_active[id] = true;
@@ -41,6 +43,7 @@ namespace Engine::Rendering
 		m_positionArrays[id] = {};
 		m_vertexColourArrays[id] = {};
 		m_indexArrays[id] = {};
+		m_images[id].reset();
 		m_updateFlags[id] = MeshUpdateFlagBits::None;
 
 		m_recycledIds.push(id);
@@ -55,6 +58,7 @@ namespace Engine::Rendering
 		m_indexArrays.push_back({});
 		m_colours.push_back({});
 		m_transforms.push_back({});
+		m_images.push_back(nullptr);
 		m_updateFlags.push_back(MeshUpdateFlagBits::None);
 	}
 
@@ -94,7 +98,7 @@ namespace Engine::Rendering
 	void MeshManager::SetColour(uint32_t id, const Colour& colour)
 	{
 		m_colours[id] = colour;
-		m_updateFlags[id] = m_updateFlags[id] | MeshUpdateFlagBits::Colour;
+		m_updateFlags[id] = m_updateFlags[id] | MeshUpdateFlagBits::Uniforms;
 	}
 
 	const Colour& MeshManager::GetColour(uint32_t id) const
@@ -105,11 +109,17 @@ namespace Engine::Rendering
 	void MeshManager::SetTransform(uint32_t id, const glm::mat4& transform)
 	{
 		m_transforms[id] = transform;
-		m_updateFlags[id] = m_updateFlags[id] | MeshUpdateFlagBits::Transform;
+		m_updateFlags[id] = m_updateFlags[id] | MeshUpdateFlagBits::Uniforms;
 	}
 
 	const glm::mat4& MeshManager::GetTransform(uint32_t id) const
 	{
 		return m_transforms[id];
+	}
+
+	void MeshManager::SetImage(uint32_t id, std::shared_ptr<Image> image)
+	{
+		m_images[id] = image;
+		m_updateFlags[id] = m_updateFlags[id] | MeshUpdateFlagBits::Image;
 	}
 }

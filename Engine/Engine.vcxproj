@@ -150,6 +150,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Core\Colour.cpp" />
+    <ClCompile Include="Core\Image.cpp" />
     <ClCompile Include="Core\Logging\Logger.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="OS\Files.cpp" />
@@ -178,6 +179,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Colour.hpp" />
+    <ClInclude Include="Core\Image.hpp" />
     <ClInclude Include="Core\Logging\Logger.hpp" />
     <ClInclude Include="Core\Macros.hpp" />
     <ClInclude Include="OS\Files.hpp" />
