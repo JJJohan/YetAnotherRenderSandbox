@@ -16,7 +16,7 @@ namespace Engine::Rendering::Vulkan
 		: Shader()
 		, m_pipelineLayout(nullptr)
 		, m_graphicsPipeline(nullptr)
-		, m_uboDescriptorSetLayout(nullptr)
+		, m_descriptorSetLayout(nullptr)
 	{
 	}
 
@@ -49,14 +49,19 @@ namespace Engine::Rendering::Vulkan
 		}
 	}
 
-	bool PipelineLayout::SetupUniformBufferDescriptorSetLayout(const Device& device)
+	bool PipelineLayout::SetupDescriptorSetLayout(const Device& device)
 	{
-		vk::DescriptorSetLayoutBinding uniformBufferLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex);
-		vk::DescriptorSetLayoutCreateInfo layoutInfo(vk::DescriptorSetLayoutCreateFlags(), 1, &uniformBufferLayoutBinding);
+		std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings =
+		{
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex),
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment)
+		};
+
+		vk::DescriptorSetLayoutCreateInfo layoutInfo(vk::DescriptorSetLayoutCreateFlags(), layoutBindings);
 
 		const vk::Device& deviceImp = device.Get();
-		m_uboDescriptorSetLayout = deviceImp.createDescriptorSetLayoutUnique(layoutInfo);
-		if (!m_uboDescriptorSetLayout.get())
+		m_descriptorSetLayout = deviceImp.createDescriptorSetLayoutUnique(layoutInfo);
+		if (!m_descriptorSetLayout.get())
 		{
 			Logger::Error("Failed to create descriptor set layout.");
 			return false;
@@ -67,7 +72,7 @@ namespace Engine::Rendering::Vulkan
 
 	std::vector<vk::DescriptorSetLayout> PipelineLayout::GetDescriptorSetLayouts() const
 	{
-		return { m_uboDescriptorSetLayout.get() }; // hard-coded to 1 for now.
+		return { m_descriptorSetLayout.get() }; // hard-coded to 1 for now.
 	}
 
 	bool PipelineLayout::Initialise(const Device& device, const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs, 
@@ -94,7 +99,7 @@ namespace Engine::Rendering::Vulkan
 			shaderModules.push_back(std::make_pair(stage, std::move(shaderModule)));
 		}
 
-		if (!SetupUniformBufferDescriptorSetLayout(device))
+		if (!SetupDescriptorSetLayout(device))
 		{
 			return false;
 		}
@@ -119,16 +124,18 @@ namespace Engine::Rendering::Vulkan
 
 		// Vertex input state
 
-		std::array<vk::VertexInputBindingDescription, 2> bindingDescriptions =
+		std::array<vk::VertexInputBindingDescription, 3> bindingDescriptions =
 		{ {
 			vk::VertexInputBindingDescription(0, sizeof(glm::vec3), vk::VertexInputRate::eVertex),
-			vk::VertexInputBindingDescription(1, sizeof(uint32_t), vk::VertexInputRate::eVertex)
+			vk::VertexInputBindingDescription(1, sizeof(glm::vec2), vk::VertexInputRate::eVertex),
+			vk::VertexInputBindingDescription(2, sizeof(uint32_t), vk::VertexInputRate::eVertex)
 		} };
 
-		std::array<vk::VertexInputAttributeDescription, 2> attributeDescriptions =
+		std::array<vk::VertexInputAttributeDescription, 3> attributeDescriptions =
 		{ {
 			vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, 0),
-			vk::VertexInputAttributeDescription(1, 1, vk::Format::eR8G8B8A8Unorm, 0)
+			vk::VertexInputAttributeDescription(1, 1, vk::Format::eR32G32Sfloat, 0),
+			vk::VertexInputAttributeDescription(2, 2, vk::Format::eR8G8B8A8Unorm, 0)
 		} };
 
 		vk::PipelineVertexInputStateCreateInfo vertexInputInfo(vk::PipelineVertexInputStateCreateFlags(), bindingDescriptions, attributeDescriptions);
@@ -186,9 +193,10 @@ namespace Engine::Rendering::Vulkan
 		colorBlending.pAttachments = &colorBlendAttachment;
 
 		// Pipeline layout
+		std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = GetDescriptorSetLayouts();
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
-		pipelineLayoutInfo.setLayoutCount = 1;
-		pipelineLayoutInfo.pSetLayouts = &m_uboDescriptorSetLayout.get();
+		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
 		pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
 		pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 

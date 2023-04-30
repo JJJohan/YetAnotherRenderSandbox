@@ -48,6 +48,7 @@ namespace Engine::Rendering::Vulkan
 		vk::PhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures;
 		bufferDeviceAddressFeatures.bufferDeviceAddress = true;
 		vk::PhysicalDeviceFeatures2 deviceFeatures2;
+		deviceFeatures2.features.samplerAnisotropy = true;
 		deviceFeatures2.pNext = &bufferDeviceAddressFeatures;
 
 		std::vector<const char*> extensionNames = physicalDevice.GetRequiredExtensions();

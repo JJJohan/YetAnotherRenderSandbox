@@ -100,6 +100,15 @@
     <ClCompile Include="Core\Logging\Logger.cpp">
       <Filter>Core\Logging</Filter>
     </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\RenderImage.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\ImageSampler.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\VertexData.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Macros.hpp">
@@ -185,6 +194,15 @@
     </ClInclude>
     <ClInclude Include="Core\Logging\Logger.hpp">
       <Filter>Core\Logging</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\RenderImage.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\ImageSampler.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\VertexData.hpp">
+      <Filter>Rendering</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -25,10 +25,10 @@ namespace Engine::Rendering::Vulkan
 			const RenderPass& renderPass);
 
 	private:
-		bool SetupUniformBufferDescriptorSetLayout(const Device& device);
+		bool SetupDescriptorSetLayout(const Device& device);
 
 		vk::UniquePipelineLayout m_pipelineLayout;
 		vk::UniquePipeline m_graphicsPipeline;
-		vk::UniqueDescriptorSetLayout m_uboDescriptorSetLayout;
+		vk::UniqueDescriptorSetLayout m_descriptorSetLayout;
 	};
 }

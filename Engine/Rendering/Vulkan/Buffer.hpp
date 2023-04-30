@@ -7,6 +7,7 @@ namespace Engine::Rendering::Vulkan
 {
 	class Device;
 	class CommandPool;
+	class RenderImage;
 
 	class Buffer
 	{
@@ -17,6 +18,7 @@ namespace Engine::Rendering::Vulkan
 			VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode);
 		bool UpdateContents(const void* data, vk::DeviceSize size);
 		vk::UniqueCommandBuffer Copy(const Device& device, const CommandPool& commandPool, const Buffer& destination, vk::DeviceSize size) const;
+		vk::UniqueCommandBuffer CopyToImage(const Device& device, const CommandPool& commandPool, const RenderImage& destination) const;
 		const VkBuffer& Get() const;
 		bool GetMappedMemory(void** mappedMemory) const;
 

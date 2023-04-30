@@ -13,6 +13,8 @@ namespace Engine::Rendering::Vulkan
 	PhysicalDevice::PhysicalDevice()
 		: m_physicalDevice(nullptr)
 		, m_queueFamilyIndices()
+		, m_deviceFeatures()
+		, m_deviceProperties()
 	{
 	}
 
@@ -29,6 +31,11 @@ namespace Engine::Rendering::Vulkan
 	std::vector<const char*> PhysicalDevice::GetRequiredExtensions() const
 	{
 		return { VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME };
+	}	
+	
+	float PhysicalDevice::GetMaxAnisotropy() const
+	{
+		return m_deviceProperties.limits.maxSamplerAnisotropy;
 	}
 
 	bool PhysicalDevice::FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties, uint32_t* memoryType) const
@@ -97,6 +104,8 @@ namespace Engine::Rendering::Vulkan
 		vk::PhysicalDevice Device;
 		QueueFamilyIndices QueueFamilyIndices;
 		SwapChainSupportDetails SwapChainSupportDetails;
+		vk::PhysicalDeviceProperties Properties;
+		vk::PhysicalDeviceFeatures Features;
 
 		bool operator>(const DeviceCandidate& other) const
 		{
@@ -150,7 +159,7 @@ namespace Engine::Rendering::Vulkan
 		// Favour higher texture size limits.
 		score += deviceProperties.limits.maxImageDimension2D;
 
-		return DeviceCandidate { score, device, indices, swapChainSupport.value()};
+		return DeviceCandidate { score, device, indices, swapChainSupport.value(), deviceProperties, deviceFeatures };
 	}
 
 	bool PhysicalDevice::Initialise(const Instance& instance, const Surface& surface)
@@ -186,6 +195,8 @@ namespace Engine::Rendering::Vulkan
 		const DeviceCandidate& bestCandidate = candidates.front();
 		m_physicalDevice = bestCandidate.Device;
 		m_queueFamilyIndices = bestCandidate.QueueFamilyIndices;
+		m_deviceProperties = bestCandidate.Properties;
+		m_deviceFeatures = bestCandidate.Features;
 
 		return true;
 	}

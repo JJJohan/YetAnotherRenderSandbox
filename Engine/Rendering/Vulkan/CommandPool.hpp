@@ -15,6 +15,7 @@ namespace Engine::Rendering::Vulkan
 		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, vk::CommandPoolCreateFlagBits flags);
 
 		std::vector<vk::UniqueCommandBuffer> CreateCommandBuffers(const Device& device, uint32_t bufferCount);
+		vk::UniqueCommandBuffer BeginResourceCommandBuffer(const Device& device) const;
 
 	private:
 		vk::UniqueCommandPool m_commandPool;

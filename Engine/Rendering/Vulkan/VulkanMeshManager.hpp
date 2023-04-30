@@ -21,6 +21,9 @@ namespace Engine::Rendering::Vulkan
 	class CommandPool;
 	class CommandBuffer;
 	class DescriptorPool;
+	class RenderImage;
+	class ImageView;
+	class ImageSampler;
 
 	class VulkanMeshManager : public MeshManager
 	{
@@ -29,8 +32,7 @@ namespace Engine::Rendering::Vulkan
 
 		virtual uint32_t CreateMesh(
 			const Shader* shader,
-			const std::vector<glm::vec3>& positions,
-			const std::vector<Colour>& vertexColours,
+			const std::vector<VertexData>& vertexData,
 			const std::vector<uint32_t>& indices,
 			const Colour& colour,
 			const glm::mat4& transform,
@@ -38,22 +40,27 @@ namespace Engine::Rendering::Vulkan
 
 		virtual void DestroyMesh(uint32_t id);
 
-		bool Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool);
+		bool Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool, float maxAnisotropy);
 
 		void Draw(const vk::CommandBuffer& commandBuffer, const vk::Extent2D& viewSize, uint32_t currentFrameIndex);
 
 		virtual void IncrementSize();
 
 	private:
-		bool SetupPositionBuffer(VmaAllocator allocator, uint32_t id);
-		bool SetupColourBuffer(VmaAllocator allocator, uint32_t id);
+		bool SetupVertexBuffers(VmaAllocator allocator, uint32_t id);
 		bool SetupIndexBuffer(VmaAllocator allocator, uint32_t id);
 		bool SetupUniformBuffers(VmaAllocator allocator, uint32_t id);
-		bool CreateMeshResources(VmaAllocator allocator, const Device& device, uint32_t id);
+		bool SetupRenderImage(VmaAllocator allocator, const Device& device, uint32_t id, float maxAnisotropy);
+		bool CreateMeshResources(VmaAllocator allocator, const Device& device, uint32_t id, float maxAnisotropy);
 
 		bool CreateStagingBuffer(VmaAllocator allocator, const Device& device,
 			const CommandPool& resourceCommandPool, const Buffer* destinationBuffer, const void* data,
 			uint64_t size, std::vector<std::unique_ptr<Buffer>>& copyBufferCollection,
+			std::vector<vk::UniqueCommandBuffer>& copyCommandCollection);
+
+		bool CreateImageStagingBuffer(VmaAllocator allocator, const Device& device,
+			const CommandPool& resourceCommandPool, const RenderImage* destinationImage, const void* data, uint64_t size,
+			std::vector<std::unique_ptr<Buffer>>& copyBufferCollection, 
 			std::vector<vk::UniqueCommandBuffer>& copyCommandCollection);
 
 		const uint32_t m_maxConcurrentFrames;
@@ -61,9 +68,11 @@ namespace Engine::Rendering::Vulkan
 		std::vector<uint32_t> m_vertexCounts;
 		std::vector<uint32_t> m_indexCounts;
 
-		std::vector<std::unique_ptr<Buffer>> m_positionBuffers;
-		std::vector<std::unique_ptr<Buffer>> m_colourBuffers;
+		std::vector<std::vector<std::unique_ptr<Buffer>>> m_vertexBuffers;
 		std::vector<std::unique_ptr<Buffer>> m_indexBuffers;
+		std::vector<std::unique_ptr<RenderImage>> m_renderImages;
+		std::vector<std::unique_ptr<ImageView>> m_renderImageViews;
+		std::unique_ptr<ImageSampler> m_sampler;
 
 		std::vector<std::vector<std::unique_ptr<Buffer>>> m_uniformBufferArrays;
 		std::vector<std::vector<void*>> m_uniformBuffersMappedArrays;

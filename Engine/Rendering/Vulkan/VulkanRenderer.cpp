@@ -19,6 +19,8 @@
 #include "Framebuffer.hpp"
 #include "CommandPool.hpp"
 #include "ImageView.hpp"
+#include "RenderImage.hpp"
+#include "ImageSampler.hpp"
 
 #define DEFAULT_MAX_CONCURRENT_FRAMES 2
 
@@ -49,6 +51,7 @@ namespace Engine::Rendering::Vulkan
 		, m_inFlightFences()
 		, m_actionQueue()
 		, m_running(false)
+		, m_swapChainOutOfDate(false)
 		, m_currentFrame(0)
 		, m_allocator()
 		, m_maxConcurrentFrames(DEFAULT_MAX_CONCURRENT_FRAMES)
@@ -291,6 +294,7 @@ namespace Engine::Rendering::Vulkan
 		const vk::Device& deviceImp = m_device->Get();
 		vk::Queue graphicsQueue = m_device->GetGraphicsQueue();
 		vk::Queue presentQueue = m_device->GetPresentQueue();
+		float maxAnisotrophy = m_physicalDevice->GetMaxAnisotropy();
 
 		while (m_running)
 		{
@@ -301,7 +305,7 @@ namespace Engine::Rendering::Vulkan
 				action();
 			}
 
-			if (!m_meshManager->Update(m_allocator, *m_device, *m_resourceCommandPool))
+			if (!m_meshManager->Update(m_allocator, *m_device, *m_resourceCommandPool, maxAnisotrophy))
 			{
 				Logger::Error("Failed to update meshes.");
 				return;

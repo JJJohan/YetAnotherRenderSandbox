@@ -1,13 +1,30 @@
 #include "MeshManager.hpp"
 #include "Shader.hpp"
+#include "Core/Logging/Logger.hpp"
+
+using namespace Engine::Logging;
 
 namespace Engine::Rendering
 {
+	MeshManager::MeshManager()
+		:m_recycledIds()
+		, m_active()
+		, m_creationMutex()
+		, m_updateFlags()
+		, m_vertexUpdateFlags()
+		, m_meshCapacity()
+		, m_vertexDataArrays()
+		, m_indexArrays()
+		, m_colours()
+		, m_transforms()
+		, m_images()
+	{
+	}
+
 	uint32_t MeshManager::CreateMesh(const Shader* shader,
-		const std::vector<glm::vec3>& positions,
-		const std::vector<Colour>& vertexColours,
-		const std::vector<uint32_t>& indices, 
-		const Colour& colour, 
+		const std::vector<VertexData>& vertexData,
+		const std::vector<uint32_t>& indices,
+		const Colour& colour,
 		const glm::mat4& transform,
 		std::shared_ptr<Image> image)
 	{
@@ -23,13 +40,13 @@ namespace Engine::Rendering
 			id = m_meshCapacity++;
 		}
 
-		m_positionArrays[id] = positions;
-		m_vertexColourArrays[id] = vertexColours;
+		m_vertexDataArrays[id] = vertexData;
 		m_indexArrays[id] = indices;
 		m_colours[id] = colour;
 		m_transforms[id] = transform;
 		m_images[id] = image;
 		m_updateFlags[id] = MeshUpdateFlagBits::None; // Creation will update everything.
+		m_vertexUpdateFlags[id] = 0;
 
 		m_active[id] = true;
 
@@ -40,11 +57,11 @@ namespace Engine::Rendering
 	{
 		m_active[id] = false;
 
-		m_positionArrays[id] = {};
-		m_vertexColourArrays[id] = {};
+		m_vertexDataArrays[id] = {};
 		m_indexArrays[id] = {};
 		m_images[id].reset();
 		m_updateFlags[id] = MeshUpdateFlagBits::None;
+		m_vertexUpdateFlags[id] = 0;
 
 		m_recycledIds.push(id);
 	}
@@ -53,35 +70,39 @@ namespace Engine::Rendering
 	{
 		m_active.push_back(false);
 
-		m_positionArrays.push_back({});
-		m_vertexColourArrays.push_back({});
+		m_vertexDataArrays.push_back({});
 		m_indexArrays.push_back({});
 		m_colours.push_back({});
 		m_transforms.push_back({});
 		m_images.push_back(nullptr);
 		m_updateFlags.push_back(MeshUpdateFlagBits::None);
+		m_vertexUpdateFlags.push_back(0);
 	}
 
-	void MeshManager::SetPositions(uint32_t id, const std::vector<glm::vec3>& positions)
+	void MeshManager::SetVertexData(uint32_t id, uint32_t slot, const VertexData& data)
 	{
-		m_positionArrays[id] = positions;
-		m_updateFlags[id] = m_updateFlags[id] | MeshUpdateFlagBits::Positions;
+		std::vector<VertexData>& vertexBuffers = m_vertexDataArrays[id];
+		if (slot >= vertexBuffers.size())
+		{
+			Logger::Error("Index out of range.");
+			return;
+		}
+
+		vertexBuffers[slot] = data;
+		m_updateFlags[id] = m_updateFlags[id] | MeshUpdateFlagBits::VertexData;
+		m_vertexUpdateFlags[id] |= 1 << slot;
 	}
 
-	const std::vector<glm::vec3>& MeshManager::GetPositions(uint32_t id) const
+	const VertexData& MeshManager::GetVertexData(uint32_t id, uint32_t slot) const
 	{
-		return m_positionArrays[id];
-	}
+		const std::vector<VertexData>& vertexBuffers = m_vertexDataArrays[id];
+		if (slot >= vertexBuffers.size())
+		{
+			Logger::Error("Index out of range.");
+			throw new std::out_of_range("Index out of range.");
+		}
 
-	void MeshManager::SetVertexColours(uint32_t id, const std::vector<Colour>& colours)
-	{
-		m_vertexColourArrays[id] = colours;
-		m_updateFlags[id] = m_updateFlags[id] | MeshUpdateFlagBits::VertexColours;
-	}
-
-	const std::vector<Colour>& MeshManager::GetVertexColours(uint32_t id) const
-	{
-		return m_vertexColourArrays[id];
+		return vertexBuffers[id];
 	}
 
 	void MeshManager::SetIndices(uint32_t id, const std::vector<uint32_t>& indices)

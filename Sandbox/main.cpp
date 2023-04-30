@@ -6,6 +6,7 @@
 #include <Rendering/Renderer.hpp>
 #include <Rendering/Shader.hpp>
 #include <Rendering/MeshManager.hpp>
+#include <Rendering/VertexData.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 using namespace Engine;
@@ -22,8 +23,11 @@ const bool debug = false;
 uint32_t CreateTestMesh(const Renderer& renderer, const Shader* shader, std::shared_ptr<Image>& image)
 {
 	return renderer.GetMeshManager()->CreateMesh(shader,
-		{ glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(-0.5f, 0.5f, 0.0f) },
-		{ Colour(1.0f, 1.0f, 0.0f), Colour(0.0f, 1.0f, 0.0f), Colour(0.0f, 0.0f, 1.0f), Colour(1.0f, 0.0f, 0.0f) },
+		{
+			{ glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(-0.5f, 0.5f, 0.0f) },
+			{ glm::vec2(1.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 1.0f), glm::vec2(1.0f, 1.0f) },
+			{ Colour(1.0f, 1.0f, 0.0f), Colour(0.0f, 1.0f, 0.0f), Colour(0.0f, 0.0f, 1.0f), Colour(1.0f, 0.0f, 0.0f) }
+		},
 		{ 0, 1, 2, 2, 3, 0 },
 		Colour(),
 		glm::mat4(1.0f),
@@ -65,8 +69,11 @@ int main()
 	uint32_t mesh1 = CreateTestMesh(*renderer, shader, image);
 
 	uint32_t mesh2 = renderer->GetMeshManager()->CreateMesh(shader,
-		{ glm::vec3(-0.5f, -1.0f + -0.5f, 0.0f), glm::vec3(0.5f, -1.0f + -0.5f, 0.0f), glm::vec3(0.5f, -1.0f + 0.5f, 0.0f), glm::vec3(-0.5f, -1.0f + 0.5f, 0.0f) },
-		{ Colour(0.0f, 1.0f, 1.0f), Colour(1.0f, 0.0f, 1.0f), Colour(1.0f, 1.0f, 1.0f), Colour(0.0f, 0.0f, 0.0f) },
+		{
+			{ glm::vec3(-0.5f, -1.0f + -0.5f, 0.0f), glm::vec3(0.5f, -1.0f + -0.5f, 0.0f), glm::vec3(0.5f, -1.0f + 0.5f, 0.0f), glm::vec3(-0.5f, -1.0f + 0.5f, 0.0f) },
+			{ glm::vec2(1.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 1.0f), glm::vec2(1.0f, 1.0f) },
+			{ Colour(0.0f, 1.0f, 1.0f), Colour(1.0f, 0.0f, 1.0f), Colour(1.0f, 1.0f, 1.0f), Colour(0.0f, 0.0f, 0.0f) }
+		},
 		{ 0, 1, 2, 2, 3, 0 },
 		Colour(),
 		glm::mat4(1.0f),

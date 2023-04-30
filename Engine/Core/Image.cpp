@@ -26,13 +26,15 @@ namespace Engine
 		}
 
 		uint8_t* image = stbi_load(filePath.c_str(), reinterpret_cast<int32_t*>(std::addressof(m_size.x)),
-			reinterpret_cast<int32_t*>(&m_size.y), reinterpret_cast<int32_t*>(&m_components), 3);
+			reinterpret_cast<int32_t*>(&m_size.y), reinterpret_cast<int32_t*>(&m_components), STBI_rgb_alpha);
 
 		if (image == nullptr)
 		{
 			Logger::Error("Failed to load image {}.", filePath);
 			return false;
 		}
+
+		m_components = 4; // Alpha channel forced.
 
 		uint32_t size = m_size.x * m_size.y * m_components;
 		m_pixels.resize(size);

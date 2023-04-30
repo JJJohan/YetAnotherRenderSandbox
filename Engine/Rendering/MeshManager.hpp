@@ -4,6 +4,7 @@
 #include "Core/Macros.hpp"
 #include "Core/Colour.hpp"
 #include "Core/Image.hpp"
+#include "VertexData.hpp"
 #include <vector>
 #include <stack>
 #include <mutex>
@@ -15,11 +16,10 @@ namespace Engine::Rendering
 	enum class MeshUpdateFlagBits : uint8_t
 	{
 		None = 0,
-		Positions = 1 << 0,
-		VertexColours = 1 << 1,
-		Indices = 1 << 2,
-		Uniforms = 1 << 3,
-		Image = 1 << 4,
+		VertexData = 1 << 0,
+		Indices = 1 << 1,
+		Uniforms = 1 << 2,
+		Image = 1 << 3,
 		All = 0xFF
 	};
 
@@ -36,9 +36,10 @@ namespace Engine::Rendering
 	class MeshManager
 	{
 	public:
+		MeshManager();
+
 		EXPORT virtual uint32_t CreateMesh(const Shader* shader,
-			const std::vector<glm::vec3>& positions,
-			const std::vector<Colour>& vertexColours,
+			const std::vector<VertexData>& vertexData,
 			const std::vector<uint32_t>& indices,
 			const Colour& colour,
 			const glm::mat4& transform,
@@ -46,11 +47,8 @@ namespace Engine::Rendering
 
 		EXPORT virtual void DestroyMesh(uint32_t id);
 
-		EXPORT void SetPositions(uint32_t id, const std::vector<glm::vec3>& positions);
-		EXPORT const std::vector<glm::vec3>& GetPositions(uint32_t id) const;
-
-		EXPORT void SetVertexColours(uint32_t id, const std::vector<Colour>& colours);
-		EXPORT const std::vector<Colour>& GetVertexColours(uint32_t id) const;
+		EXPORT void SetVertexData(uint32_t id, uint32_t slot, const VertexData& vertexData);
+		EXPORT const VertexData& GetVertexData(uint32_t id, uint32_t slot) const;
 
 		EXPORT void SetIndices(uint32_t id, const std::vector<uint32_t>& indices);
 		EXPORT const std::vector<uint32_t>& GetIndices(uint32_t id) const;
@@ -70,10 +68,10 @@ namespace Engine::Rendering
 		std::vector<bool> m_active;
 		std::mutex m_creationMutex;
 		std::vector<MeshUpdateFlagBits> m_updateFlags;
+		std::vector<uint8_t> m_vertexUpdateFlags;
 		uint32_t m_meshCapacity;
 
-		std::vector<std::vector<glm::vec3>> m_positionArrays;
-		std::vector<std::vector<Colour>> m_vertexColourArrays;
+		std::vector<std::vector<VertexData>> m_vertexDataArrays;
 		std::vector<std::vector<uint32_t>> m_indexArrays;
 		std::vector<Colour> m_colours;
 		std::vector<glm::mat4> m_transforms;

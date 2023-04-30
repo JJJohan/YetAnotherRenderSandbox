@@ -1,8 +1,8 @@
 #include "Buffer.hpp"
+#include "RenderImage.hpp"
 #include "Device.hpp"
 #include "CommandPool.hpp"
 #include "Core/Logging/Logger.hpp"
-#include <vma/vk_mem_alloc.h>
 
 using namespace Engine::Logging;
 
@@ -36,6 +36,7 @@ namespace Engine::Rendering::Vulkan
 
 			memcpy(mappedData, data, size);
 			vmaUnmapMemory(m_allocator, m_bufferAlloc);
+			return true;
 		}
 
 		memcpy(m_bufferAllocInfo.pMappedData, data, size);
@@ -54,19 +55,27 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
+
 	vk::UniqueCommandBuffer Buffer::Copy(const Device& device, const CommandPool& commandPool, const Buffer& destination, vk::DeviceSize size) const
 	{
-		vk::CommandBufferAllocateInfo allocInfo(commandPool.Get(), vk::CommandBufferLevel::ePrimary, 1);
-		std::vector<vk::UniqueCommandBuffer> commandBuffers = device.Get().allocateCommandBuffersUnique(allocInfo);
-
-		vk::UniqueCommandBuffer commandBuffer = std::move(commandBuffers.front());
-
-		vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-		commandBuffer->begin(beginInfo);
-
+		vk::UniqueCommandBuffer commandBuffer = commandPool.BeginResourceCommandBuffer(device);
 
 		vk::BufferCopy copyRegion(0, 0, size);
 		commandBuffer->copyBuffer(m_buffer, destination.m_buffer, 1, &copyRegion);
+		commandBuffer->end();
+
+		return commandBuffer;
+	}
+
+	vk::UniqueCommandBuffer Buffer::CopyToImage(const Device& device, const CommandPool& commandPool, const RenderImage& destination) const
+	{
+		vk::UniqueCommandBuffer commandBuffer = commandPool.BeginResourceCommandBuffer(device);
+
+		vk::ImageSubresourceLayers subresource(vk::ImageAspectFlagBits::eColor, 0, 0, 1);
+		vk::BufferImageCopy region(0, 0, 0, subresource, vk::Offset3D(0, 0, 0), destination.GetDimensions());
+
+		commandBuffer->copyBufferToImage(m_buffer, destination.Get(), vk::ImageLayout::eTransferDstOptimal, { region });
+
 		commandBuffer->end();
 
 		return commandBuffer;
@@ -81,8 +90,6 @@ namespace Engine::Rendering::Vulkan
 		allocCreateInfo.usage = memoryUsage;
 		allocCreateInfo.flags = createFlags;
 
-		VkBuffer stagingVertexBuffer = nullptr;
-		VmaAllocation stagingVertexBufferAlloc = VK_NULL_HANDLE;
 		VkBufferCreateInfo bufferInfoImp = static_cast<VkBufferCreateInfo>(bufferInfo);
 		VkResult createResult = vmaCreateBuffer(m_allocator, &bufferInfoImp, &allocCreateInfo, &m_buffer, &m_bufferAlloc, &m_bufferAllocInfo);
 		if (createResult != VK_SUCCESS)

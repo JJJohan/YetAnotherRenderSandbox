@@ -38,4 +38,16 @@ namespace Engine::Rendering::Vulkan
 		vk::CommandBufferAllocateInfo allocInfo(m_commandPool.get(), vk::CommandBufferLevel::ePrimary, bufferCount);
 		return device.Get().allocateCommandBuffersUnique(allocInfo);
 	}
+
+	vk::UniqueCommandBuffer CommandPool::BeginResourceCommandBuffer(const Device& device) const
+	{
+		vk::CommandBufferAllocateInfo allocInfo(m_commandPool.get(), vk::CommandBufferLevel::ePrimary, 1);
+		std::vector<vk::UniqueCommandBuffer> commandBuffers = device.Get().allocateCommandBuffersUnique(allocInfo);
+		vk::UniqueCommandBuffer commandBuffer = std::move(commandBuffers.front());
+
+		vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+		commandBuffer->begin(beginInfo);
+		return commandBuffer;
+	}
+
 }
