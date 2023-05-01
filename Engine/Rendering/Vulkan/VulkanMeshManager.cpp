@@ -223,6 +223,11 @@ namespace Engine::Rendering::Vulkan
 	bool VulkanMeshManager::SetupRenderImage(VmaAllocator allocator, const Device& device, uint32_t id, float maxAnisotropy)
 	{
 		const std::shared_ptr<Image>& image = m_images[id];
+		if (image.get() == nullptr)
+		{
+			return true;
+		}
+
 		uint32_t componentCount = image->GetComponentCount();
 		vk::Format format;
 		if (componentCount == 4)
@@ -248,6 +253,7 @@ namespace Engine::Rendering::Vulkan
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 			0,
 			vk::SharingMode::eExclusive);
+
 		if (!imageInitialised)
 		{
 			return false;
@@ -258,12 +264,6 @@ namespace Engine::Rendering::Vulkan
 		if (!imageViewInitialised)
 		{
 			return false;
-		}
-
-		if (m_sampler.get() == nullptr)
-		{
-			m_sampler = std::make_unique<ImageSampler>();
-			return m_sampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear, vk::SamplerAddressMode::eRepeat, maxAnisotropy);
 		}
 
 		return true;
@@ -299,8 +299,9 @@ namespace Engine::Rendering::Vulkan
 		m_descriptorSetArrays[id] = m_descriptorPools[id]->CreateDescriptorSets(device, layouts);
 
 		const std::vector<std::unique_ptr<Buffer>>& uniformBuffers = m_uniformBufferArrays[id];
-		const std::unique_ptr<ImageView>& imageView = m_renderImageViews[id];
+		const std::unique_ptr<ImageView>& imageView = m_renderImageViews[id].get() != nullptr ? m_renderImageViews[id] : m_blankImageView;
 		const std::vector<vk::DescriptorSet>& descriptorSets = m_descriptorSetArrays[id];
+
 		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
 		{
 			std::array<vk::DescriptorBufferInfo, 1> bufferInfos =
@@ -335,6 +336,46 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::UniqueCommandBuffer> resourceCommands;
 		std::vector<std::unique_ptr<Buffer>> temporaryBuffers;
 		std::vector<uint32_t> toDelete;
+
+		if (m_sampler.get() == nullptr)
+		{
+			m_sampler = std::make_unique<ImageSampler>();
+			bool samplerInitialised = m_sampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear, vk::SamplerAddressMode::eRepeat, maxAnisotropy);
+			if (!samplerInitialised)
+			{
+				return false;
+			}
+		}
+
+		if (m_blankImage.get() == nullptr)
+		{
+			m_blankImage = std::make_unique<RenderImage>(allocator);
+			bool imageInitialised = m_blankImage->Initialise(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, vk::Extent3D(1, 1, 1), vk::ImageTiling::eOptimal,
+				vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+				0,
+				vk::SharingMode::eExclusive);
+			if (!imageInitialised)
+			{
+				return false;
+			}
+
+			m_blankImageView = std::make_unique<ImageView>();
+			bool imageViewInitialised = m_blankImageView->Initialise(device, m_blankImage->Get(), m_blankImage->GetFormat(), vk::ImageAspectFlagBits::eColor);
+			if (!imageViewInitialised)
+			{
+				return false;
+			}
+
+			resourceCommands.emplace_back(m_blankImage->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eTransferDstOptimal));
+
+			Colour blankPixel = Colour();
+			if (!CreateImageStagingBuffer(allocator, device, resourceCommandPool, m_blankImage.get(), &blankPixel,
+				sizeof(uint32_t), temporaryBuffers, resourceCommands))
+				return false;
+
+			resourceCommands.emplace_back(m_blankImage->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eShaderReadOnlyOptimal));
+		}
 
 		for (uint32_t id = 0; id < m_meshCapacity; ++id)
 		{
@@ -386,17 +427,20 @@ namespace Engine::Rendering::Vulkan
 
 			if ((updateBits & MeshUpdateFlagBits::Image) == MeshUpdateFlagBits::Image)
 			{
-				const std::vector<uint8_t>& pixels = m_images[id]->GetPixels();
+				if (m_images[id].get() != nullptr)
+				{
+					const std::vector<uint8_t>& pixels = m_images[id]->GetPixels();
 
-				resourceCommands.emplace_back(m_renderImages[id]->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eTransferDstOptimal));
+					resourceCommands.emplace_back(m_renderImages[id]->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eTransferDstOptimal));
 
-				if (!CreateImageStagingBuffer(allocator, device, resourceCommandPool, m_renderImages[id].get(), pixels.data(),
-					pixels.size(), temporaryBuffers, resourceCommands))
-					return false;
+					if (!CreateImageStagingBuffer(allocator, device, resourceCommandPool, m_renderImages[id].get(), pixels.data(),
+						pixels.size(), temporaryBuffers, resourceCommands))
+						return false;
 
-				resourceCommands.emplace_back(m_renderImages[id]->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eShaderReadOnlyOptimal));
+					resourceCommands.emplace_back(m_renderImages[id]->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eShaderReadOnlyOptimal));
 
-				m_images[id].reset();
+					m_images[id].reset();
+				}
 			}
 
 			if ((updateBits & MeshUpdateFlagBits::Uniforms) == MeshUpdateFlagBits::Uniforms)

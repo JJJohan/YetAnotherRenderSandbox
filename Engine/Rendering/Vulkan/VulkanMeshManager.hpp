@@ -67,6 +67,8 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<uint32_t> m_vertexCounts;
 		std::vector<uint32_t> m_indexCounts;
+		std::unique_ptr<RenderImage> m_blankImage;
+		std::unique_ptr<ImageView> m_blankImageView;
 
 		std::vector<std::vector<std::unique_ptr<Buffer>>> m_vertexBuffers;
 		std::vector<std::unique_ptr<Buffer>> m_indexBuffers;

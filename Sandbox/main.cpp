@@ -82,14 +82,12 @@ int main()
 
 	uint32_t mesh2 = renderer->GetMeshManager()->CreateMesh(shader,
 		{
-			{ glm::vec3(-0.5f, -1.0f + -0.5f, 0.0f), glm::vec3(0.5f, -1.0f + -0.5f, 0.0f), glm::vec3(0.5f, -1.0f + 0.5f, 0.0f), glm::vec3(-0.5f, -1.0f + 0.5f, 0.0f) },
-			{ glm::vec2(1.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 1.0f), glm::vec2(1.0f, 1.0f) },
-			{ Colour(0.0f, 1.0f, 1.0f), Colour(1.0f, 0.0f, 1.0f), Colour(1.0f, 1.0f, 1.0f), Colour(0.0f, 0.0f, 0.0f) }
+			{ glm::vec3(-0.5f, -1.0f + -0.5f, 0.0f), glm::vec3(0.5f, -1.0f + -0.5f, 0.0f), glm::vec3(0.5f, -1.0f + 0.5f, 0.0f), glm::vec3(-0.5f, -1.0f + 0.5f, 0.0f) }
 		},
 		{ 0, 1, 2, 2, 3, 0 },
 		Colour(),
 		glm::mat4(1.0f),
-		image);
+		nullptr);
 
 	static auto startTime = std::chrono::high_resolution_clock::now();
 
