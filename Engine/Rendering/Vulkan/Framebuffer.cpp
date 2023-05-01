@@ -18,11 +18,12 @@ namespace Engine::Rendering::Vulkan
 		return m_framebuffer.get();
 	}
 
-	bool Framebuffer::Initialise(const Device& device, const vk::Extent2D& swapChainExtent, const RenderPass& renderPass, const ImageView& imageView)
+	bool Framebuffer::Initialise(const Device& device, const vk::Extent2D& swapChainExtent, const RenderPass& renderPass, 
+		const ImageView& imageView, const ImageView& depthImageView)
 	{
-		const vk::ImageView& imageViewImp = imageView.Get();
+		std::array<vk::ImageView, 2> attachments = {			imageView.Get(), depthImageView.Get()		};
 
-		vk::FramebufferCreateInfo framebufferInfo(vk::FramebufferCreateFlags(), renderPass.Get(), 1, &imageViewImp, swapChainExtent.width, swapChainExtent.height, 1);
+		vk::FramebufferCreateInfo framebufferInfo(vk::FramebufferCreateFlags(), renderPass.Get(), static_cast<uint32_t>(attachments.size()), attachments.data(), swapChainExtent.width, swapChainExtent.height, 1);
 
 		m_framebuffer = device.Get().createFramebufferUnique(framebufferInfo);
 		if (!m_framebuffer.get())

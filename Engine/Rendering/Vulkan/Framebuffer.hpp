@@ -13,7 +13,8 @@ namespace Engine::Rendering::Vulkan
 	public:
 		Framebuffer();
 		const vk::Framebuffer& Get() const;
-		bool Initialise(const Device& device, const vk::Extent2D& swapChainExtent, const RenderPass& renderPass, const ImageView& imageView);
+		bool Initialise(const Device& device, const vk::Extent2D& swapChainExtent, const RenderPass& renderPass, 
+			const ImageView& imageView, const ImageView& depthImageView);
 
 	private:
 		vk::UniqueFramebuffer m_framebuffer;

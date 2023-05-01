@@ -18,6 +18,8 @@ namespace Engine::Rendering::Vulkan
 		std::vector<const char*> GetRequiredExtensions() const;
 		bool FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties, uint32_t* memoryType) const;
 		float GetMaxAnisotropy() const;
+		vk::Format FindSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
+		vk::Format FindDepthFormat() const;
 
 	private:
 

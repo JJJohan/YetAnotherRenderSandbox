@@ -69,6 +69,11 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
+	bool HasStencilComponent(vk::Format format)
+	{
+		return format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint;
+	}
+
 	vk::UniqueCommandBuffer RenderImage::TransitionImageLayout(const Device& device, const CommandPool& commandPool, vk::ImageLayout newLayout)
 	{
 		vk::UniqueCommandBuffer commandBuffer = commandPool.BeginResourceCommandBuffer(device);
@@ -92,6 +97,13 @@ namespace Engine::Rendering::Vulkan
 			srcStage = vk::PipelineStageFlagBits::eTransfer;
 			dstStage = vk::PipelineStageFlagBits::eFragmentShader;
 		}
+		else if (m_layout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+		{
+			srcAccessMask = vk::AccessFlagBits::eNone;;
+			dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+			srcStage = vk::PipelineStageFlagBits::eTopOfPipe;
+			dstStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+		}
 		else 
 		{
 			srcAccessMask = vk::AccessFlagBits::eNone;
@@ -103,7 +115,22 @@ namespace Engine::Rendering::Vulkan
 
 		if (dstAccessMask != vk::AccessFlagBits::eNone)
 		{
-			vk::ImageSubresourceRange subResourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+			vk::ImageAspectFlags aspectFlags;
+			if (newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+			{
+				aspectFlags = vk::ImageAspectFlagBits::eDepth;
+
+				if (HasStencilComponent(m_format))
+				{
+					aspectFlags |= vk::ImageAspectFlagBits::eStencil;
+				}
+			}
+			else 
+			{
+				aspectFlags = vk::ImageAspectFlagBits::eColor;
+			}
+
+			vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, 1, 0, 1);
 
 			vk::ImageMemoryBarrier barrier(srcAccessMask, dstAccessMask, m_layout, newLayout,
 				VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);

@@ -169,9 +169,9 @@ namespace Engine::Rendering::Vulkan
 
 		// Depth and stencil state
 		vk::PipelineDepthStencilStateCreateInfo depthStencil{};
-		depthStencil.depthCompareOp = vk::CompareOp::eLessOrEqual;
-		depthStencil.depthWriteEnable = VK_FALSE;
-		depthStencil.depthTestEnable = VK_FALSE;
+		depthStencil.depthCompareOp = vk::CompareOp::eLess;
+		depthStencil.depthWriteEnable = VK_TRUE;
+		depthStencil.depthTestEnable = VK_TRUE;
 		depthStencil.stencilTestEnable = VK_FALSE;
 
 		// Color blend attachment state
@@ -215,7 +215,7 @@ namespace Engine::Rendering::Vulkan
 		pipelineInfo.pViewportState = &viewportState;
 		pipelineInfo.pRasterizationState = &rasterizer;
 		pipelineInfo.pMultisampleState = &multisampling;
-		pipelineInfo.pDepthStencilState = nullptr; // Optional
+		pipelineInfo.pDepthStencilState = &depthStencil;
 		pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = &dynamicState;
 		pipelineInfo.layout = m_pipelineLayout.get();

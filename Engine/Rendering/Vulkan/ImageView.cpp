@@ -18,7 +18,7 @@ namespace Engine::Rendering::Vulkan
 
 	bool ImageView::Initialise(const Device& device, const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags)
 	{
-		vk::ImageSubresourceRange subResourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, 1, 0, 1);
 
 		vk::ImageViewCreateInfo createInfo(vk::ImageViewCreateFlags(), image, vk::ImageViewType::e2D, format);
 		createInfo.setSubresourceRange(subResourceRange);

@@ -24,11 +24,23 @@ uint32_t CreateTestMesh(const Renderer& renderer, const Shader* shader, std::sha
 {
 	return renderer.GetMeshManager()->CreateMesh(shader,
 		{
-			{ glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(-0.5f, 0.5f, 0.0f) },
-			{ glm::vec2(1.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 1.0f), glm::vec2(1.0f, 1.0f) },
-			{ Colour(1.0f, 1.0f, 0.0f), Colour(0.0f, 1.0f, 0.0f), Colour(0.0f, 0.0f, 1.0f), Colour(1.0f, 0.0f, 0.0f) }
+			{
+				glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(-0.5f, 0.5f, 0.0f),
+				glm::vec3(-0.5f, -0.5f, -0.5f), glm::vec3(0.5f, -0.5f, -0.5f), glm::vec3(0.5f, 0.5f, -0.5f), glm::vec3(-0.5f, 0.5f, -0.5f)
+			},
+			{ 
+				glm::vec2(1.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 1.0f), glm::vec2(1.0f, 1.0f),
+				glm::vec2(1.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 1.0f), glm::vec2(1.0f, 1.0f)
+			},
+			{
+				Colour(), Colour(), Colour(), Colour(),
+				Colour(), Colour(), Colour(), Colour()
+			}
 		},
-		{ 0, 1, 2, 2, 3, 0 },
+		{
+			0, 1, 2, 2, 3, 0,
+			4, 5, 6, 6, 7, 4
+		},
 		Colour(),
 		glm::mat4(1.0f),
 		image);

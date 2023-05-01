@@ -126,7 +126,12 @@ namespace Engine::Rendering::Vulkan
 
 		const std::vector<Framebuffer*> framebuffers = m_swapChain->GetFramebuffers();
 
-		vk::ClearValue clearColor(vk::ClearColorValue(m_clearColour.r, m_clearColour.g, m_clearColour.b, m_clearColour.a));
+		std::array<vk::ClearValue, 2> clearValues =
+		{
+		vk::ClearValue(vk::ClearColorValue(m_clearColour.r, m_clearColour.g, m_clearColour.b, m_clearColour.a)),
+		vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0))
+		};
+
 
 		vk::RenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = vk::StructureType::eRenderPassBeginInfo;
@@ -134,8 +139,8 @@ namespace Engine::Rendering::Vulkan
 		renderPassInfo.framebuffer = framebuffers[imageIndex]->Get();
 		renderPassInfo.renderArea.offset = vk::Offset2D();
 		renderPassInfo.renderArea.extent = m_swapChain->GetExtent();
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearColor;
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
 
 		commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 
@@ -257,8 +262,8 @@ namespace Engine::Rendering::Vulkan
 			|| !m_physicalDevice->Initialise(*m_instance, *m_surface)
 			|| !m_device->Initialise(*m_physicalDevice)
 			|| !CreateAllocator()
-			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, size)
-			|| !m_renderPass->Initialise(*m_device, *m_swapChain)
+			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size)
+			|| !m_renderPass->Initialise(*m_physicalDevice, *m_device, *m_swapChain)
 			|| !m_swapChain->CreateFramebuffers(*m_device, *m_renderPass)
 			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eTransient)
 			|| !m_renderCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
@@ -285,7 +290,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_swapChainOutOfDate = false;
 
-		return m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, size)
+		return m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size)
 			&& m_swapChain->CreateFramebuffers(*m_device, *m_renderPass);
 	}
 

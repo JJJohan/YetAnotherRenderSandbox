@@ -5,6 +5,7 @@
 namespace Engine::Rendering::Vulkan
 {
 	class Device;
+	class PhysicalDevice;
 	class SwapChain;
 
 	class RenderPass
@@ -12,7 +13,7 @@ namespace Engine::Rendering::Vulkan
 	public:
 		RenderPass();
 		const vk::RenderPass& Get() const;
-		bool Initialise(const Device& device, const SwapChain& swapChain);
+		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, const SwapChain& swapChain);
 
 	private:
 		vk::UniqueRenderPass m_renderPass;

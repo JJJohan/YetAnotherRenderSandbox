@@ -38,6 +38,31 @@ namespace Engine::Rendering::Vulkan
 		return m_deviceProperties.limits.maxSamplerAnisotropy;
 	}
 
+	vk::Format PhysicalDevice::FindSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const
+	{
+		for (const vk::Format& format : candidates)
+		{
+			vk::FormatProperties props = m_physicalDevice.getFormatProperties(format);
+			if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features) 
+			{
+				return format;
+			}
+			else if (tiling == vk::ImageTiling::eOptimal && (props.optimalTilingFeatures & features) == features)
+			{
+				return format;
+			}
+		}
+
+		Logger::Error("Failed to find supported image format matching requested input.");
+		return vk::Format::eUndefined;
+	}
+
+	vk::Format PhysicalDevice::FindDepthFormat() const
+	{
+		return FindSupportedFormat({ vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint },
+			vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+	}
+
 	bool PhysicalDevice::FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties, uint32_t* memoryType) const
 	{
 		vk::PhysicalDeviceMemoryProperties memProperties = m_physicalDevice.getMemoryProperties();
