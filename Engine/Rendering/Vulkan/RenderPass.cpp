@@ -10,6 +10,7 @@ namespace Engine::Rendering::Vulkan
 {
 	RenderPass::RenderPass()
 		: m_renderPass(nullptr)
+		, m_sampleCount(vk::SampleCountFlagBits::e1)
 	{
 	}
 
@@ -18,8 +19,16 @@ namespace Engine::Rendering::Vulkan
 		return m_renderPass.get();
 	}
 
-	bool RenderPass::Initialise(const PhysicalDevice& physicalDevice, const Device& device, const SwapChain& swapChain)
+	vk::SampleCountFlagBits RenderPass::GetSampleCount() const
 	{
+		return m_sampleCount;
+	}
+
+	bool RenderPass::Initialise(const PhysicalDevice& physicalDevice, const Device& device, const SwapChain& swapChain, vk::SampleCountFlagBits sampleCount)
+	{
+		m_sampleCount = sampleCount;
+		bool multiSampled = sampleCount != vk::SampleCountFlagBits::e1;
+
 		vk::AttachmentDescription colorAttachment;
 		colorAttachment.format = swapChain.GetFormat();
 		colorAttachment.samples = vk::SampleCountFlagBits::e1;
@@ -28,7 +37,17 @@ namespace Engine::Rendering::Vulkan
 		colorAttachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
 		colorAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
 		colorAttachment.initialLayout = vk::ImageLayout::eUndefined;
-		colorAttachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
+		colorAttachment.finalLayout = multiSampled ? vk::ImageLayout::eColorAttachmentOptimal : vk::ImageLayout::ePresentSrcKHR;
+		colorAttachment.samples = sampleCount;
+
+		vk::AttachmentDescription colorAttachmentResolve;
+		colorAttachmentResolve.format = colorAttachment.format;
+		colorAttachmentResolve.loadOp = vk::AttachmentLoadOp::eDontCare;
+		colorAttachmentResolve.storeOp = vk::AttachmentStoreOp::eStore;
+		colorAttachmentResolve.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+		colorAttachmentResolve.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+		colorAttachmentResolve.initialLayout = vk::ImageLayout::eUndefined;
+		colorAttachmentResolve.finalLayout = vk::ImageLayout::ePresentSrcKHR;
 
 		vk::AttachmentDescription depthAttachment;
 		depthAttachment.format = physicalDevice.FindDepthFormat();
@@ -39,15 +58,18 @@ namespace Engine::Rendering::Vulkan
 		depthAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
 		depthAttachment.initialLayout = vk::ImageLayout::eUndefined;
 		depthAttachment.finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+		depthAttachment.samples = sampleCount;
 
 		vk::AttachmentReference colorAttachmentRef(0, vk::ImageLayout::eColorAttachmentOptimal);
 		vk::AttachmentReference depthAttachmentRef(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+		vk::AttachmentReference colorResolveAttachmentRef(2, vk::ImageLayout::eColorAttachmentOptimal);
 
 		vk::SubpassDescription subpass;
 		subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
+		subpass.pResolveAttachments = multiSampled ? &colorResolveAttachmentRef : nullptr;
 
 		vk::SubpassDependency dependency;
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -57,7 +79,11 @@ namespace Engine::Rendering::Vulkan
 		dependency.srcAccessMask = vk::AccessFlagBits::eNone;
 		dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
 
-		std::array<vk::AttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
+		std::vector<vk::AttachmentDescription> attachments = { colorAttachment, depthAttachment };
+		if (multiSampled)
+		{
+			attachments.push_back(colorAttachmentResolve);
+		}
 
 		vk::RenderPassCreateInfo renderPassInfo;
 		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());

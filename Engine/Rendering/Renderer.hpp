@@ -6,6 +6,7 @@
 #include "Core/Macros.hpp"
 #include "Shader.hpp"
 #include <glm/glm.hpp>
+#include "Camera.hpp"
 
 namespace Engine::OS
 {
@@ -15,6 +16,7 @@ namespace Engine::OS
 namespace Engine::Rendering
 {
 	class MeshManager;
+	class Camera;
 
 	enum class RendererType
 	{
@@ -33,6 +35,12 @@ namespace Engine::Rendering
 		EXPORT void SetClearColour(const glm::vec4& colour);
 		EXPORT const glm::vec4& GetClearColor() const;
 
+		EXPORT virtual void SetSampleCount(uint32_t sampleCount);
+		EXPORT uint32_t GetMaxSampleCount() const;
+
+		EXPORT void SetCamera(const Camera& camera);
+		EXPORT Camera& GetCamera();
+
 		EXPORT virtual Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs);
 		EXPORT Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::string>& programs);
 		EXPORT virtual void DestroyShader(Shader* shader);
@@ -42,8 +50,11 @@ namespace Engine::Rendering
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);
 
+		uint32_t m_sampleCount;
+		uint32_t m_maxSampleCount;
 		const Engine::OS::Window& m_window;
 		bool m_debug;
+		Camera m_camera;
 		glm::vec4 m_clearColour;
 	};
 }

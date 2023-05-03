@@ -18,10 +18,22 @@ namespace Engine::Rendering::Vulkan
 		return m_framebuffer.get();
 	}
 
-	bool Framebuffer::Initialise(const Device& device, const vk::Extent2D& swapChainExtent, const RenderPass& renderPass, 
-		const ImageView& imageView, const ImageView& depthImageView)
+	bool Framebuffer::Initialise(const Device& device, const vk::Extent2D& swapChainExtent, const RenderPass& renderPass,
+		const ImageView& imageView, const ImageView& depthImageView, const ImageView& colorImageView)
 	{
-		std::array<vk::ImageView, 2> attachments = {			imageView.Get(), depthImageView.Get()		};
+		std::vector<vk::ImageView> attachments;
+		attachments.reserve(3);
+		if (renderPass.GetSampleCount() != vk::SampleCountFlagBits::e1)
+		{
+			attachments.push_back(colorImageView.Get());
+			attachments.push_back(depthImageView.Get());
+			attachments.push_back(imageView.Get());
+		}
+		else
+		{
+			attachments.push_back(imageView.Get());
+			attachments.push_back(depthImageView.Get());
+		}
 
 		vk::FramebufferCreateInfo framebufferInfo(vk::FramebufferCreateFlags(), renderPass.Get(), static_cast<uint32_t>(attachments.size()), attachments.data(), swapChainExtent.width, swapChainExtent.height, 1);
 

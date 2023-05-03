@@ -1,6 +1,11 @@
 #include "MeshManager.hpp"
 #include "Shader.hpp"
 #include "Core/Logging/Logger.hpp"
+#include <filesystem>
+#include "GltfLoader.hpp"
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
 
 using namespace Engine::Logging;
 
@@ -13,6 +18,7 @@ namespace Engine::Rendering
 		, m_updateFlags()
 		, m_vertexUpdateFlags()
 		, m_meshCapacity()
+		, m_shaders()
 		, m_vertexDataArrays()
 		, m_indexArrays()
 		, m_colours()
@@ -24,10 +30,12 @@ namespace Engine::Rendering
 	uint32_t MeshManager::CreateMesh(const Shader* shader,
 		const std::vector<VertexData>& vertexData,
 		const std::vector<uint32_t>& indices,
-		const Colour& colour,
 		const glm::mat4& transform,
+		const Colour& colour,
 		std::shared_ptr<Image> image)
 	{
+		const std::lock_guard<std::mutex> lock(m_creationMutex);
+
 		uint32_t id;
 		if (!m_recycledIds.empty())
 		{
@@ -40,6 +48,7 @@ namespace Engine::Rendering
 			id = m_meshCapacity++;
 		}
 
+		m_shaders[id] = shader;
 		m_vertexDataArrays[id] = vertexData;
 		m_indexArrays[id] = indices;
 		m_colours[id] = colour;
@@ -53,10 +62,60 @@ namespace Engine::Rendering
 		return id;
 	}
 
+	uint32_t MeshManager::CreateFromOBJ(const Shader* shader, const std::string& filePath,
+		const glm::mat4& transform, const Colour& colour, std::shared_ptr<Image> image)
+	{
+		if (!std::filesystem::exists(filePath))
+		{
+			Logger::Error("File at '{}' does not exist.", filePath);
+			return 0;
+		}
+
+		tinyobj::ObjReader reader;
+		if (!reader.ParseFromFile(filePath))
+		{
+			Logger::Error("Failed to parse OBJ file '{}': {}.", filePath, reader.Error());
+			return 0;
+		}
+
+		auto& attrib = reader.GetAttrib();
+		auto& shapes = reader.GetShapes();
+		auto& materials = reader.GetMaterials();
+
+		std::vector<glm::vec3> positions;
+		std::vector<glm::vec2> uvs;
+		std::vector<Colour> colours;
+		std::vector<uint32_t> indices;
+
+		for (const auto& shape : shapes)
+		{
+			for (const auto& index : shape.mesh.indices)
+			{
+				indices.push_back(static_cast<uint32_t>(indices.size()));
+
+				positions.emplace_back(glm::vec3(
+					attrib.vertices[3 * index.vertex_index + 0],
+					attrib.vertices[3 * index.vertex_index + 1],
+					attrib.vertices[3 * index.vertex_index + 2]
+				));
+
+				colours.emplace_back(Colour());
+
+				uvs.emplace_back(glm::vec2(
+					attrib.texcoords[2 * index.texcoord_index + 0],
+					1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+				));
+			}
+		}
+
+		return CreateMesh(shader, { positions, uvs, colours }, indices, transform, colour, image);
+	}
+
 	void MeshManager::DestroyMesh(uint32_t id)
 	{
 		m_active[id] = false;
 
+		m_shaders[id] = nullptr;
 		m_vertexDataArrays[id] = {};
 		m_indexArrays[id] = {};
 		m_images[id].reset();
@@ -70,6 +129,7 @@ namespace Engine::Rendering
 	{
 		m_active.push_back(false);
 
+		m_shaders.push_back(nullptr);
 		m_vertexDataArrays.push_back({});
 		m_indexArrays.push_back({});
 		m_colours.push_back({});

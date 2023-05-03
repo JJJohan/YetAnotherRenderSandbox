@@ -38,12 +38,15 @@ namespace Engine::Rendering
 	public:
 		MeshManager();
 
-		EXPORT virtual uint32_t CreateMesh(const Shader* shader,
+		EXPORT uint32_t CreateMesh(const Shader* shader,
 			const std::vector<VertexData>& vertexData,
 			const std::vector<uint32_t>& indices,
-			const Colour& colour,
 			const glm::mat4& transform,
-			std::shared_ptr<Image> image);
+			const Colour& colour = {},
+			std::shared_ptr<Image> image = nullptr);
+
+		EXPORT uint32_t CreateFromOBJ(const Shader* shader, const std::string& filePath,
+			const glm::mat4& transform, const Colour& colour = {}, std::shared_ptr<Image> image = nullptr);
 
 		EXPORT virtual void DestroyMesh(uint32_t id);
 
@@ -73,6 +76,7 @@ namespace Engine::Rendering
 
 		std::vector<std::vector<VertexData>> m_vertexDataArrays;
 		std::vector<std::vector<uint32_t>> m_indexArrays;
+		std::vector<const Shader*> m_shaders;
 		std::vector<Colour> m_colours;
 		std::vector<glm::mat4> m_transforms;
 		std::vector<std::shared_ptr<Image>> m_images;

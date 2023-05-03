@@ -17,6 +17,7 @@ namespace Engine::Rendering::Vulkan
 		, m_pipelineLayout(nullptr)
 		, m_graphicsPipeline(nullptr)
 		, m_descriptorSetLayout(nullptr)
+		, m_shaderModules()
 	{
 	}
 
@@ -75,38 +76,16 @@ namespace Engine::Rendering::Vulkan
 		return { m_descriptorSetLayout.get() }; // hard-coded to 1 for now.
 	}
 
-	bool PipelineLayout::Initialise(const Device& device, const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs, 
-		const RenderPass& renderPass)
+	bool PipelineLayout::Rebuild(const Device& device, const RenderPass& renderPass)
 	{
-		m_name = name;
+		m_graphicsPipeline.reset();
+		m_pipelineLayout.reset();		
 
 		const vk::Device& deviceImp = device.Get();
 
-		std::vector<std::pair<vk::ShaderStageFlagBits, vk::UniqueShaderModule>> shaderModules{};
-		shaderModules.reserve(programs.size());
-		for (const auto& program : programs)
-		{
-			vk::ShaderModuleCreateInfo createInfo(vk::ShaderModuleCreateFlags(), program.second.size(), reinterpret_cast<const uint32_t*>(program.second.data()));
-
-			vk::UniqueShaderModule shaderModule = deviceImp.createShaderModuleUnique(createInfo);
-			if (!shaderModule.get())
-			{
-				Logger::Error("Failed to create {} program for shader '{}'.", GetProgramTypeName(program.first), name);
-				return false;
-			}
-
-			vk::ShaderStageFlagBits stage = GetShaderStage(program.first);
-			shaderModules.push_back(std::make_pair(stage, std::move(shaderModule)));
-		}
-
-		if (!SetupDescriptorSetLayout(device))
-		{
-			return false;
-		}
-
-		std::vector<vk::PipelineShaderStageCreateInfo> shaderStageInfos{};
-		shaderStageInfos.reserve(shaderModules.size());
-		for (const auto& module : shaderModules)
+		std::vector<vk::PipelineShaderStageCreateInfo> shaderStageInfos;
+		shaderStageInfos.reserve(m_shaderModules.size());
+		for (const auto& module : m_shaderModules)
 		{
 			vk::PipelineShaderStageCreateInfo& vertShaderStageInfo = shaderStageInfos.emplace_back(vk::PipelineShaderStageCreateInfo());
 			vertShaderStageInfo.stage = module.first;
@@ -124,18 +103,16 @@ namespace Engine::Rendering::Vulkan
 
 		// Vertex input state
 
-		std::array<vk::VertexInputBindingDescription, 3> bindingDescriptions =
+		std::array<vk::VertexInputBindingDescription, 2> bindingDescriptions =
 		{ {
 			vk::VertexInputBindingDescription(0, sizeof(glm::vec3), vk::VertexInputRate::eVertex),
-			vk::VertexInputBindingDescription(1, sizeof(glm::vec2), vk::VertexInputRate::eVertex),
-			vk::VertexInputBindingDescription(2, sizeof(uint32_t), vk::VertexInputRate::eVertex)
+			vk::VertexInputBindingDescription(1, sizeof(glm::vec2), vk::VertexInputRate::eVertex)
 		} };
 
-		std::array<vk::VertexInputAttributeDescription, 3> attributeDescriptions =
+		std::array<vk::VertexInputAttributeDescription, 2> attributeDescriptions =
 		{ {
 			vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, 0),
-			vk::VertexInputAttributeDescription(1, 1, vk::Format::eR32G32Sfloat, 0),
-			vk::VertexInputAttributeDescription(2, 2, vk::Format::eR8G8B8A8Unorm, 0)
+			vk::VertexInputAttributeDescription(1, 1, vk::Format::eR32G32Sfloat, 0)
 		} };
 
 		vk::PipelineVertexInputStateCreateInfo vertexInputInfo(vk::PipelineVertexInputStateCreateFlags(), bindingDescriptions, attributeDescriptions);
@@ -161,7 +138,7 @@ namespace Engine::Rendering::Vulkan
 		// Multisampling state
 		vk::PipelineMultisampleStateCreateInfo multisampling{};
 		multisampling.sampleShadingEnable = VK_FALSE;
-		multisampling.rasterizationSamples = vk::SampleCountFlagBits::e1;
+		multisampling.rasterizationSamples = renderPass.GetSampleCount();
 		multisampling.minSampleShading = 1.0f; // Optional
 		multisampling.pSampleMask = nullptr; // Optional
 		multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
@@ -233,5 +210,37 @@ namespace Engine::Rendering::Vulkan
 
 		m_graphicsPipeline = std::move(result.value);
 		return true;
+	}
+
+	bool PipelineLayout::Initialise(const Device& device, const std::string& name,
+		const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs,
+		const RenderPass& renderPass)
+	{
+		m_name = name;
+
+		const vk::Device& deviceImp = device.Get();
+
+		m_shaderModules.reserve(programs.size());
+		for (const auto& program : programs)
+		{
+			vk::ShaderModuleCreateInfo createInfo(vk::ShaderModuleCreateFlags(), program.second.size(), reinterpret_cast<const uint32_t*>(program.second.data()));
+
+			vk::UniqueShaderModule shaderModule = deviceImp.createShaderModuleUnique(createInfo);
+			if (!shaderModule.get())
+			{
+				Logger::Error("Failed to create {} program for shader '{}'.", GetProgramTypeName(program.first), name);
+				return false;
+			}
+
+			vk::ShaderStageFlagBits stage = GetShaderStage(program.first);
+			m_shaderModules.push_back(std::make_pair(stage, std::move(shaderModule)));
+		}
+
+		if (!SetupDescriptorSetLayout(device))
+		{
+			return false;
+		}
+
+		Rebuild(device, renderPass);
 	}
 }

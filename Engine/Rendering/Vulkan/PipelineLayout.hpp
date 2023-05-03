@@ -24,11 +24,14 @@ namespace Engine::Rendering::Vulkan
 		bool Initialise(const Device& device, const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs, 
 			const RenderPass& renderPass);
 
+		bool Rebuild(const Device& device, const RenderPass& renderPass);
+
 	private:
 		bool SetupDescriptorSetLayout(const Device& device);
 
 		vk::UniquePipelineLayout m_pipelineLayout;
 		vk::UniquePipeline m_graphicsPipeline;
 		vk::UniqueDescriptorSetLayout m_descriptorSetLayout;
+		std::vector<std::pair<vk::ShaderStageFlagBits, vk::UniqueShaderModule>> m_shaderModules;
 	};
 }

@@ -9,6 +9,7 @@
 #include "ImageSampler.hpp"
 #include "CommandPool.hpp"
 #include "PipelineLayout.hpp"
+#include "Rendering/Camera.hpp"
 #include "Core/Logging/Logger.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -31,7 +32,6 @@ namespace Engine::Rendering::Vulkan
 		, m_uniformBuffersMappedArrays()
 		, m_descriptorPools()
 		, m_descriptorSetArrays()
-		, m_pipelineLayouts()
 	{
 	}
 
@@ -47,26 +47,8 @@ namespace Engine::Rendering::Vulkan
 		m_uniformBuffersMappedArrays.push_back({});
 		m_descriptorPools.push_back(nullptr);
 		m_descriptorSetArrays.push_back({});
-		m_pipelineLayouts.push_back(nullptr);
 		m_renderImages.push_back(nullptr);
 		m_renderImageViews.push_back(nullptr);
-	}
-
-	uint32_t VulkanMeshManager::CreateMesh(const Shader* shader,
-		const std::vector<VertexData>& vertexData,
-		const std::vector<uint32_t>& indices,
-		const Colour& colour,
-		const glm::mat4& transform,
-		std::shared_ptr<Image> image)
-	{
-		const std::lock_guard<std::mutex> lock(m_creationMutex);
-
-		uint32_t id = MeshManager::CreateMesh(shader, vertexData, indices, colour, transform, std::move(image));
-
-		const PipelineLayout* pipelineLayout = static_cast<const PipelineLayout*>(shader);
-		m_pipelineLayouts[id] = pipelineLayout;
-
-		return id;
 	}
 
 	void VulkanMeshManager::DestroyMesh(uint32_t id)
@@ -185,6 +167,7 @@ namespace Engine::Rendering::Vulkan
 		glm::mat4 model;
 		glm::mat4 view;
 		glm::mat4 proj;
+		glm::vec4 colour;
 	};
 
 	bool VulkanMeshManager::SetupUniformBuffers(VmaAllocator allocator, uint32_t id)
@@ -214,7 +197,14 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
-			memcpy(mappedBuffers[i], &model, sizeof(glm::mat4)); // Only copy model matrix
+			memcpy(static_cast<uint8_t*>(mappedBuffers[i]), &model, sizeof(glm::mat4));
+
+			// temporary - wasting space right now.
+			glm::vec4 colour(static_cast<float>(m_colours[id].R) / 255.0f, 
+				static_cast<float>(m_colours[id].G) / 255.0f,
+				static_cast<float>(m_colours[id].B) / 255.0f,
+				static_cast<float>(m_colours[id].A) / 255.0f);
+			memcpy(static_cast<uint8_t*>(mappedBuffers[i]) + sizeof(glm::mat4) * 3, &colour, sizeof(glm::vec4));
 		}
 
 		return true;
@@ -248,8 +238,8 @@ namespace Engine::Rendering::Vulkan
 		vk::Extent3D dimensions(size.x, size.y, 1);
 
 		m_renderImages[id] = std::make_unique<RenderImage>(allocator);
-		bool imageInitialised = m_renderImages[id]->Initialise(vk::ImageType::e2D, format, dimensions, vk::ImageTiling::eOptimal,
-			vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+		bool imageInitialised = m_renderImages[id]->Initialise(vk::ImageType::e2D, format, dimensions, vk::SampleCountFlagBits::e1, true, vk::ImageTiling::eOptimal,
+			vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 			0,
 			vk::SharingMode::eExclusive);
@@ -260,7 +250,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		m_renderImageViews[id] = std::make_unique<ImageView>();
-		bool imageViewInitialised = m_renderImageViews[id]->Initialise(device, m_renderImages[id]->Get(), m_renderImages[id]->GetFormat(), vk::ImageAspectFlagBits::eColor);
+		bool imageViewInitialised = m_renderImageViews[id]->Initialise(device, m_renderImages[id]->Get(), m_renderImages[id]->GetMiplevels(), m_renderImages[id]->GetFormat(), vk::ImageAspectFlagBits::eColor);
 		if (!imageViewInitialised)
 		{
 			return false;
@@ -292,9 +282,10 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		std::vector<vk::DescriptorSetLayout> layouts;
+		const PipelineLayout* pipelineLayout = static_cast<const PipelineLayout*>(m_shaders[id]);
 		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
 		{
-			layouts.append_range(m_pipelineLayouts[id]->GetDescriptorSetLayouts());
+			layouts.append_range(pipelineLayout->GetDescriptorSetLayouts());
 		}
 		m_descriptorSetArrays[id] = m_descriptorPools[id]->CreateDescriptorSets(device, layouts);
 
@@ -350,7 +341,7 @@ namespace Engine::Rendering::Vulkan
 		if (m_blankImage.get() == nullptr)
 		{
 			m_blankImage = std::make_unique<RenderImage>(allocator);
-			bool imageInitialised = m_blankImage->Initialise(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, vk::Extent3D(1, 1, 1), vk::ImageTiling::eOptimal,
+			bool imageInitialised = m_blankImage->Initialise(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, vk::Extent3D(1, 1, 1), vk::SampleCountFlagBits::e1, false, vk::ImageTiling::eOptimal,
 				vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
 				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 				0,
@@ -361,7 +352,7 @@ namespace Engine::Rendering::Vulkan
 			}
 
 			m_blankImageView = std::make_unique<ImageView>();
-			bool imageViewInitialised = m_blankImageView->Initialise(device, m_blankImage->Get(), m_blankImage->GetFormat(), vk::ImageAspectFlagBits::eColor);
+			bool imageViewInitialised = m_blankImageView->Initialise(device, m_blankImage->Get(), 1, m_blankImage->GetFormat(), vk::ImageAspectFlagBits::eColor);
 			if (!imageViewInitialised)
 			{
 				return false;
@@ -437,7 +428,7 @@ namespace Engine::Rendering::Vulkan
 						pixels.size(), temporaryBuffers, resourceCommands))
 						return false;
 
-					resourceCommands.emplace_back(m_renderImages[id]->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eShaderReadOnlyOptimal));
+					resourceCommands.emplace_back(m_renderImages[id]->GenerateMipmaps(device, resourceCommandPool));
 
 					m_images[id].reset();
 				}
@@ -501,7 +492,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	void VulkanMeshManager::Draw(const vk::CommandBuffer& commandBuffer, const vk::Extent2D& viewSize, uint32_t currentFrameIndex)
+	void VulkanMeshManager::Draw(const vk::CommandBuffer& commandBuffer, const Camera& camera, const vk::Extent2D& viewSize, uint32_t currentFrameIndex)
 	{
 		const std::lock_guard<std::mutex> lock(m_creationMutex); // Ideally have a set of data for 'next' frame so no locking?
 
@@ -513,16 +504,16 @@ namespace Engine::Rendering::Vulkan
 			// Update uniform buffers
 
 			UniformBufferObject ubo{};
-			ubo.view = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			ubo.proj = glm::perspective(glm::radians(75.0f), viewSize.width / (float)viewSize.height, 0.1f, 10.0f);
-			ubo.proj[1][1] *= -1;
+			ubo.view = camera.GetView();
+			ubo.proj = camera.GetProjection();
 
 			std::vector<void*>& mappedBuffers = m_uniformBuffersMappedArrays[id];
 			memcpy((uint8_t*)mappedBuffers[currentFrameIndex] + sizeof(glm::mat4), &ubo.view, sizeof(glm::mat4) * 2);
 
 			// Draw stuff
 
-			const vk::Pipeline& graphicsPipeline = m_pipelineLayouts[id]->GetGraphicsPipeline();
+			const PipelineLayout* pipelineLayout = static_cast<const PipelineLayout*>(m_shaders[id]);
+			const vk::Pipeline& graphicsPipeline = pipelineLayout->GetGraphicsPipeline();
 			commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
 			const std::vector<std::unique_ptr<Buffer>>& vertexBuffers = m_vertexBuffers[id];
@@ -544,7 +535,7 @@ namespace Engine::Rendering::Vulkan
 			commandBuffer.bindIndexBuffer(indexBuffer, indexOffset, vk::IndexType::eUint32);
 
 			const std::vector<vk::DescriptorSet>& descriptorSets = m_descriptorSetArrays[id];
-			commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayouts[id]->Get(), 0, descriptorSets[currentFrameIndex], nullptr);
+			commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout->Get(), 0, descriptorSets[currentFrameIndex], nullptr);
 
 			commandBuffer.drawIndexed(m_indexCounts[id], 1, 0, 0, 0);
 		}

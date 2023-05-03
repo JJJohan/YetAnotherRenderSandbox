@@ -21,6 +21,7 @@ namespace Engine::Rendering::Vulkan
 	{
 		vk::SamplerCreateInfo createInfo(vk::SamplerCreateFlags(), magFilter, minFilter, mipMapMode, addressMode,
 			addressMode, addressMode, 0.0f, maxAnisotropy > 0.0f, maxAnisotropy);
+		createInfo.maxLod = VK_LOD_CLAMP_NONE;
 
 		m_sampler = device.Get().createSamplerUnique(createInfo);
 		if (!m_sampler.get())

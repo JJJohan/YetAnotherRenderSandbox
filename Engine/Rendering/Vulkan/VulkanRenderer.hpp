@@ -41,6 +41,8 @@ namespace Engine::Rendering::Vulkan
 		virtual Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs);
 		virtual void DestroyShader(Shader* shader);
 
+		virtual void SetSampleCount(uint32_t sampleCount);
+
 		virtual MeshManager* GetMeshManager() const;
 
 	private:
@@ -48,6 +50,9 @@ namespace Engine::Rendering::Vulkan
 		bool CreateSyncObjects();
 		bool CreateAllocator();
 		bool RecreateSwapChain(const glm::uvec2& size);
+
+		vk::SampleCountFlagBits GetSampleCount(uint32_t sampleCount) const;
+		uint32_t SampleCountToInteger(vk::SampleCountFlagBits sampleCount) const;
 
 		std::unique_ptr<Debug> m_Debug;
 		std::unique_ptr<Device> m_device;
@@ -68,7 +73,7 @@ namespace Engine::Rendering::Vulkan
 
 		std::unique_ptr<VulkanMeshManager> m_meshManager;
 		std::vector<std::unique_ptr<PipelineLayout>> m_pipelineLayouts;
-		concurrency::concurrent_queue<std::function<void()>> m_actionQueue;
+		concurrency::concurrent_queue<std::function<bool()>> m_actionQueue;
 
 		std::thread m_renderThread;
 		bool m_running;

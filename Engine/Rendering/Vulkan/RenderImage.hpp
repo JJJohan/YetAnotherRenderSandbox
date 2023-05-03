@@ -14,17 +14,20 @@ namespace Engine::Rendering::Vulkan
 	public:
 		RenderImage(VmaAllocator allocator);
 		~RenderImage();
-		bool Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, vk::ImageTiling tiling,
+		bool Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, vk::SampleCountFlagBits sampleCount, bool mipMapped, vk::ImageTiling tiling,
 			vk::ImageUsageFlags imageUsage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode);
 		bool UpdateContents(const void* data, vk::DeviceSize size);
 		vk::UniqueCommandBuffer TransitionImageLayout(const Device& device, const CommandPool& commandPool, vk::ImageLayout newLayout);
+		vk::UniqueCommandBuffer GenerateMipmaps(const Device& device, const CommandPool& commandPool);
 		const VkImage& Get() const;
 		const vk::Extent3D& GetDimensions() const;
 		const vk::Format& GetFormat() const;
+		uint32_t GetMiplevels() const;
 
 	private:
 		vk::Format m_format;
 		VkImage m_image;
+		uint32_t m_mipLevels;
 		vk::Extent3D m_dimensions;
 		vk::ImageLayout m_layout;
 		VmaAllocation m_imageAlloc;

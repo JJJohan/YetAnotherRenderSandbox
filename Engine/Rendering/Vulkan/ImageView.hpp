@@ -11,7 +11,7 @@ namespace Engine::Rendering::Vulkan
 	public:
 		ImageView();
 		const vk::ImageView& Get() const;
-		bool Initialise(const Device& device, const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags);
+		bool Initialise(const Device& device, const vk::Image& image, uint32_t mipLevels, vk::Format format, vk::ImageAspectFlags aspectFlags);
 
 	private:
 		vk::UniqueImageView m_imageView;

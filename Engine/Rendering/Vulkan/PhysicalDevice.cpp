@@ -31,11 +31,24 @@ namespace Engine::Rendering::Vulkan
 	std::vector<const char*> PhysicalDevice::GetRequiredExtensions() const
 	{
 		return { VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME };
-	}	
-	
+	}
+
 	float PhysicalDevice::GetMaxAnisotropy() const
 	{
 		return m_deviceProperties.limits.maxSamplerAnisotropy;
+	}
+
+	vk::SampleCountFlagBits PhysicalDevice::GetMaxMultiSampleCount() const
+	{
+		vk::SampleCountFlags counts = m_deviceProperties.limits.framebufferColorSampleCounts & m_deviceProperties.limits.framebufferDepthSampleCounts;
+		if (counts & vk::SampleCountFlagBits::e64) { return vk::SampleCountFlagBits::e64; }
+		if (counts & vk::SampleCountFlagBits::e32) { return vk::SampleCountFlagBits::e32; }
+		if (counts & vk::SampleCountFlagBits::e16) { return vk::SampleCountFlagBits::e16; }
+		if (counts & vk::SampleCountFlagBits::e8) { return vk::SampleCountFlagBits::e8; }
+		if (counts & vk::SampleCountFlagBits::e4) { return vk::SampleCountFlagBits::e4; }
+		if (counts & vk::SampleCountFlagBits::e2) { return vk::SampleCountFlagBits::e2; }
+
+		return vk::SampleCountFlagBits::e1;
 	}
 
 	vk::Format PhysicalDevice::FindSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const
@@ -43,7 +56,7 @@ namespace Engine::Rendering::Vulkan
 		for (const vk::Format& format : candidates)
 		{
 			vk::FormatProperties props = m_physicalDevice.getFormatProperties(format);
-			if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features) 
+			if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features)
 			{
 				return format;
 			}
@@ -184,7 +197,7 @@ namespace Engine::Rendering::Vulkan
 		// Favour higher texture size limits.
 		score += deviceProperties.limits.maxImageDimension2D;
 
-		return DeviceCandidate { score, device, indices, swapChainSupport.value(), deviceProperties, deviceFeatures };
+		return DeviceCandidate{ score, device, indices, swapChainSupport.value(), deviceProperties, deviceFeatures };
 	}
 
 	bool PhysicalDevice::Initialise(const Instance& instance, const Surface& surface)

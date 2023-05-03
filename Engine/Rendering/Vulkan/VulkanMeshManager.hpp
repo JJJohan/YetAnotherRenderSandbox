@@ -12,6 +12,11 @@ namespace Engine
 	class Image;
 }
 
+namespace Engine::Rendering
+{
+	class Camera;
+}
+
 namespace Engine::Rendering::Vulkan
 {
 	class Buffer;
@@ -30,19 +35,11 @@ namespace Engine::Rendering::Vulkan
 	public:
 		VulkanMeshManager(const uint32_t maxConcurrentFrames);
 
-		virtual uint32_t CreateMesh(
-			const Shader* shader,
-			const std::vector<VertexData>& vertexData,
-			const std::vector<uint32_t>& indices,
-			const Colour& colour,
-			const glm::mat4& transform,
-			std::shared_ptr<Image> image);
-
 		virtual void DestroyMesh(uint32_t id);
 
 		bool Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool, float maxAnisotropy);
 
-		void Draw(const vk::CommandBuffer& commandBuffer, const vk::Extent2D& viewSize, uint32_t currentFrameIndex);
+		void Draw(const vk::CommandBuffer& commandBuffer, const Camera& camera, const vk::Extent2D& viewSize, uint32_t currentFrameIndex);
 
 		virtual void IncrementSize();
 
@@ -81,7 +78,5 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<std::unique_ptr<DescriptorPool>> m_descriptorPools;
 		std::vector<std::vector<vk::DescriptorSet>> m_descriptorSetArrays;
-
-		std::vector<const PipelineLayout*> m_pipelineLayouts;
 	};
 }

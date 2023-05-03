@@ -152,7 +152,7 @@ namespace Engine::Rendering::Vulkan
 		vk::Rect2D scissor(renderPassInfo.renderArea.offset, renderPassInfo.renderArea.extent);
 		commandBuffer.setScissor(0, 1, &scissor);
 
-		m_meshManager->Draw(commandBuffer, renderPassInfo.renderArea.extent, m_currentFrame);
+		m_meshManager->Draw(commandBuffer, m_camera, renderPassInfo.renderArea.extent, m_currentFrame);
 
 		commandBuffer.endRenderPass();
 		commandBuffer.end();
@@ -174,10 +174,11 @@ namespace Engine::Rendering::Vulkan
 				if (result == m_pipelineLayouts.end())
 				{
 					Logger::Error("Shader was not found.");
-					return;
+					return true; // not fatal
 				}
 
 				m_pipelineLayouts.erase(result);
+				return true;
 			});
 	}
 
@@ -233,6 +234,53 @@ namespace Engine::Rendering::Vulkan
 		return result == VK_SUCCESS;
 	}
 
+	void VulkanRenderer::SetSampleCount(uint32_t sampleCount)
+	{
+		uint32_t prevSampleCount = m_sampleCount;
+		Renderer::SetSampleCount(sampleCount);
+		if (m_sampleCount == prevSampleCount)
+		{
+			return;
+		}
+
+		m_actionQueue.push([this]()
+			{
+				const glm::uvec2 size = this->m_window.GetSize();
+				vk::SampleCountFlagBits sampleCount = GetSampleCount(m_sampleCount);
+
+				this->m_device->Get().waitIdle();
+
+				if  (!this->m_swapChain->Initialise(*this->m_physicalDevice, *this->m_device, *this->m_surface, this->m_allocator, size, sampleCount))
+				{
+					Logger::Error("Failed to recreate swapchain.");
+					return false;
+				}
+
+				if (!this->m_renderPass->Initialise(*this->m_physicalDevice, *this->m_device, *this->m_swapChain, this->m_swapChain->GetSampleCount()))
+				{
+					Logger::Error("Failed to recreate render pass.");
+					return false;
+				}
+
+				if (!this->m_swapChain->CreateFramebuffers(*this->m_device, *this->m_renderPass))
+				{
+					Logger::Error("Failed to recreate framebuffer.");
+					return false;
+				}
+
+				for (auto& layout : this->m_pipelineLayouts)
+				{
+					if (!layout->Rebuild(*this->m_device, *this->m_renderPass))
+					{
+						Logger::Error("Failed to rebuild pipeline layout '{}'.", layout->GetName());
+						return false;
+					}
+				}
+
+				return true;
+			});
+	}
+
 	bool VulkanRenderer::Initialise()
 	{
 		Logger::Verbose("Initialising Vulkan renderer...");
@@ -262,8 +310,8 @@ namespace Engine::Rendering::Vulkan
 			|| !m_physicalDevice->Initialise(*m_instance, *m_surface)
 			|| !m_device->Initialise(*m_physicalDevice)
 			|| !CreateAllocator()
-			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size)
-			|| !m_renderPass->Initialise(*m_physicalDevice, *m_device, *m_swapChain)
+			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size, GetSampleCount(m_sampleCount))
+			|| !m_renderPass->Initialise(*m_physicalDevice, *m_device, *m_swapChain, m_swapChain->GetSampleCount())
 			|| !m_swapChain->CreateFramebuffers(*m_device, *m_renderPass)
 			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eTransient)
 			|| !m_renderCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
@@ -271,6 +319,8 @@ namespace Engine::Rendering::Vulkan
 		{
 			return false;
 		}
+
+		m_maxSampleCount = SampleCountToInteger(m_physicalDevice->GetMaxMultiSampleCount());
 
 		m_renderCommandBuffers = m_renderCommandPool->CreateCommandBuffers(*m_device, m_maxConcurrentFrames);
 		if (m_renderCommandBuffers.empty())
@@ -284,13 +334,56 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
+	vk::SampleCountFlagBits VulkanRenderer::GetSampleCount(uint32_t sampleCount) const
+	{
+		switch (sampleCount)
+		{
+		case 64:
+			return vk::SampleCountFlagBits::e64;
+		case 32:
+			return vk::SampleCountFlagBits::e32;
+		case 16:
+			return vk::SampleCountFlagBits::e16;
+		case 8:
+			return vk::SampleCountFlagBits::e8;
+		case 4:
+			return vk::SampleCountFlagBits::e4;
+		case 2:
+			return vk::SampleCountFlagBits::e2;
+		default:
+			return vk::SampleCountFlagBits::e1;
+		}
+	}
+
+	uint32_t VulkanRenderer::SampleCountToInteger(vk::SampleCountFlagBits sampleCount) const
+	{
+		switch (sampleCount)
+		{
+		case vk::SampleCountFlagBits::e64:
+			return 64;
+		case vk::SampleCountFlagBits::e32:
+			return 32;
+		case vk::SampleCountFlagBits::e16:
+			return 16;
+		case vk::SampleCountFlagBits::e8:
+			return 8;
+		case vk::SampleCountFlagBits::e4:
+			return 4;
+		case vk::SampleCountFlagBits::e2:
+			return 2;
+		default:
+			return 1;
+		}
+	}
+
 	bool VulkanRenderer::RecreateSwapChain(const glm::uvec2& size)
 	{
+		vk::SampleCountFlagBits sampleCount = GetSampleCount(m_sampleCount);
 		m_device->Get().waitIdle();
 
 		m_swapChainOutOfDate = false;
 
-		return m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size)
+		return m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size, sampleCount)
 			&& m_swapChain->CreateFramebuffers(*m_device, *m_renderPass);
 	}
 
@@ -304,10 +397,14 @@ namespace Engine::Rendering::Vulkan
 		while (m_running)
 		{
 			// Exhaust action queue between frames.
-			std::function<void()> action;
+			std::function<bool()> action;
 			while (m_actionQueue.try_pop(action))
 			{
-				action();
+				if (!action())
+				{
+					Logger::Error("Queued render action failed, aborting render loop.");
+					return;
+				}
 			}
 
 			if (!m_meshManager->Update(m_allocator, *m_device, *m_resourceCommandPool, maxAnisotrophy))
@@ -357,6 +454,8 @@ namespace Engine::Rendering::Vulkan
 			}
 
 			m_renderCommandBuffers[m_currentFrame]->reset();
+
+			m_camera.Update(windowSize);
 
 			if (!RecordCommandBuffer(m_renderCommandBuffers[m_currentFrame].get(), imageIndex))
 			{

@@ -17,6 +17,13 @@ namespace Engine
 	{
 	}
 
+	Image::Image(const glm::uvec2& dimensions, uint32_t components, const std::vector<uint8_t>& pixels)
+		: m_pixels(pixels)
+		, m_size(dimensions)
+		, m_components(components)
+	{
+	}
+
 	bool Image::LoadFromFile(const std::string& filePath)
 	{
 		if (!std::filesystem::exists(filePath))

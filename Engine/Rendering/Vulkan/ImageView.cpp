@@ -16,9 +16,9 @@ namespace Engine::Rendering::Vulkan
 		return m_imageView.get();
 	}
 
-	bool ImageView::Initialise(const Device& device, const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags)
+	bool ImageView::Initialise(const Device& device, const vk::Image& image, uint32_t mipLevels, vk::Format format, vk::ImageAspectFlags aspectFlags)
 	{
-		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, 1, 0, 1);
+		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, mipLevels, 0, 1);
 
 		vk::ImageViewCreateInfo createInfo(vk::ImageViewCreateFlags(), image, vk::ImageViewType::e2D, format);
 		createInfo.setSubresourceRange(subResourceRange);

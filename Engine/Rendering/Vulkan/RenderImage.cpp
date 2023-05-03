@@ -15,6 +15,7 @@ namespace Engine::Rendering::Vulkan
 		, m_format(vk::Format::eUndefined)
 		, m_layout(vk::ImageLayout::eUndefined)
 		, m_dimensions()
+		, m_mipLevels(1)
 	{
 	}
 
@@ -45,14 +46,82 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool RenderImage::Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, vk::ImageTiling tiling,
+	vk::UniqueCommandBuffer RenderImage::GenerateMipmaps(const Device& device, const CommandPool& commandPool)
+	{
+		if (m_mipLevels == 1)
+		{
+			return TransitionImageLayout(device, commandPool, vk::ImageLayout::eShaderReadOnlyOptimal);
+		}
+
+		vk::UniqueCommandBuffer commandBuffer = commandPool.BeginResourceCommandBuffer(device);
+
+		vk::ImageMemoryBarrier barrier;
+		barrier.image = m_image;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.levelCount = 1;
+
+		vk::Extent3D mipDimensions = m_dimensions;
+		for (uint32_t i = 1; i < m_mipLevels; ++i)
+		{
+			barrier.subresourceRange.baseMipLevel = i - 1;
+			barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+			barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+			barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+			barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+
+			commandBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+				vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlagBits::eByRegion,
+				nullptr, nullptr, { barrier });
+
+			vk::ImageBlit blit;
+			blit.srcSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i - 1, 0, 1);
+			blit.srcOffsets = std::array<vk::Offset3D, 2> { vk::Offset3D(), vk::Offset3D(mipDimensions.width, mipDimensions.height, 1) };
+			blit.dstSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i, 0, 1);
+			blit.dstOffsets = std::array<vk::Offset3D, 2> { vk::Offset3D(), vk::Offset3D(mipDimensions.width > 1 ? mipDimensions.width / 2 : 1, mipDimensions.height > 1 ? mipDimensions.height / 2 : 1, 1) };
+
+			commandBuffer->blitImage(m_image, vk::ImageLayout::eTransferSrcOptimal, m_image, vk::ImageLayout::eTransferDstOptimal, { blit }, vk::Filter::eLinear);
+
+			barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
+			barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+			barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
+			barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+			commandBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+				vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlagBits::eByRegion,
+				nullptr, nullptr, { barrier });
+
+			if (mipDimensions.width > 1) mipDimensions.width /= 2;
+			if (mipDimensions.height > 1) mipDimensions.height /= 2;
+		}
+
+		barrier.subresourceRange.baseMipLevel = m_mipLevels - 1;
+		barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+		barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+		barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+		barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+		commandBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+			vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlagBits::eByRegion,
+			nullptr, nullptr, { barrier });
+
+		commandBuffer->end();
+
+		return commandBuffer;
+	}
+
+	bool RenderImage::Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, vk::SampleCountFlagBits sampleCount, bool mipMapped, vk::ImageTiling tiling,
 		vk::ImageUsageFlags imageUsage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode)
 	{
-		vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1;
 		m_format = format;
 		m_dimensions = dimensions;
 
-		vk::ImageCreateInfo RenderImageInfo(vk::ImageCreateFlags(), imageType, format, dimensions, 1, 1, samples, tiling, imageUsage, sharingMode);
+		m_mipLevels = mipMapped ? static_cast<uint32_t>(std::floor(std::log2(std::max(dimensions.width, m_dimensions.height)))) + 1 : 1;
+
+		vk::ImageCreateInfo RenderImageInfo(vk::ImageCreateFlags(), imageType, format, dimensions, m_mipLevels, 1, sampleCount, tiling, imageUsage, sharingMode);
 
 		VmaAllocationCreateInfo allocCreateInfo = {};
 		allocCreateInfo.usage = memoryUsage;
@@ -104,7 +173,7 @@ namespace Engine::Rendering::Vulkan
 			srcStage = vk::PipelineStageFlagBits::eTopOfPipe;
 			dstStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
 		}
-		else 
+		else
 		{
 			srcAccessMask = vk::AccessFlagBits::eNone;
 			dstAccessMask = vk::AccessFlagBits::eNone;
@@ -125,12 +194,12 @@ namespace Engine::Rendering::Vulkan
 					aspectFlags |= vk::ImageAspectFlagBits::eStencil;
 				}
 			}
-			else 
+			else
 			{
 				aspectFlags = vk::ImageAspectFlagBits::eColor;
 			}
 
-			vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, 1, 0, 1);
+			vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, 1);
 
 			vk::ImageMemoryBarrier barrier(srcAccessMask, dstAccessMask, m_layout, newLayout,
 				VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
@@ -157,5 +226,10 @@ namespace Engine::Rendering::Vulkan
 	const vk::Format& RenderImage::GetFormat() const
 	{
 		return m_format;
+	}
+
+	uint32_t RenderImage::GetMiplevels() const
+	{
+		return m_mipLevels;
 	}
 }
