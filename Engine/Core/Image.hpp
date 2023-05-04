@@ -19,10 +19,12 @@ namespace Engine
 		EXPORT const std::vector<uint8_t>& GetPixels() const;
 		EXPORT const glm::uvec2& GetSize() const;
 		EXPORT uint32_t GetComponentCount() const;
+		uint64_t GetHash() const;
 
 	private:
 		std::vector<uint8_t> m_pixels;
 		glm::uvec2 m_size;
 		uint32_t m_components;
+		uint64_t m_hash;
 	};
 }

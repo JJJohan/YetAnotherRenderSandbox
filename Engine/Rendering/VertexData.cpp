@@ -6,6 +6,7 @@ namespace Engine::Rendering
 		: m_data()
 		, m_elementCount(0)
 		, m_elementSize(0)
+		, m_hash(0)
 	{
 	}
 
@@ -22,5 +23,10 @@ namespace Engine::Rendering
 	uint32_t VertexData::GetElementSize() const
 	{
 		return m_elementSize;
+	}
+
+	uint64_t VertexData::GetHash() const
+	{
+		return m_hash;
 	}
 }

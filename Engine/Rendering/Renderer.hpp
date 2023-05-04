@@ -35,8 +35,8 @@ namespace Engine::Rendering
 		EXPORT void SetClearColour(const glm::vec4& colour);
 		EXPORT const glm::vec4& GetClearColor() const;
 
-		EXPORT virtual void SetSampleCount(uint32_t sampleCount);
-		EXPORT uint32_t GetMaxSampleCount() const;
+		EXPORT virtual void SetMultiSampleCount(uint32_t multiSampleCount);
+		EXPORT uint32_t GetMaxMultiSampleCount() const;
 
 		EXPORT void SetCamera(const Camera& camera);
 		EXPORT Camera& GetCamera();
@@ -50,8 +50,8 @@ namespace Engine::Rendering
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);
 
-		uint32_t m_sampleCount;
-		uint32_t m_maxSampleCount;
+		uint32_t m_multiSampleCount;
+		uint32_t m_maxMultiSampleCount;
 		const Engine::OS::Window& m_window;
 		bool m_debug;
 		Camera m_camera;

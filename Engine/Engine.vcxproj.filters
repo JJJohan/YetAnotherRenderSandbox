@@ -115,6 +115,9 @@
     <ClCompile Include="Rendering\Camera.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
+    <ClCompile Include="Core\Hash.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Macros.hpp">
@@ -215,6 +218,9 @@
     </ClInclude>
     <ClInclude Include="Rendering\Camera.hpp">
       <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Hash.hpp">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

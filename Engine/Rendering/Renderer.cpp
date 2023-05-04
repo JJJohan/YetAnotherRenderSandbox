@@ -16,8 +16,8 @@ namespace Engine::Rendering
 		, m_window(window)
 		, m_clearColour()
 		, m_camera()
-		, m_sampleCount(1)
-		, m_maxSampleCount(1)
+		, m_multiSampleCount(1)
+		, m_maxMultiSampleCount(1)
 	{
 	}
 
@@ -52,20 +52,20 @@ namespace Engine::Rendering
 		return nullptr;
 	}
 
-	void Renderer::SetSampleCount(uint32_t sampleCount)
+	void Renderer::SetMultiSampleCount(uint32_t multiSampleCount)
 	{
-		if (sampleCount > m_maxSampleCount)
+		if (multiSampleCount > m_maxMultiSampleCount)
 		{
-			Logger::Error("Sample count of {} exceeds maximum supported value of {}.", sampleCount, m_maxSampleCount);
+			Logger::Error("Sample count of {} exceeds maximum supported value of {}.", multiSampleCount, m_maxMultiSampleCount);
 			return;
 		}
 
-		m_sampleCount = std::clamp(sampleCount, 1U, m_maxSampleCount);
+		m_multiSampleCount = std::clamp(multiSampleCount, 1U, m_maxMultiSampleCount);
 	}
 
-	uint32_t Renderer::GetMaxSampleCount() const
+	uint32_t Renderer::GetMaxMultiSampleCount() const
 	{
-		return m_maxSampleCount;
+		return m_maxMultiSampleCount;
 	}
 
 	void Renderer::SetClearColour(const glm::vec4& clearColour)

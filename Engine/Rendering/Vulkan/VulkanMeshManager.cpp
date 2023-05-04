@@ -32,7 +32,74 @@ namespace Engine::Rendering::Vulkan
 		, m_uniformBuffersMappedArrays()
 		, m_descriptorPools()
 		, m_descriptorSetArrays()
+		, m_imageHashTable()
+		, m_vertexDataHashTable()
+		, m_indexDataHashTable()
+		, m_resourceFence()
+		, m_prevFrameBuffers()
+		, m_prevFrameCommandBuffers()
 	{
+	}
+
+	bool VulkanMeshManager::Initialise(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool, float maxAnisotropy)
+	{
+		m_resourceFence = device.Get().createFenceUnique(vk::FenceCreateInfo());
+
+		m_sampler = std::make_unique<ImageSampler>();
+		bool samplerInitialised = m_sampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear, vk::SamplerAddressMode::eRepeat, maxAnisotropy);
+		if (!samplerInitialised)
+		{
+			return false;
+		}
+
+		m_blankImage = std::make_shared<RenderImage>(allocator);
+		bool imageInitialised = m_blankImage->Initialise(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, vk::Extent3D(1, 1, 1), vk::SampleCountFlagBits::e1, false, vk::ImageTiling::eOptimal,
+			vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+			0,
+			vk::SharingMode::eExclusive);
+		if (!imageInitialised)
+		{
+			return false;
+		}
+
+		m_blankImageView = std::make_shared<ImageView>();
+		bool imageViewInitialised = m_blankImageView->Initialise(device, m_blankImage->Get(), 1, m_blankImage->GetFormat(), vk::ImageAspectFlagBits::eColor);
+		if (!imageViewInitialised)
+		{
+			return false;
+		}
+		
+		m_prevFrameCommandBuffers.emplace_back(m_blankImage->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eTransferDstOptimal));
+
+		Colour blankPixel = Colour();
+		if (!CreateImageStagingBuffer(allocator, device, resourceCommandPool, m_blankImage.get(), &blankPixel,
+			sizeof(uint32_t), m_prevFrameBuffers, m_prevFrameCommandBuffers))
+			return false;
+
+		m_prevFrameCommandBuffers.emplace_back(m_blankImage->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eShaderReadOnlyOptimal));
+
+		uint32_t resourceCommandCount = static_cast<uint32_t>(m_prevFrameCommandBuffers.size());
+		std::vector<vk::CommandBuffer> resourceCommandViews;
+		resourceCommandViews.resize(resourceCommandCount);
+		for (uint32_t i = 0; i < resourceCommandCount; ++i)
+		{
+			resourceCommandViews[i] = m_prevFrameCommandBuffers[i].get();
+		}
+
+		vk::SubmitInfo submitInfo;
+		submitInfo.commandBufferCount = resourceCommandCount;
+		submitInfo.pCommandBuffers = resourceCommandViews.data();
+
+		const vk::Queue& queue = device.GetGraphicsQueue();
+
+		vk::Result submitResult = queue.submit(1, &submitInfo, m_resourceFence.get());
+		if (submitResult != vk::Result::eSuccess)
+		{
+			return false;
+		}
+
+		return true;
 	}
 
 	void VulkanMeshManager::IncrementSize()
@@ -60,7 +127,7 @@ namespace Engine::Rendering::Vulkan
 
 	bool VulkanMeshManager::SetupVertexBuffers(VmaAllocator allocator, uint32_t id)
 	{
-		const std::vector<VertexData>& vertexData = m_vertexDataArrays[id];
+		const std::vector<std::shared_ptr<VertexData>>& vertexData = m_vertexDataArrays[id];
 		uint32_t vertexBufferCount = static_cast<uint32_t>(vertexData.size());
 		if (vertexBufferCount == 0)
 		{
@@ -68,22 +135,31 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		m_vertexCounts[id] = vertexData[0].GetCount();
-		m_vertexBuffers[id].reserve(vertexBufferCount);
+		m_vertexCounts[id] = vertexData[0]->GetCount();
+		m_vertexBuffers[id].resize(vertexBufferCount);
 
 		uint32_t index = 0;
 		for (const auto& data : vertexData)
 		{
-			uint32_t elementCount = data.GetCount();
+			uint32_t elementCount = data->GetCount();
 			if (elementCount != m_vertexCounts[id])
 			{
 				Logger::Error("Vertex count mismatch in provided vertex data.");
 				return false;
 			}
 
-			uint64_t bufferSize = static_cast<uint64_t>(data.GetElementSize()) * elementCount;
+			uint64_t hash = data->GetHash();
+			const auto& result = m_vertexDataHashTable.find(hash);
+			if (result != m_vertexDataHashTable.end())
+			{
+				m_vertexBuffers[id][index] = result->second.lock();
+				++index;
+				continue;
+			}
 
-			std::unique_ptr<Buffer> buffer = std::make_unique<Buffer>(allocator);
+			uint64_t bufferSize = static_cast<uint64_t>(data->GetElementSize()) * elementCount;
+
+			std::shared_ptr<Buffer> buffer = std::make_shared<Buffer>(allocator);
 			bool initialised = buffer->Initialise(bufferSize,
 				vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
 				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
@@ -96,7 +172,8 @@ namespace Engine::Rendering::Vulkan
 			}
 
 			m_vertexUpdateFlags[id] |= 1 << index;
-			m_vertexBuffers[id].push_back(std::move(buffer));
+			m_vertexBuffers[id][index] = std::move(buffer);
+			m_vertexDataHashTable[hash] = m_vertexBuffers[id][index];
 			++index;
 		}
 
@@ -105,11 +182,23 @@ namespace Engine::Rendering::Vulkan
 
 	bool VulkanMeshManager::SetupIndexBuffer(VmaAllocator allocator, uint32_t id)
 	{
-		const std::vector<uint32_t>& indices = m_indexArrays[id];
-		m_indexCounts[id] = static_cast<uint32_t>(indices.size());
+		const std::shared_ptr<std::vector<uint32_t>>& indices = m_indexArrays[id];
+		m_indexCounts[id] = static_cast<uint32_t>(indices->size());
+
+		uint64_t hash = Hash::CalculateHash(indices->data(), indices->size() * sizeof(uint32_t));
+		const auto& result = m_indexDataHashTable.find(hash);
+		if (result != m_indexDataHashTable.end())
+		{
+			m_indexBuffers[id] = result->second.lock();
+			m_updateFlags[id] = m_updateFlags[id] & ~(MeshUpdateFlagBits::Indices);
+			return true;
+		}
+
 		uint64_t indicesSize = static_cast<uint64_t>(sizeof(uint32_t) * m_indexCounts[id]);
 
-		m_indexBuffers[id] = std::make_unique<Buffer>(allocator);
+		m_indexBuffers[id] = std::make_shared<Buffer>(allocator);
+		m_indexDataHashTable[hash] = m_indexBuffers[id];
+
 		return m_indexBuffers[id]->Initialise(indicesSize,
 			vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
@@ -200,7 +289,7 @@ namespace Engine::Rendering::Vulkan
 			memcpy(static_cast<uint8_t*>(mappedBuffers[i]), &model, sizeof(glm::mat4));
 
 			// temporary - wasting space right now.
-			glm::vec4 colour(static_cast<float>(m_colours[id].R) / 255.0f, 
+			glm::vec4 colour(static_cast<float>(m_colours[id].R) / 255.0f,
 				static_cast<float>(m_colours[id].G) / 255.0f,
 				static_cast<float>(m_colours[id].B) / 255.0f,
 				static_cast<float>(m_colours[id].A) / 255.0f);
@@ -215,6 +304,16 @@ namespace Engine::Rendering::Vulkan
 		const std::shared_ptr<Image>& image = m_images[id];
 		if (image.get() == nullptr)
 		{
+			return true;
+		}
+
+		uint64_t hash = image->GetHash();
+		const auto& result = m_imageHashTable.find(hash);
+		if (result != m_imageHashTable.end())
+		{
+			m_renderImages[id] = result->second.first.lock();
+			m_renderImageViews[id] = result->second.second.lock();
+			m_updateFlags[id] = m_updateFlags[id] & ~(MeshUpdateFlagBits::Image);
 			return true;
 		}
 
@@ -237,7 +336,7 @@ namespace Engine::Rendering::Vulkan
 		const glm::uvec2& size = image->GetSize();
 		vk::Extent3D dimensions(size.x, size.y, 1);
 
-		m_renderImages[id] = std::make_unique<RenderImage>(allocator);
+		m_renderImages[id] = std::make_shared<RenderImage>(allocator);
 		bool imageInitialised = m_renderImages[id]->Initialise(vk::ImageType::e2D, format, dimensions, vk::SampleCountFlagBits::e1, true, vk::ImageTiling::eOptimal,
 			vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
@@ -249,18 +348,21 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		m_renderImageViews[id] = std::make_unique<ImageView>();
+		m_renderImageViews[id] = std::make_shared<ImageView>();
 		bool imageViewInitialised = m_renderImageViews[id]->Initialise(device, m_renderImages[id]->Get(), m_renderImages[id]->GetMiplevels(), m_renderImages[id]->GetFormat(), vk::ImageAspectFlagBits::eColor);
 		if (!imageViewInitialised)
 		{
 			return false;
 		}
 
+		m_imageHashTable[hash] = std::make_pair<std::weak_ptr<RenderImage>, std::weak_ptr<ImageView>>(m_renderImages[id], m_renderImageViews[id]);
 		return true;
 	}
 
 	bool VulkanMeshManager::CreateMeshResources(VmaAllocator allocator, const Device& device, uint32_t id, float maxAnisotropy)
 	{
+		m_updateFlags[id] = MeshUpdateFlagBits::All;
+
 		if (!SetupVertexBuffers(allocator, id)
 			|| !SetupIndexBuffer(allocator, id)
 			|| !SetupUniformBuffers(allocator, id)
@@ -290,7 +392,7 @@ namespace Engine::Rendering::Vulkan
 		m_descriptorSetArrays[id] = m_descriptorPools[id]->CreateDescriptorSets(device, layouts);
 
 		const std::vector<std::unique_ptr<Buffer>>& uniformBuffers = m_uniformBufferArrays[id];
-		const std::unique_ptr<ImageView>& imageView = m_renderImageViews[id].get() != nullptr ? m_renderImageViews[id] : m_blankImageView;
+		const std::shared_ptr<ImageView>& imageView = m_renderImageViews[id].get() != nullptr ? m_renderImageViews[id] : m_blankImageView;
 		const std::vector<vk::DescriptorSet>& descriptorSets = m_descriptorSetArrays[id];
 
 		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
@@ -314,7 +416,6 @@ namespace Engine::Rendering::Vulkan
 			device.Get().updateDescriptorSets(writeDescriptorSets, nullptr);
 		}
 
-		m_updateFlags[id] = MeshUpdateFlagBits::All;
 		return true;
 	}
 
@@ -327,46 +428,6 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::UniqueCommandBuffer> resourceCommands;
 		std::vector<std::unique_ptr<Buffer>> temporaryBuffers;
 		std::vector<uint32_t> toDelete;
-
-		if (m_sampler.get() == nullptr)
-		{
-			m_sampler = std::make_unique<ImageSampler>();
-			bool samplerInitialised = m_sampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear, vk::SamplerAddressMode::eRepeat, maxAnisotropy);
-			if (!samplerInitialised)
-			{
-				return false;
-			}
-		}
-
-		if (m_blankImage.get() == nullptr)
-		{
-			m_blankImage = std::make_unique<RenderImage>(allocator);
-			bool imageInitialised = m_blankImage->Initialise(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, vk::Extent3D(1, 1, 1), vk::SampleCountFlagBits::e1, false, vk::ImageTiling::eOptimal,
-				vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-				0,
-				vk::SharingMode::eExclusive);
-			if (!imageInitialised)
-			{
-				return false;
-			}
-
-			m_blankImageView = std::make_unique<ImageView>();
-			bool imageViewInitialised = m_blankImageView->Initialise(device, m_blankImage->Get(), 1, m_blankImage->GetFormat(), vk::ImageAspectFlagBits::eColor);
-			if (!imageViewInitialised)
-			{
-				return false;
-			}
-
-			resourceCommands.emplace_back(m_blankImage->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eTransferDstOptimal));
-
-			Colour blankPixel = Colour();
-			if (!CreateImageStagingBuffer(allocator, device, resourceCommandPool, m_blankImage.get(), &blankPixel,
-				sizeof(uint32_t), temporaryBuffers, resourceCommands))
-				return false;
-
-			resourceCommands.emplace_back(m_blankImage->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eShaderReadOnlyOptimal));
-		}
 
 		for (uint32_t id = 0; id < m_meshCapacity; ++id)
 		{
@@ -391,17 +452,17 @@ namespace Engine::Rendering::Vulkan
 
 			if ((updateBits & MeshUpdateFlagBits::VertexData) == MeshUpdateFlagBits::VertexData)
 			{
-				const std::vector<std::unique_ptr<Buffer>>& vertexBuffers = m_vertexBuffers[id];
-				const std::vector<VertexData>& vertexData = m_vertexDataArrays[id];
+				const std::vector<std::shared_ptr<Buffer>>& vertexBuffers = m_vertexBuffers[id];
+				const std::vector<std::shared_ptr<VertexData>>& vertexData = m_vertexDataArrays[id];
 				uint8_t vertexUpdateBits = m_vertexUpdateFlags[id];
 				for (uint32_t vertexBit = 0; vertexBit < 8; ++vertexBit)
 				{
 					if ((vertexUpdateBits & (1 << vertexBit)) != 0)
 					{
-						const std::unique_ptr<Buffer>& buffer = vertexBuffers[vertexBit];
-						const VertexData& data = vertexData[vertexBit];
-						if (!CreateStagingBuffer(allocator, device, resourceCommandPool, buffer.get(), data.GetData(),
-							static_cast<uint64_t>(data.GetElementSize()) * data.GetCount(), temporaryBuffers, resourceCommands))
+						const std::shared_ptr<Buffer>& buffer = vertexBuffers[vertexBit];
+						const std::shared_ptr<VertexData>& data = vertexData[vertexBit];
+						if (!CreateStagingBuffer(allocator, device, resourceCommandPool, buffer.get(), data->GetData(),
+							static_cast<uint64_t>(data->GetElementSize()) * data->GetCount(), temporaryBuffers, resourceCommands))
 							return false;
 					}
 				}
@@ -411,8 +472,8 @@ namespace Engine::Rendering::Vulkan
 
 			if ((updateBits & MeshUpdateFlagBits::Indices) == MeshUpdateFlagBits::Indices)
 			{
-				if (!CreateStagingBuffer(allocator, device, resourceCommandPool, m_indexBuffers[id].get(), m_indexArrays[id].data(),
-					static_cast<uint64_t>(m_indexArrays[id].size()) * sizeof(uint32_t), temporaryBuffers, resourceCommands))
+				if (!CreateStagingBuffer(allocator, device, resourceCommandPool, m_indexBuffers[id].get(), m_indexArrays[id]->data(),
+					static_cast<uint64_t>(m_indexArrays[id]->size()) * sizeof(uint32_t), temporaryBuffers, resourceCommands))
 					return false;
 			}
 
@@ -447,14 +508,17 @@ namespace Engine::Rendering::Vulkan
 			m_updateFlags[id] = MeshUpdateFlagBits::None;
 		}
 
-		const vk::Queue& queue = device.GetGraphicsQueue();
-
-		if (!toDelete.empty())
+		if (!m_prevFrameBuffers.empty() || !m_prevFrameCommandBuffers.empty() || !m_idsToDelete.empty())
 		{
-			queue.waitIdle(); // boo
-			for (uint32_t id : toDelete)
+			if (deviceImp.waitForFences(1, &m_resourceFence.get(), true, UINT64_MAX) != vk::Result::eSuccess)
 			{
-				m_vertexCounts[id] = 0;
+				return false;
+			}
+
+			m_prevFrameBuffers.clear();
+			m_prevFrameCommandBuffers.clear();
+			for (uint32_t id : m_idsToDelete)
+			{
 				m_vertexBuffers[id].clear();
 				m_indexBuffers[id].reset();
 				m_uniformBufferArrays[id].clear();
@@ -462,6 +526,20 @@ namespace Engine::Rendering::Vulkan
 				m_descriptorPools[id].reset();
 				m_descriptorSetArrays[id].clear();
 			}
+			m_idsToDelete.clear();
+
+			if (deviceImp.resetFences(1, &m_resourceFence.get()) != vk::Result::eSuccess)
+			{
+				return false;
+			}
+		}
+
+		const vk::Queue& queue = device.GetGraphicsQueue();
+
+		m_idsToDelete.append_range(toDelete);
+		for (uint32_t id : toDelete)
+		{
+			m_vertexCounts[id] = 0;
 		}
 
 		uint32_t resourceCommandCount = static_cast<uint32_t>(resourceCommands.size());
@@ -481,13 +559,21 @@ namespace Engine::Rendering::Vulkan
 		submitInfo.commandBufferCount = resourceCommandCount;
 		submitInfo.pCommandBuffers = resourceCommandViews.data();
 
-		vk::Result submitResult = queue.submit(1, &submitInfo, nullptr);
+		vk::Result submitResult = queue.submit(1, &submitInfo, m_resourceFence.get());
 		if (submitResult != vk::Result::eSuccess)
 		{
 			return false;
 		}
 
-		queue.waitIdle(); // boo
+		for (auto& command : resourceCommands)
+		{
+			m_prevFrameCommandBuffers.push_back(std::move(command));
+		}
+
+		for (auto& buffer : temporaryBuffers)
+		{
+			m_prevFrameBuffers.push_back(std::move(buffer));
+		}
 
 		return true;
 	}
@@ -516,7 +602,7 @@ namespace Engine::Rendering::Vulkan
 			const vk::Pipeline& graphicsPipeline = pipelineLayout->GetGraphicsPipeline();
 			commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
-			const std::vector<std::unique_ptr<Buffer>>& vertexBuffers = m_vertexBuffers[id];
+			const std::vector<std::shared_ptr<Buffer>>& vertexBuffers = m_vertexBuffers[id];
 			uint32_t vertexBufferCount = static_cast<uint32_t>(vertexBuffers.size());
 
 			std::vector<vk::DeviceSize> vertexBufferOffsets;

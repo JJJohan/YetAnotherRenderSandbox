@@ -8,6 +8,7 @@
 #include <vector>
 #include <stack>
 #include <mutex>
+#include <unordered_map>
 
 namespace Engine::Rendering
 {
@@ -31,6 +32,11 @@ namespace Engine::Rendering
 	inline MeshUpdateFlagBits operator&(MeshUpdateFlagBits lhs, MeshUpdateFlagBits rhs)
 	{
 		return static_cast<MeshUpdateFlagBits>(static_cast<uint8_t>(lhs) & static_cast<uint8_t>(rhs));
+	}
+
+	inline MeshUpdateFlagBits operator~(MeshUpdateFlagBits bits)
+	{
+		return static_cast<MeshUpdateFlagBits>(~static_cast<uint8_t>(bits));
 	}
 
 	class MeshManager
@@ -74,11 +80,16 @@ namespace Engine::Rendering
 		std::vector<uint8_t> m_vertexUpdateFlags;
 		uint32_t m_meshCapacity;
 
-		std::vector<std::vector<VertexData>> m_vertexDataArrays;
-		std::vector<std::vector<uint32_t>> m_indexArrays;
+		std::vector<std::vector<std::shared_ptr<VertexData>>> m_vertexDataArrays;
+		std::vector<std::shared_ptr<std::vector<uint32_t>>> m_indexArrays;
 		std::vector<const Shader*> m_shaders;
 		std::vector<Colour> m_colours;
 		std::vector<glm::mat4> m_transforms;
 		std::vector<std::shared_ptr<Image>> m_images;
+
+	private:
+		std::unordered_map<uint64_t, std::weak_ptr<Image>> m_imageHashTable;
+		std::unordered_map<uint64_t, std::weak_ptr<VertexData>> m_vertexDataHashTable;
+		std::unordered_map<uint64_t, std::weak_ptr<std::vector<uint32_t>>> m_indexDataHashTable;
 	};
 }

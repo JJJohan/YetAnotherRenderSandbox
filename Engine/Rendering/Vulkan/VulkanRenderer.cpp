@@ -234,11 +234,11 @@ namespace Engine::Rendering::Vulkan
 		return result == VK_SUCCESS;
 	}
 
-	void VulkanRenderer::SetSampleCount(uint32_t sampleCount)
+	void VulkanRenderer::SetMultiSampleCount(uint32_t multiSampleCount)
 	{
-		uint32_t prevSampleCount = m_sampleCount;
-		Renderer::SetSampleCount(sampleCount);
-		if (m_sampleCount == prevSampleCount)
+		uint32_t prevMultiSampleCount = m_multiSampleCount;
+		Renderer::SetMultiSampleCount(multiSampleCount);
+		if (m_multiSampleCount == prevMultiSampleCount)
 		{
 			return;
 		}
@@ -246,11 +246,11 @@ namespace Engine::Rendering::Vulkan
 		m_actionQueue.push([this]()
 			{
 				const glm::uvec2 size = this->m_window.GetSize();
-				vk::SampleCountFlagBits sampleCount = GetSampleCount(m_sampleCount);
+				vk::SampleCountFlagBits multiSampleCount = GetMultiSampleCount(m_multiSampleCount);
 
 				this->m_device->Get().waitIdle();
 
-				if  (!this->m_swapChain->Initialise(*this->m_physicalDevice, *this->m_device, *this->m_surface, this->m_allocator, size, sampleCount))
+				if  (!this->m_swapChain->Initialise(*this->m_physicalDevice, *this->m_device, *this->m_surface, this->m_allocator, size, multiSampleCount))
 				{
 					Logger::Error("Failed to recreate swapchain.");
 					return false;
@@ -285,6 +285,8 @@ namespace Engine::Rendering::Vulkan
 	{
 		Logger::Verbose("Initialising Vulkan renderer...");
 
+		static auto startTime = std::chrono::high_resolution_clock::now();
+
 		static vk::DynamicLoader dl;
 		auto vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
 		VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
@@ -310,7 +312,7 @@ namespace Engine::Rendering::Vulkan
 			|| !m_physicalDevice->Initialise(*m_instance, *m_surface)
 			|| !m_device->Initialise(*m_physicalDevice)
 			|| !CreateAllocator()
-			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size, GetSampleCount(m_sampleCount))
+			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size, GetMultiSampleCount(m_multiSampleCount))
 			|| !m_renderPass->Initialise(*m_physicalDevice, *m_device, *m_swapChain, m_swapChain->GetSampleCount())
 			|| !m_swapChain->CreateFramebuffers(*m_device, *m_renderPass)
 			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eTransient)
@@ -320,7 +322,7 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		m_maxSampleCount = SampleCountToInteger(m_physicalDevice->GetMaxMultiSampleCount());
+		m_maxMultiSampleCount = MultiSampleCountToInteger(m_physicalDevice->GetMaxMultiSampleCount());
 
 		m_renderCommandBuffers = m_renderCommandPool->CreateCommandBuffers(*m_device, m_maxConcurrentFrames);
 		if (m_renderCommandBuffers.empty())
@@ -328,15 +330,24 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
+		if (!m_meshManager->Initialise(m_allocator, *m_device, *m_resourceCommandPool, m_physicalDevice->GetMaxAnisotropy()))
+		{
+			return false;
+		}
+
+		static auto endTime = std::chrono::high_resolution_clock::now();
+		float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
+		Logger::Verbose("Renderer setup finished in {}ms.", deltaTime);
+
 		m_running = true;
 		m_renderThread = std::thread([this]() { this->Render(); });
 
 		return true;
 	}
 
-	vk::SampleCountFlagBits VulkanRenderer::GetSampleCount(uint32_t sampleCount) const
+	vk::SampleCountFlagBits VulkanRenderer::GetMultiSampleCount(uint32_t multiSampleCount) const
 	{
-		switch (sampleCount)
+		switch (multiSampleCount)
 		{
 		case 64:
 			return vk::SampleCountFlagBits::e64;
@@ -355,9 +366,9 @@ namespace Engine::Rendering::Vulkan
 		}
 	}
 
-	uint32_t VulkanRenderer::SampleCountToInteger(vk::SampleCountFlagBits sampleCount) const
+	uint32_t VulkanRenderer::MultiSampleCountToInteger(vk::SampleCountFlagBits multiSampleCount) const
 	{
-		switch (sampleCount)
+		switch (multiSampleCount)
 		{
 		case vk::SampleCountFlagBits::e64:
 			return 64;
@@ -378,12 +389,12 @@ namespace Engine::Rendering::Vulkan
 
 	bool VulkanRenderer::RecreateSwapChain(const glm::uvec2& size)
 	{
-		vk::SampleCountFlagBits sampleCount = GetSampleCount(m_sampleCount);
+		vk::SampleCountFlagBits multiSampleCount = GetMultiSampleCount(m_multiSampleCount);
 		m_device->Get().waitIdle();
 
 		m_swapChainOutOfDate = false;
 
-		return m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size, sampleCount)
+		return m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size, multiSampleCount)
 			&& m_swapChain->CreateFramebuffers(*m_device, *m_renderPass);
 	}
 

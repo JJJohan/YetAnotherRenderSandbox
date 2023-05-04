@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Macros.hpp"
+#include "Core/Hash.hpp"
 #include <vector>
 
 namespace Engine::Rendering
@@ -17,6 +18,7 @@ namespace Engine::Rendering
 		{
 			m_data.resize(m_elementSize * data.size());
 			memcpy(m_data.data(), data.begin(), m_elementSize * data.size()); // Is this avoidable without overly complex templating?
+			m_hash = Hash::CalculateHash(m_data);
 		}
 
 		template <typename T>
@@ -26,13 +28,16 @@ namespace Engine::Rendering
 		{
 			m_data.resize(m_elementSize * data.size());
 			memcpy(m_data.data(), data.data(), m_elementSize * data.size());
+			m_hash = Hash::CalculateHash(m_data);
 		}
 
 		const void* GetData() const;
 		uint32_t GetCount() const;
 		uint32_t GetElementSize() const;
+		uint64_t GetHash() const;
 
 	private:
+		uint64_t m_hash;
 		uint32_t m_elementCount;
 		uint32_t m_elementSize;
 		std::vector<uint8_t> m_data;

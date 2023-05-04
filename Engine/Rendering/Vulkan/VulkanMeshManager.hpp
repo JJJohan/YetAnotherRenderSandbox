@@ -37,6 +37,8 @@ namespace Engine::Rendering::Vulkan
 
 		virtual void DestroyMesh(uint32_t id);
 
+		bool Initialise(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool, float maxAnisotropy);
+
 		bool Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool, float maxAnisotropy);
 
 		void Draw(const vk::CommandBuffer& commandBuffer, const Camera& camera, const vk::Extent2D& viewSize, uint32_t currentFrameIndex);
@@ -64,13 +66,18 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<uint32_t> m_vertexCounts;
 		std::vector<uint32_t> m_indexCounts;
-		std::unique_ptr<RenderImage> m_blankImage;
-		std::unique_ptr<ImageView> m_blankImageView;
+		std::shared_ptr<RenderImage> m_blankImage;
+		std::shared_ptr<ImageView> m_blankImageView;
 
-		std::vector<std::vector<std::unique_ptr<Buffer>>> m_vertexBuffers;
-		std::vector<std::unique_ptr<Buffer>> m_indexBuffers;
-		std::vector<std::unique_ptr<RenderImage>> m_renderImages;
-		std::vector<std::unique_ptr<ImageView>> m_renderImageViews;
+		vk::UniqueFence m_resourceFence;
+		std::vector<vk::UniqueCommandBuffer> m_prevFrameCommandBuffers;
+		std::vector<std::unique_ptr<Buffer>> m_prevFrameBuffers;
+		std::vector<uint32_t> m_idsToDelete;
+
+		std::vector<std::vector<std::shared_ptr<Buffer>>> m_vertexBuffers;
+		std::vector<std::shared_ptr<Buffer>> m_indexBuffers;
+		std::vector<std::shared_ptr<RenderImage>> m_renderImages;
+		std::vector<std::shared_ptr<ImageView>> m_renderImageViews;
 		std::unique_ptr<ImageSampler> m_sampler;
 
 		std::vector<std::vector<std::unique_ptr<Buffer>>> m_uniformBufferArrays;
@@ -78,5 +85,9 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<std::unique_ptr<DescriptorPool>> m_descriptorPools;
 		std::vector<std::vector<vk::DescriptorSet>> m_descriptorSetArrays;
+
+		std::unordered_map<uint64_t, std::pair<std::weak_ptr<RenderImage>, std::weak_ptr<ImageView>>> m_imageHashTable;
+		std::unordered_map<uint64_t, std::weak_ptr<Buffer>> m_vertexDataHashTable;
+		std::unordered_map<uint64_t, std::weak_ptr<Buffer>> m_indexDataHashTable;
 	};
 }

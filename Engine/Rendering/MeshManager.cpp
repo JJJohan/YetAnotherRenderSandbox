@@ -24,6 +24,8 @@ namespace Engine::Rendering
 		, m_colours()
 		, m_transforms()
 		, m_images()
+		, m_vertexDataHashTable()
+		, m_imageHashTable()
 	{
 	}
 
@@ -49,11 +51,54 @@ namespace Engine::Rendering
 		}
 
 		m_shaders[id] = shader;
-		m_vertexDataArrays[id] = vertexData;
-		m_indexArrays[id] = indices;
 		m_colours[id] = colour;
 		m_transforms[id] = transform;
-		m_images[id] = image;
+
+		uint64_t hash = Hash::CalculateHash(indices.data(), indices.size() * sizeof(uint32_t));
+		const auto& result = m_indexDataHashTable.find(hash);
+		if (result != m_indexDataHashTable.cend())
+		{
+			m_indexArrays[id] = result->second.lock();
+		}
+		else
+		{
+			m_indexArrays[id] = std::make_shared<std::vector<uint32_t>>(indices);
+			m_indexDataHashTable[hash] = m_indexArrays[id];
+		}
+
+		std::vector<std::shared_ptr<VertexData>> localVertexData;
+		localVertexData.reserve(vertexData.size());
+		for (const auto& vertices : vertexData)
+		{
+			uint64_t hash = vertices.GetHash();
+			const auto& result = m_vertexDataHashTable.find(hash);
+			if (result != m_vertexDataHashTable.cend())
+			{
+				localVertexData.push_back(result->second.lock());
+			}
+			else
+			{
+				const std::shared_ptr<VertexData>& inserted = localVertexData.emplace_back(std::make_shared<VertexData>(vertices));
+				m_vertexDataHashTable[hash] = inserted;
+			}
+		}
+		m_vertexDataArrays[id] = localVertexData;
+
+		if (image.get() != nullptr)
+		{
+			uint64_t hash = image->GetHash();
+			const auto& result = m_imageHashTable.find(hash);
+			if (result != m_imageHashTable.cend())
+			{
+				m_images[id] = result->second.lock();
+			}
+			else
+			{
+				m_images[id] = image;
+				m_imageHashTable[hash] = m_images[id];
+			}
+		}
+
 		m_updateFlags[id] = MeshUpdateFlagBits::None; // Creation will update everything.
 		m_vertexUpdateFlags[id] = 0;
 
@@ -141,39 +186,59 @@ namespace Engine::Rendering
 
 	void MeshManager::SetVertexData(uint32_t id, uint32_t slot, const VertexData& data)
 	{
-		std::vector<VertexData>& vertexBuffers = m_vertexDataArrays[id];
+		std::vector<std::shared_ptr<VertexData>>& vertexBuffers = m_vertexDataArrays[id];
 		if (slot >= vertexBuffers.size())
 		{
 			Logger::Error("Index out of range.");
 			return;
 		}
 
-		vertexBuffers[slot] = data;
-		m_updateFlags[id] = m_updateFlags[id] | MeshUpdateFlagBits::VertexData;
-		m_vertexUpdateFlags[id] |= 1 << slot;
+		uint64_t hash = data.GetHash();
+		const auto& result = m_vertexDataHashTable.find(hash);
+		if (result != m_vertexDataHashTable.cend())
+		{
+			vertexBuffers[slot] = result->second.lock();
+		}
+		else
+		{
+			vertexBuffers[slot] = std::make_shared<VertexData>(data);
+			m_vertexDataHashTable[hash] = vertexBuffers[slot];
+			m_updateFlags[id] = m_updateFlags[id] | MeshUpdateFlagBits::VertexData;
+			m_vertexUpdateFlags[id] |= 1 << slot;
+		}
 	}
 
 	const VertexData& MeshManager::GetVertexData(uint32_t id, uint32_t slot) const
 	{
-		const std::vector<VertexData>& vertexBuffers = m_vertexDataArrays[id];
+		const std::vector<std::shared_ptr<VertexData>>& vertexBuffers = m_vertexDataArrays[id];
 		if (slot >= vertexBuffers.size())
 		{
 			Logger::Error("Index out of range.");
 			throw new std::out_of_range("Index out of range.");
 		}
 
-		return vertexBuffers[id];
+		return *vertexBuffers[id];
 	}
 
 	void MeshManager::SetIndices(uint32_t id, const std::vector<uint32_t>& indices)
 	{
-		m_indexArrays[id] = indices;
-		m_updateFlags[id] = m_updateFlags[id] | MeshUpdateFlagBits::Indices;
+		uint64_t hash = Hash::CalculateHash(indices.data(), indices.size() * sizeof(uint32_t));
+		const auto& result = m_indexDataHashTable.find(hash);
+		if (result != m_indexDataHashTable.cend())
+		{
+			m_indexArrays[id] = result->second.lock();
+		}
+		else
+		{
+			m_indexArrays[id] = std::make_shared<std::vector<uint32_t>>(indices);
+			m_indexDataHashTable[hash] = m_indexArrays[id];
+			m_updateFlags[id] = m_updateFlags[id] | MeshUpdateFlagBits::Indices;
+		}
 	}
 
 	const std::vector<uint32_t>& MeshManager::GetIndices(uint32_t id) const
 	{
-		return m_indexArrays[id];
+		return *m_indexArrays[id];
 	}
 
 	void MeshManager::SetColour(uint32_t id, const Colour& colour)

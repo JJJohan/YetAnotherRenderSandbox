@@ -266,6 +266,8 @@ namespace Engine::Rendering
 			return false;
 		}
 
+		static auto parseStartTime = std::chrono::high_resolution_clock::now();
+
 		std::string err, warn;
 		tinygltf::Model model;
 		tinygltf::TinyGLTF loader;
@@ -287,6 +289,18 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		return BindModel(model, meshManager, shader, results);
+		static auto parseEndTime = std::chrono::high_resolution_clock::now();
+		float parseDeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(parseEndTime - parseStartTime).count();
+		Logger::Verbose("GLTF file parsed in {}ms.", parseDeltaTime);
+
+		static auto loadStartTime = std::chrono::high_resolution_clock::now();
+
+		bool result = BindModel(model, meshManager, shader, results);
+
+		static auto loadEndTime = std::chrono::high_resolution_clock::now();
+		float loadDeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(loadEndTime - loadStartTime).count();
+		Logger::Verbose("GLTF file loaded in {}ms.", loadDeltaTime);
+
+		return result;
 	}
 }

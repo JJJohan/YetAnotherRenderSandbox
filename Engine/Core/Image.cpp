@@ -1,8 +1,7 @@
-#pragma once
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "Image.hpp"
 #include "Logging/Logger.hpp"
+#include "Hash.hpp"
 #include <filesystem>
 #include <stb_image.h>
 
@@ -14,6 +13,7 @@ namespace Engine
 		: m_pixels()
 		, m_size()
 		, m_components(0)
+		, m_hash(0)
 	{
 	}
 
@@ -21,6 +21,7 @@ namespace Engine
 		: m_pixels(pixels)
 		, m_size(dimensions)
 		, m_components(components)
+		, m_hash(Hash::CalculateHash(pixels))
 	{
 	}
 
@@ -49,6 +50,8 @@ namespace Engine
 
 		stbi_image_free(image);
 
+		m_hash = Hash::CalculateHash(m_pixels);
+
 		return true;
 	}
 
@@ -71,5 +74,10 @@ namespace Engine
 	uint32_t Image::GetComponentCount() const
 	{
 		return m_components;
+	}
+
+	uint64_t Image::GetHash() const
+	{
+		return m_hash;
 	}
 }

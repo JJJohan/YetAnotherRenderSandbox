@@ -49,13 +49,15 @@ int main()
 	std::unique_ptr<Window> window = Window::Create("Test", glm::uvec2(1280, 720), false);
 	std::unique_ptr<Renderer> renderer = Renderer::Create(RendererType::VULKAN, *window, debug);
 
-	renderer->SetClearColour(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-
 	if (!renderer || !renderer->Initialise())
 	{
 		Logger::Error("Failed to initialise renderer.");
 		return 1;
 	}
+
+	uint32_t multiSampleCount = 4;
+	renderer->SetClearColour(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	renderer->SetMultiSampleCount(multiSampleCount);
 
 	Shader* shader = renderer->CreateShader("Triangle", {
 		{ ShaderProgramType::VERTEX, "Shaders/Triangle_vert.spv" },
@@ -86,8 +88,6 @@ int main()
 	static auto startTime = std::chrono::high_resolution_clock::now();
 	static auto prevTime = startTime;
 
-	uint32_t sampleCount = 1;
-
 	while (!window->IsClosed())
 	{
 		auto currentTime = std::chrono::high_resolution_clock::now();
@@ -95,14 +95,14 @@ int main()
 
 		if (window->InputState.KeyDown(KeyCode::X))
 		{
-			sampleCount *= 2;
-			if (sampleCount > renderer->GetMaxSampleCount())
+			multiSampleCount *= 2;
+			if (multiSampleCount > renderer->GetMaxMultiSampleCount())
 			{
-				sampleCount = 1;
+				multiSampleCount = 1;
 			}
 
-			renderer->SetSampleCount(sampleCount);
-			Logger::Info("Set multisample count to {}.", sampleCount);
+			renderer->SetMultiSampleCount(multiSampleCount);
+			Logger::Info("Set multisample count to {}.", multiSampleCount);
 		}
 
 		if (window->InputState.KeyPressed(KeyCode::W))

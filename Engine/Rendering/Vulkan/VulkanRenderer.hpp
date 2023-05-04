@@ -41,7 +41,7 @@ namespace Engine::Rendering::Vulkan
 		virtual Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs);
 		virtual void DestroyShader(Shader* shader);
 
-		virtual void SetSampleCount(uint32_t sampleCount);
+		virtual void SetMultiSampleCount(uint32_t sampleCount);
 
 		virtual MeshManager* GetMeshManager() const;
 
@@ -51,8 +51,8 @@ namespace Engine::Rendering::Vulkan
 		bool CreateAllocator();
 		bool RecreateSwapChain(const glm::uvec2& size);
 
-		vk::SampleCountFlagBits GetSampleCount(uint32_t sampleCount) const;
-		uint32_t SampleCountToInteger(vk::SampleCountFlagBits sampleCount) const;
+		vk::SampleCountFlagBits GetMultiSampleCount(uint32_t sampleCount) const;
+		uint32_t MultiSampleCountToInteger(vk::SampleCountFlagBits sampleCount) const;
 
 		std::unique_ptr<Debug> m_Debug;
 		std::unique_ptr<Device> m_device;
