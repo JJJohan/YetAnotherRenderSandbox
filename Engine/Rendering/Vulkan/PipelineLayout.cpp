@@ -5,6 +5,7 @@
 #include "OS/Files.hpp"
 #include <filesystem>
 #include <glm/glm.hpp>
+#include "MeshPushConstants.hpp"
 
 using namespace Engine::Logging;
 using namespace Engine::OS;
@@ -169,13 +170,16 @@ namespace Engine::Rendering::Vulkan
 		colorBlending.attachmentCount = 1;
 		colorBlending.pAttachments = &colorBlendAttachment;
 
+		// Setup push constants - currently hard-coded..
+		vk::PushConstantRange pushconstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(MeshPushConstants));
+
 		// Pipeline layout
 		std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = GetDescriptorSetLayouts();
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
 		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
-		pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
-		pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
+		pipelineLayoutInfo.pushConstantRangeCount = 1;
+		pipelineLayoutInfo.pPushConstantRanges = &pushconstantRange;
 
 		m_pipelineLayout = deviceImp.createPipelineLayoutUnique(pipelineLayoutInfo);
 		if (!m_pipelineLayout.get())

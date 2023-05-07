@@ -28,6 +28,7 @@ namespace Engine::Rendering::Vulkan
 	class Framebuffer;
 	class CommandPool;
 	class VulkanMeshManager;
+	class Buffer;
 
 	class VulkanRenderer : public Renderer
 	{
@@ -50,6 +51,7 @@ namespace Engine::Rendering::Vulkan
 		bool CreateSyncObjects();
 		bool CreateAllocator();
 		bool RecreateSwapChain(const glm::uvec2& size);
+		bool CreateFrameInfoUniformBuffer();
 
 		vk::SampleCountFlagBits GetMultiSampleCount(uint32_t sampleCount) const;
 		uint32_t MultiSampleCountToInteger(vk::SampleCountFlagBits sampleCount) const;
@@ -65,6 +67,9 @@ namespace Engine::Rendering::Vulkan
 
 		std::unique_ptr<CommandPool> m_resourceCommandPool;
 		std::unique_ptr<CommandPool> m_renderCommandPool;
+
+		std::vector<std::unique_ptr<Buffer>> m_frameInfoBuffers;
+		std::vector<void*> m_frameInfoBufferData;
 
 		std::vector<vk::UniqueCommandBuffer> m_renderCommandBuffers;
 		std::vector<vk::UniqueSemaphore> m_imageAvailableSemaphores;

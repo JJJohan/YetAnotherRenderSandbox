@@ -37,6 +37,7 @@ namespace Engine::Rendering
 		EXPORT const glm::mat4& GetView() const;
 
 		EXPORT const glm::mat4& GetProjection() const;
+		EXPORT const glm::mat4& GetViewProjection() const;
 
 		void Update(const glm::uvec2& dimensions);
 
@@ -44,6 +45,7 @@ namespace Engine::Rendering
 		void UpdateProjection();
 		void UpdateView();
 
+		glm::mat4 m_viewProj;
 		glm::mat4 m_view;
 		glm::vec3 m_position;
 		glm::quat m_rotation;

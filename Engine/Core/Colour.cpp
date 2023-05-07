@@ -12,4 +12,9 @@ namespace Engine
 		B = static_cast<uint8_t>(std::clamp(b, 0.0f, 1.0f) * 255.0f);
 		A = static_cast<uint8_t>(std::clamp(a, 0.0f, 1.0f) * 255.0f);
 	}
+
+	glm::vec4 Colour::GetVec4() const
+	{
+		return glm::vec4(static_cast<float>(R) / 255.0f, static_cast<float>(G) / 255.0f, static_cast<float>(B) / 255.0f, static_cast<float>(A) / 255.0f);
+	}
 }

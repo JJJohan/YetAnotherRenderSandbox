@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 #include "../MeshManager.hpp"
+#include "MeshPushConstants.hpp"
 #include <memory>
 
 struct VmaAllocator_T;
@@ -39,18 +40,19 @@ namespace Engine::Rendering::Vulkan
 
 		bool Initialise(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool, float maxAnisotropy);
 
-		bool Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool, float maxAnisotropy);
+		bool Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool, 
+			const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers, float maxAnisotropy);
 
-		void Draw(const vk::CommandBuffer& commandBuffer, const Camera& camera, const vk::Extent2D& viewSize, uint32_t currentFrameIndex);
+		void Draw(const vk::CommandBuffer& commandBuffer, const vk::Extent2D& viewSize, uint32_t currentFrameIndex);
 
 		virtual void IncrementSize();
 
 	private:
 		bool SetupVertexBuffers(VmaAllocator allocator, uint32_t id);
 		bool SetupIndexBuffer(VmaAllocator allocator, uint32_t id);
-		bool SetupUniformBuffers(VmaAllocator allocator, uint32_t id);
 		bool SetupRenderImage(VmaAllocator allocator, const Device& device, uint32_t id, float maxAnisotropy);
-		bool CreateMeshResources(VmaAllocator allocator, const Device& device, uint32_t id, float maxAnisotropy);
+		bool CreateMeshResources(VmaAllocator allocator, const Device& device,
+			const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers, uint32_t id, float maxAnisotropy);
 
 		bool CreateStagingBuffer(VmaAllocator allocator, const Device& device,
 			const CommandPool& resourceCommandPool, const Buffer* destinationBuffer, const void* data,
@@ -79,9 +81,7 @@ namespace Engine::Rendering::Vulkan
 		std::vector<std::shared_ptr<RenderImage>> m_renderImages;
 		std::vector<std::shared_ptr<ImageView>> m_renderImageViews;
 		std::unique_ptr<ImageSampler> m_sampler;
-
-		std::vector<std::vector<std::unique_ptr<Buffer>>> m_uniformBufferArrays;
-		std::vector<std::vector<void*>> m_uniformBuffersMappedArrays;
+		std::vector<MeshPushConstants> m_pushConstants;
 
 		std::vector<std::unique_ptr<DescriptorPool>> m_descriptorPools;
 		std::vector<std::vector<vk::DescriptorSet>> m_descriptorSetArrays;

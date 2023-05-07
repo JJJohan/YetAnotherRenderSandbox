@@ -25,6 +25,7 @@ namespace Engine::Rendering
 		{
 			m_proj = glm::perspectiveFov(m_fov, static_cast<float>(m_dimensions.x), static_cast<float>(m_dimensions.y), m_nearFar.x, m_nearFar.y);
 			m_proj[1][1] *= -1.0f;
+			m_viewProj = m_proj * m_view;
 			m_projDirty = false;
 		}
 	}
@@ -35,6 +36,7 @@ namespace Engine::Rendering
 		{
 			m_view = glm::toMat4(m_rotation);
 			m_view = glm::translate(m_view, m_position);
+			m_viewProj = m_proj * m_view;
 			m_viewDirty = false;
 		}
 	}
@@ -152,5 +154,10 @@ namespace Engine::Rendering
 	const glm::mat4& Camera::GetProjection() const
 	{
 		return m_proj;
+	}
+
+	const glm::mat4& Camera::GetViewProjection() const
+	{
+		return m_viewProj;
 	}
 }

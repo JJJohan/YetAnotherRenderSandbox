@@ -21,6 +21,7 @@
 #include "ImageView.hpp"
 #include "RenderImage.hpp"
 #include "ImageSampler.hpp"
+#include "FrameInfoUniformBuffer.hpp"
 
 #define DEFAULT_MAX_CONCURRENT_FRAMES 2
 
@@ -55,6 +56,8 @@ namespace Engine::Rendering::Vulkan
 		, m_currentFrame(0)
 		, m_allocator()
 		, m_maxConcurrentFrames(DEFAULT_MAX_CONCURRENT_FRAMES)
+		, m_frameInfoBuffers()
+		, m_frameInfoBufferData()
 	{
 	}
 
@@ -80,6 +83,8 @@ namespace Engine::Rendering::Vulkan
 
 		m_meshManager.reset();
 
+		m_frameInfoBuffers.clear();
+		m_frameInfoBufferData.clear();
 		m_imageAvailableSemaphores.clear();
 		m_renderFinishedSemaphores.clear();
 		m_inFlightFences.clear();
@@ -128,10 +133,9 @@ namespace Engine::Rendering::Vulkan
 
 		std::array<vk::ClearValue, 2> clearValues =
 		{
-		vk::ClearValue(vk::ClearColorValue(m_clearColour.r, m_clearColour.g, m_clearColour.b, m_clearColour.a)),
-		vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0))
+			vk::ClearValue(vk::ClearColorValue(m_clearColour.r, m_clearColour.g, m_clearColour.b, m_clearColour.a)),
+			vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0))
 		};
-
 
 		vk::RenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = vk::StructureType::eRenderPassBeginInfo;
@@ -152,7 +156,12 @@ namespace Engine::Rendering::Vulkan
 		vk::Rect2D scissor(renderPassInfo.renderArea.offset, renderPassInfo.renderArea.extent);
 		commandBuffer.setScissor(0, 1, &scissor);
 
-		m_meshManager->Draw(commandBuffer, m_camera, renderPassInfo.renderArea.extent, m_currentFrame);
+		// Update uniform buffer
+		FrameInfoUniformBuffer frameInfo{};
+		frameInfo.viewProj = m_camera.GetViewProjection();
+		memcpy(m_frameInfoBufferData[m_currentFrame], &frameInfo, sizeof(FrameInfoUniformBuffer));
+
+		m_meshManager->Draw(commandBuffer, renderPassInfo.renderArea.extent, m_currentFrame);
 
 		commandBuffer.endRenderPass();
 		commandBuffer.end();
@@ -234,6 +243,34 @@ namespace Engine::Rendering::Vulkan
 		return result == VK_SUCCESS;
 	}
 
+
+	bool VulkanRenderer::CreateFrameInfoUniformBuffer()
+	{
+		vk::DeviceSize bufferSize = sizeof(FrameInfoUniformBuffer);
+
+		m_frameInfoBuffers.resize(m_maxConcurrentFrames);
+		m_frameInfoBufferData.resize(m_maxConcurrentFrames);
+
+		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
+		{
+			m_frameInfoBuffers[i] = std::make_unique<Buffer>(m_allocator);
+			Buffer& buffer = *m_frameInfoBuffers[i];
+
+			if (!buffer.Initialise(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_AUTO,
+				VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, vk::SharingMode::eExclusive))
+			{
+				return false;
+			}
+
+			if (!buffer.GetMappedMemory(&m_frameInfoBufferData[i]))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	void VulkanRenderer::SetMultiSampleCount(uint32_t multiSampleCount)
 	{
 		uint32_t prevMultiSampleCount = m_multiSampleCount;
@@ -250,7 +287,7 @@ namespace Engine::Rendering::Vulkan
 
 				this->m_device->Get().waitIdle();
 
-				if  (!this->m_swapChain->Initialise(*this->m_physicalDevice, *this->m_device, *this->m_surface, this->m_allocator, size, multiSampleCount))
+				if (!this->m_swapChain->Initialise(*this->m_physicalDevice, *this->m_device, *this->m_surface, this->m_allocator, size, multiSampleCount))
 				{
 					Logger::Error("Failed to recreate swapchain.");
 					return false;
@@ -317,7 +354,8 @@ namespace Engine::Rendering::Vulkan
 			|| !m_swapChain->CreateFramebuffers(*m_device, *m_renderPass)
 			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eTransient)
 			|| !m_renderCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
-			|| !CreateSyncObjects())
+			|| !CreateSyncObjects()
+			|| !CreateFrameInfoUniformBuffer())
 		{
 			return false;
 		}
@@ -418,7 +456,7 @@ namespace Engine::Rendering::Vulkan
 				}
 			}
 
-			if (!m_meshManager->Update(m_allocator, *m_device, *m_resourceCommandPool, maxAnisotrophy))
+			if (!m_meshManager->Update(m_allocator, *m_device, *m_resourceCommandPool, m_frameInfoBuffers, maxAnisotrophy))
 			{
 				Logger::Error("Failed to update meshes.");
 				return;

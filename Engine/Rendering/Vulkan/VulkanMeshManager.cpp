@@ -8,8 +8,8 @@
 #include "ImageView.hpp"
 #include "ImageSampler.hpp"
 #include "CommandPool.hpp"
+#include "FrameInfoUniformBuffer.hpp"
 #include "PipelineLayout.hpp"
-#include "Rendering/Camera.hpp"
 #include "Core/Logging/Logger.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -28,8 +28,7 @@ namespace Engine::Rendering::Vulkan
 		, m_renderImages()
 		, m_renderImageViews()
 		, m_sampler(nullptr)
-		, m_uniformBufferArrays()
-		, m_uniformBuffersMappedArrays()
+		, m_pushConstants()
 		, m_descriptorPools()
 		, m_descriptorSetArrays()
 		, m_imageHashTable()
@@ -69,7 +68,7 @@ namespace Engine::Rendering::Vulkan
 		{
 			return false;
 		}
-		
+
 		m_prevFrameCommandBuffers.emplace_back(m_blankImage->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eTransferDstOptimal));
 
 		Colour blankPixel = Colour();
@@ -110,8 +109,7 @@ namespace Engine::Rendering::Vulkan
 		m_indexCounts.push_back(0);
 		m_vertexBuffers.push_back({});
 		m_indexBuffers.push_back(nullptr);
-		m_uniformBufferArrays.push_back({});
-		m_uniformBuffersMappedArrays.push_back({});
+		m_pushConstants.push_back({});
 		m_descriptorPools.push_back(nullptr);
 		m_descriptorSetArrays.push_back({});
 		m_renderImages.push_back(nullptr);
@@ -250,55 +248,6 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	// hard-coded for now
-	struct UniformBufferObject
-	{
-		glm::mat4 model;
-		glm::mat4 view;
-		glm::mat4 proj;
-		glm::vec4 colour;
-	};
-
-	bool VulkanMeshManager::SetupUniformBuffers(VmaAllocator allocator, uint32_t id)
-	{
-		vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
-
-		m_uniformBufferArrays[id].resize(m_maxConcurrentFrames);
-		m_uniformBuffersMappedArrays[id].resize(m_maxConcurrentFrames);
-		std::vector<std::unique_ptr<Buffer>>& uniformBuffers = m_uniformBufferArrays[id];
-		std::vector<void*>& mappedBuffers = m_uniformBuffersMappedArrays[id];
-
-		const glm::mat4 model = m_transforms[id];
-
-		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
-		{
-			uniformBuffers[i] = std::make_unique<Buffer>(allocator);
-			Buffer& buffer = *uniformBuffers[i];
-
-			if (!buffer.Initialise(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_AUTO,
-				VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, vk::SharingMode::eExclusive))
-			{
-				return false;
-			}
-
-			if (!buffer.GetMappedMemory(&mappedBuffers[i]))
-			{
-				return false;
-			}
-
-			memcpy(static_cast<uint8_t*>(mappedBuffers[i]), &model, sizeof(glm::mat4));
-
-			// temporary - wasting space right now.
-			glm::vec4 colour(static_cast<float>(m_colours[id].R) / 255.0f,
-				static_cast<float>(m_colours[id].G) / 255.0f,
-				static_cast<float>(m_colours[id].B) / 255.0f,
-				static_cast<float>(m_colours[id].A) / 255.0f);
-			memcpy(static_cast<uint8_t*>(mappedBuffers[i]) + sizeof(glm::mat4) * 3, &colour, sizeof(glm::vec4));
-		}
-
-		return true;
-	}
-
 	bool VulkanMeshManager::SetupRenderImage(VmaAllocator allocator, const Device& device, uint32_t id, float maxAnisotropy)
 	{
 		const std::shared_ptr<Image>& image = m_images[id];
@@ -359,13 +308,12 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanMeshManager::CreateMeshResources(VmaAllocator allocator, const Device& device, uint32_t id, float maxAnisotropy)
+	bool VulkanMeshManager::CreateMeshResources(VmaAllocator allocator, const Device& device, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers, uint32_t id, float maxAnisotropy)
 	{
 		m_updateFlags[id] = MeshUpdateFlagBits::All;
 
 		if (!SetupVertexBuffers(allocator, id)
 			|| !SetupIndexBuffer(allocator, id)
-			|| !SetupUniformBuffers(allocator, id)
 			|| !SetupRenderImage(allocator, device, id, maxAnisotropy))
 		{
 			return false;
@@ -391,7 +339,6 @@ namespace Engine::Rendering::Vulkan
 		}
 		m_descriptorSetArrays[id] = m_descriptorPools[id]->CreateDescriptorSets(device, layouts);
 
-		const std::vector<std::unique_ptr<Buffer>>& uniformBuffers = m_uniformBufferArrays[id];
 		const std::shared_ptr<ImageView>& imageView = m_renderImageViews[id].get() != nullptr ? m_renderImageViews[id] : m_blankImageView;
 		const std::vector<vk::DescriptorSet>& descriptorSets = m_descriptorSetArrays[id];
 
@@ -399,7 +346,7 @@ namespace Engine::Rendering::Vulkan
 		{
 			std::array<vk::DescriptorBufferInfo, 1> bufferInfos =
 			{
-				vk::DescriptorBufferInfo(uniformBuffers[i]->Get(), 0, sizeof(UniformBufferObject))
+				vk::DescriptorBufferInfo(frameInfoBuffers[i]->Get(), 0, sizeof(FrameInfoUniformBuffer))
 			};
 
 			std::array<vk::DescriptorImageInfo, 1> imageInfos =
@@ -419,7 +366,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanMeshManager::Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool, float maxAnisotropy)
+	bool VulkanMeshManager::Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers, float maxAnisotropy)
 	{
 		const std::lock_guard<std::mutex> lock(m_creationMutex);
 
@@ -442,7 +389,7 @@ namespace Engine::Rendering::Vulkan
 
 			if (m_vertexCounts[id] == 0)
 			{
-				if (!CreateMeshResources(allocator, device, id, maxAnisotropy))
+				if (!CreateMeshResources(allocator, device, frameInfoBuffers, id, maxAnisotropy))
 					return false;
 			}
 
@@ -497,12 +444,8 @@ namespace Engine::Rendering::Vulkan
 
 			if ((updateBits & MeshUpdateFlagBits::Uniforms) == MeshUpdateFlagBits::Uniforms)
 			{
-				const glm::mat4 model = m_transforms[id];
-				std::vector<void*>& mappedBuffers = m_uniformBuffersMappedArrays[id];
-				for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
-				{
-					memcpy(mappedBuffers[i], &model, sizeof(glm::mat4)); // Only copy model matrix
-				}
+				m_pushConstants[id].transform = m_transforms[id];
+				m_pushConstants[id].colour = m_colours[id].GetVec4();
 			}
 
 			m_updateFlags[id] = MeshUpdateFlagBits::None;
@@ -521,8 +464,6 @@ namespace Engine::Rendering::Vulkan
 			{
 				m_vertexBuffers[id].clear();
 				m_indexBuffers[id].reset();
-				m_uniformBufferArrays[id].clear();
-				m_uniformBuffersMappedArrays[id].clear();
 				m_descriptorPools[id].reset();
 				m_descriptorSetArrays[id].clear();
 			}
@@ -578,7 +519,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	void VulkanMeshManager::Draw(const vk::CommandBuffer& commandBuffer, const Camera& camera, const vk::Extent2D& viewSize, uint32_t currentFrameIndex)
+	void VulkanMeshManager::Draw(const vk::CommandBuffer& commandBuffer, const vk::Extent2D& viewSize, uint32_t currentFrameIndex)
 	{
 		const std::lock_guard<std::mutex> lock(m_creationMutex); // Ideally have a set of data for 'next' frame so no locking?
 
@@ -586,15 +527,6 @@ namespace Engine::Rendering::Vulkan
 		{
 			if (!m_active[id] || m_vertexCounts[id] == 0)
 				continue;
-
-			// Update uniform buffers
-
-			UniformBufferObject ubo{};
-			ubo.view = camera.GetView();
-			ubo.proj = camera.GetProjection();
-
-			std::vector<void*>& mappedBuffers = m_uniformBuffersMappedArrays[id];
-			memcpy((uint8_t*)mappedBuffers[currentFrameIndex] + sizeof(glm::mat4), &ubo.view, sizeof(glm::mat4) * 2);
 
 			// Draw stuff
 
@@ -622,6 +554,8 @@ namespace Engine::Rendering::Vulkan
 
 			const std::vector<vk::DescriptorSet>& descriptorSets = m_descriptorSetArrays[id];
 			commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout->Get(), 0, descriptorSets[currentFrameIndex], nullptr);
+
+			commandBuffer.pushConstants(pipelineLayout->Get(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(MeshPushConstants), &m_pushConstants[id]);
 
 			commandBuffer.drawIndexed(m_indexCounts[id], 1, 0, 0, 0);
 		}

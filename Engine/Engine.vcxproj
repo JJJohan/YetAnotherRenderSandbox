@@ -210,7 +210,9 @@
     <ClInclude Include="Rendering\Vulkan\DescriptorPool.hpp" />
     <ClInclude Include="Rendering\Vulkan\Device.hpp" />
     <ClInclude Include="Rendering\Vulkan\Framebuffer.hpp" />
+    <ClInclude Include="Rendering\Vulkan\FrameInfoUniformBuffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\ImageSampler.hpp" />
+    <ClInclude Include="Rendering\Vulkan\MeshPushConstants.hpp" />
     <ClInclude Include="Rendering\Vulkan\RenderImage.hpp" />
     <ClInclude Include="Rendering\Vulkan\ImageView.hpp" />
     <ClInclude Include="Rendering\Vulkan\Instance.hpp" />

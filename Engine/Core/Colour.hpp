@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include "Macros.hpp"
+#include <glm/glm.hpp>
 
 namespace Engine
 {
@@ -14,6 +15,8 @@ namespace Engine
 		{
 			return R == other.R && G == other.G && B == other.B && A == other.A;
 		}
+
+		glm::vec4 GetVec4() const;
 
 		uint8_t R;
 		uint8_t G;
