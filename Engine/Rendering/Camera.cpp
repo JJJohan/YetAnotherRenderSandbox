@@ -3,6 +3,22 @@
 
 namespace Engine::Rendering
 {
+	Camera::Camera()
+		: m_fov(glm::radians(75.0f))
+		, m_nearFar(0.01f, 100.0f)
+		, m_dimensions(100, 100)
+		, m_position(0.0f, 0.0f, -5.0f)
+		, m_rotation(1.0f, 0.0f, 0.0f, 0.0f)
+		, m_pitchClamp(glm::radians(-90.0f), glm::radians(90.0f))
+		, m_pitch(0.0f)
+		, m_yaw(0.0f)
+		, m_viewDirty(true)
+		, m_projDirty(true)
+	{
+		UpdateView();
+		UpdateProjection();
+	}
+
 	void Camera::UpdateProjection()
 	{
 		if (m_projDirty)
@@ -11,8 +27,8 @@ namespace Engine::Rendering
 			m_proj[1][1] *= -1.0f;
 			m_projDirty = false;
 		}
-	}	
-	
+	}
+
 	void Camera::UpdateView()
 	{
 		if (m_viewDirty)
@@ -26,22 +42,6 @@ namespace Engine::Rendering
 	void Camera::ClampPitch(const glm::vec2& minMaxPitch)
 	{
 		m_pitchClamp = minMaxPitch;
-	}
-
-	Camera::Camera()
-		: m_fov(glm::radians(75.0f))
-		, m_nearFar(0.01f, 100.0f)
-		, m_dimensions(100, 100)
-		, m_position(0.0f, 0.0f, -5.0f)
-		, m_rotation(0.0f, 0.0f, 0.0f, 1.0f)
-		, m_pitchClamp(glm::radians(-90.0f), glm::radians(90.0f))
-		, m_pitch(0.0f)
-		, m_yaw(0.0f)
-		, m_viewDirty(true)
-		, m_projDirty(true)
-	{
-		UpdateView();
-		UpdateProjection();
 	}
 
 	void Camera::Update(const glm::uvec2& dimensions)

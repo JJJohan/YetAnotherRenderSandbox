@@ -241,6 +241,6 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		Rebuild(device, renderPass);
+		return Rebuild(device, renderPass);
 	}
 }

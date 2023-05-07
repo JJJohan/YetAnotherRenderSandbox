@@ -78,7 +78,7 @@ int main()
 
 	std::vector<uint32_t> addedMeshes;
 	GLTFLoader gltfLoader;
-	if (!gltfLoader.LoadGLTF("C:/Users/Johan/Desktop/test/warehouse.glb", renderer->GetMeshManager(), shader, addedMeshes))
+	if (!gltfLoader.LoadGLTF("C:/Users/Johan/Desktop/test/Bistro_small.glb", renderer->GetMeshManager(), shader, addedMeshes))
 	{
 		return 1;
 	}

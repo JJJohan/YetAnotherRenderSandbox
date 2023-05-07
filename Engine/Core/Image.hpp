@@ -14,7 +14,7 @@ namespace Engine
 		EXPORT Image();
 		EXPORT Image(const glm::uvec2& dimensions, uint32_t components, const std::vector<uint8_t>& pixels);
 		EXPORT bool LoadFromFile(const std::string& filePath);
-		EXPORT bool LoadFromMemory(const std::vector<uint8_t>& memory);
+		EXPORT bool LoadFromMemory(const uint8_t* memory, size_t size);
 
 		EXPORT const std::vector<uint8_t>& GetPixels() const;
 		EXPORT const glm::uvec2& GetSize() const;

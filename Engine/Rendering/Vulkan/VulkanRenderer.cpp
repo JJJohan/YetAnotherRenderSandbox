@@ -337,7 +337,7 @@ namespace Engine::Rendering::Vulkan
 
 		static auto endTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
-		Logger::Verbose("Renderer setup finished in {}ms.", deltaTime);
+		Logger::Verbose("Renderer setup finished in {} seconds.", deltaTime);
 
 		m_running = true;
 		m_renderThread = std::thread([this]() { this->Render(); });
