@@ -5,7 +5,7 @@
 #include "OS/Window.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "PipelineLayout.hpp"
-#include "VulkanMeshManager.hpp"
+#include "VulkanSceneManager.hpp"
 #include "../Shader.hpp"
 #include "Debug.hpp"
 #include "Device.hpp"
@@ -22,6 +22,7 @@
 #include "RenderImage.hpp"
 #include "ImageSampler.hpp"
 #include "FrameInfoUniformBuffer.hpp"
+#include "../Shader.hpp"
 
 #define DEFAULT_MAX_CONCURRENT_FRAMES 2
 
@@ -46,7 +47,7 @@ namespace Engine::Rendering::Vulkan
 		, m_pipelineLayouts()
 		, m_renderThread()
 		, m_renderCommandBuffers()
-		, m_meshManager()
+		, m_sceneManager()
 		, m_imageAvailableSemaphores()
 		, m_renderFinishedSemaphores()
 		, m_inFlightFences()
@@ -81,7 +82,7 @@ namespace Engine::Rendering::Vulkan
 		const vk::Device& deviceImp = m_device->Get();
 		deviceImp.waitIdle();
 
-		m_meshManager.reset();
+		m_sceneManager.reset();
 
 		m_frameInfoBuffers.clear();
 		m_frameInfoBufferData.clear();
@@ -161,7 +162,7 @@ namespace Engine::Rendering::Vulkan
 		frameInfo.viewProj = m_camera.GetViewProjection();
 		memcpy(m_frameInfoBufferData[m_currentFrame], &frameInfo, sizeof(FrameInfoUniformBuffer));
 
-		m_meshManager->Draw(commandBuffer, renderPassInfo.renderArea.extent, m_currentFrame);
+		m_sceneManager->Draw(commandBuffer, m_currentFrame);
 
 		commandBuffer.endRenderPass();
 		commandBuffer.end();
@@ -191,9 +192,9 @@ namespace Engine::Rendering::Vulkan
 			});
 	}
 
-	MeshManager* VulkanRenderer::GetMeshManager() const
+	SceneManager* VulkanRenderer::GetSceneManager() const
 	{
-		return m_meshManager.get();
+		return m_sceneManager.get();
 	}
 
 	bool VulkanRenderer::CreateSyncObjects()
@@ -307,7 +308,7 @@ namespace Engine::Rendering::Vulkan
 
 				for (auto& layout : this->m_pipelineLayouts)
 				{
-					if (!layout->Rebuild(*this->m_device, *this->m_renderPass))
+					if (!layout->Rebuild(*this->m_device, *this->m_renderPass, UINT32_MAX))
 					{
 						Logger::Error("Failed to rebuild pipeline layout '{}'.", layout->GetName());
 						return false;
@@ -342,7 +343,7 @@ namespace Engine::Rendering::Vulkan
 		m_resourceCommandPool = std::make_unique<CommandPool>();
 		m_renderCommandPool = std::make_unique<CommandPool>();
 		m_Debug = std::make_unique<Debug>();
-		m_meshManager = std::make_unique<VulkanMeshManager>(m_maxConcurrentFrames);
+		m_sceneManager = std::make_unique<VulkanSceneManager>(m_maxConcurrentFrames);
 
 		if (!m_instance->Initialise(title, *m_Debug, m_debug)
 			|| !m_surface->Initialise(*m_instance, m_window)
@@ -368,7 +369,19 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!m_meshManager->Initialise(m_allocator, *m_device, *m_resourceCommandPool, m_physicalDevice->GetMaxAnisotropy()))
+		// TODO: Clean up!
+		Shader* shader = Renderer::CreateShader("Triangle", {
+			{ ShaderProgramType::VERTEX, "Shaders/Triangle_vert.spv" },
+			{ ShaderProgramType::FRAGMENT, "Shaders/Triangle_frag.spv" }
+			});
+
+		if (shader == nullptr)
+		{
+			Logger::Error("Shader invalid.");
+			return 1;
+		}
+
+		if (!m_sceneManager->Initialise(m_allocator, *m_device, *m_resourceCommandPool, shader, m_physicalDevice->GetLimits()))
 		{
 			return false;
 		}
@@ -441,7 +454,7 @@ namespace Engine::Rendering::Vulkan
 		const vk::Device& deviceImp = m_device->Get();
 		vk::Queue graphicsQueue = m_device->GetGraphicsQueue();
 		vk::Queue presentQueue = m_device->GetPresentQueue();
-		float maxAnisotrophy = m_physicalDevice->GetMaxAnisotropy();
+		const vk::PhysicalDeviceLimits& limits = m_physicalDevice->GetLimits();
 
 		while (m_running)
 		{
@@ -456,7 +469,7 @@ namespace Engine::Rendering::Vulkan
 				}
 			}
 
-			if (!m_meshManager->Update(m_allocator, *m_device, *m_resourceCommandPool, m_frameInfoBuffers, maxAnisotrophy))
+			if (!m_sceneManager->Update(m_allocator, *m_device, *m_resourceCommandPool, m_frameInfoBuffers, *m_renderPass, limits))
 			{
 				Logger::Error("Failed to update meshes.");
 				return;
@@ -536,7 +549,7 @@ namespace Engine::Rendering::Vulkan
 			}
 			catch (std::exception ex)
 			{
-				Logger::Error("Fatal exception during present call occured:", ex.what());
+				Logger::Error("Fatal exception during present call occured: {}", ex.what());
 				return;
 			}
 

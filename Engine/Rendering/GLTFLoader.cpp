@@ -1,7 +1,6 @@
 #include "GLTFLoader.hpp"
 #include "Core/Logging/Logger.hpp"
-#include "MeshManager.hpp"
-#include "Shader.hpp"
+#include "SceneManager.hpp"
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <filesystem>
@@ -22,18 +21,16 @@ namespace Engine::Rendering
 	struct ImportState
 	{
 		const fastgltf::Asset* asset;
-		MeshManager* meshManager;
-		const Shader* shader;
+		SceneManager* sceneManager;
 		std::vector<uint32_t>* results;
 		std::vector<std::shared_ptr<Image>> loadedImages;
 		std::unordered_map<size_t, VertexData> bufferMap;
 		std::unordered_map<size_t, std::vector<uint32_t>> indexBufferMap;
 
-		ImportState(const fastgltf::Asset* asset, MeshManager* meshManager, const Shader* shader, std::vector<uint32_t>* results)
+		ImportState(const fastgltf::Asset* asset, SceneManager* sceneManager, std::vector<uint32_t>* results)
 		{
 			this->asset = asset;
-			this->meshManager = meshManager;
-			this->shader = shader;
+			this->sceneManager = sceneManager;
 			this->results = results;
 			bufferMap = {};
 			indexBufferMap = {};
@@ -184,7 +181,7 @@ namespace Engine::Rendering
 				}
 			}
 
-			uint32_t id = importState.meshManager->CreateMesh(importState.shader, vertexDataArrays, indices, transform, colour, image);
+			uint32_t id = importState.sceneManager->CreateMesh( vertexDataArrays, indices, transform, colour, image);
 			importState.results->push_back(id);
 		}
 
@@ -231,7 +228,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GLTFLoader::LoadGLTF(const std::string& filePath, MeshManager* meshManager, const Shader* shader, std::vector<uint32_t>& results)
+	bool GLTFLoader::LoadGLTF(const std::string& filePath, SceneManager* sceneManager, std::vector<uint32_t>& results)
 	{
 		if (!std::filesystem::exists(filePath))
 		{
@@ -303,7 +300,7 @@ namespace Engine::Rendering
 
 		static auto loadStartTime = std::chrono::high_resolution_clock::now();
 
-		ImportState importState(asset.get(), meshManager, shader, &results);
+		ImportState importState(asset.get(), sceneManager, &results);
 
 		std::atomic<uint32_t> imageCounter = 0;
 
@@ -335,6 +332,8 @@ namespace Engine::Rendering
 		static auto loadEndTime = std::chrono::high_resolution_clock::now();
 		float loadDeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(loadEndTime - loadStartTime).count();
 		Logger::Verbose("GLTF file loaded in {} seconds.", loadDeltaTime);
+
+		sceneManager->Build();
 
 		return true;
 	}

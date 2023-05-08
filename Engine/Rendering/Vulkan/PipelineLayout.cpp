@@ -5,7 +5,6 @@
 #include "OS/Files.hpp"
 #include <filesystem>
 #include <glm/glm.hpp>
-#include "MeshPushConstants.hpp"
 
 using namespace Engine::Logging;
 using namespace Engine::OS;
@@ -19,6 +18,7 @@ namespace Engine::Rendering::Vulkan
 		, m_graphicsPipeline(nullptr)
 		, m_descriptorSetLayout(nullptr)
 		, m_shaderModules()
+		, m_imageCount(1)
 	{
 	}
 
@@ -53,10 +53,12 @@ namespace Engine::Rendering::Vulkan
 
 	bool PipelineLayout::SetupDescriptorSetLayout(const Device& device)
 	{
-		std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings =
+		std::array<vk::DescriptorSetLayoutBinding, 4> layoutBindings =
 		{
 			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex),
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment)
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex),
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampledImage, m_imageCount, vk::ShaderStageFlagBits::eFragment)
 		};
 
 		vk::DescriptorSetLayoutCreateInfo layoutInfo(vk::DescriptorSetLayoutCreateFlags(), layoutBindings);
@@ -77,10 +79,19 @@ namespace Engine::Rendering::Vulkan
 		return { m_descriptorSetLayout.get() }; // hard-coded to 1 for now.
 	}
 
-	bool PipelineLayout::Rebuild(const Device& device, const RenderPass& renderPass)
+	bool PipelineLayout::Rebuild(const Device& device, const RenderPass& renderPass, uint32_t imageCount)
 	{
+		if (imageCount != UINT32_MAX)
+			m_imageCount = imageCount;
+
 		m_graphicsPipeline.reset();
 		m_pipelineLayout.reset();		
+		m_descriptorSetLayout.reset();
+
+		if (!SetupDescriptorSetLayout(device))
+		{
+			return false;
+		}
 
 		const vk::Device& deviceImp = device.Get();
 
@@ -170,16 +181,11 @@ namespace Engine::Rendering::Vulkan
 		colorBlending.attachmentCount = 1;
 		colorBlending.pAttachments = &colorBlendAttachment;
 
-		// Setup push constants - currently hard-coded..
-		vk::PushConstantRange pushconstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(MeshPushConstants));
-
 		// Pipeline layout
 		std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = GetDescriptorSetLayouts();
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
 		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
-		pipelineLayoutInfo.pushConstantRangeCount = 1;
-		pipelineLayoutInfo.pPushConstantRanges = &pushconstantRange;
 
 		m_pipelineLayout = deviceImp.createPipelineLayoutUnique(pipelineLayoutInfo);
 		if (!m_pipelineLayout.get())
@@ -240,11 +246,6 @@ namespace Engine::Rendering::Vulkan
 			m_shaderModules.push_back(std::make_pair(stage, std::move(shaderModule)));
 		}
 
-		if (!SetupDescriptorSetLayout(device))
-		{
-			return false;
-		}
-
-		return Rebuild(device, renderPass);
+		return Rebuild(device, renderPass, 1);
 	}
 }

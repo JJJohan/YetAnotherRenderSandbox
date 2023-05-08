@@ -30,12 +30,16 @@ namespace Engine::Rendering::Vulkan
 
 	std::vector<const char*> PhysicalDevice::GetRequiredExtensions() const
 	{
-		return { VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME };
+		return {
+			VK_KHR_SWAPCHAIN_EXTENSION_NAME, 
+			VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+			VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME
+		};
 	}
 
-	float PhysicalDevice::GetMaxAnisotropy() const
+	const vk::PhysicalDeviceLimits& PhysicalDevice::GetLimits() const
 	{
-		return m_deviceProperties.limits.maxSamplerAnisotropy;
+		return m_deviceProperties.limits;
 	}
 
 	vk::SampleCountFlagBits PhysicalDevice::GetMaxMultiSampleCount() const

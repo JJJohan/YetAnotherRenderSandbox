@@ -45,11 +45,25 @@ namespace Engine::Rendering::Vulkan
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
+		vk::PhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures;
+		descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = true;
+		descriptorIndexingFeatures.shaderUniformBufferArrayNonUniformIndexing = true;
+		descriptorIndexingFeatures.shaderStorageBufferArrayNonUniformIndexing = true;
+		descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = true;
+		descriptorIndexingFeatures.runtimeDescriptorArray = true;
+
 		vk::PhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures;
 		bufferDeviceAddressFeatures.bufferDeviceAddress = true;
+		bufferDeviceAddressFeatures.pNext = &descriptorIndexingFeatures;
+
+		vk::PhysicalDeviceVulkan11Features vulkan11Features;
+		vulkan11Features.shaderDrawParameters = true;
+		vulkan11Features.pNext = &bufferDeviceAddressFeatures;
+
 		vk::PhysicalDeviceFeatures2 deviceFeatures2;
 		deviceFeatures2.features.samplerAnisotropy = true;
-		deviceFeatures2.pNext = &bufferDeviceAddressFeatures;
+		deviceFeatures2.features.multiDrawIndirect = true;
+		deviceFeatures2.pNext = &vulkan11Features;
 
 		std::vector<const char*> extensionNames = physicalDevice.GetRequiredExtensions();
 

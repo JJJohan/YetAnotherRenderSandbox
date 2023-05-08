@@ -1,7 +1,7 @@
 #include "Renderer.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "Vulkan/VulkanRenderer.hpp"
-#include "MeshManager.hpp"
+#include "SceneManager.hpp"
 #include "OS/Window.hpp"
 #include "OS/Files.hpp"
 
@@ -47,7 +47,7 @@ namespace Engine::Rendering
 		return m_camera;
 	}
 
-	MeshManager* Renderer::GetMeshManager() const
+	SceneManager* Renderer::GetSceneManager() const
 	{
 		return nullptr;
 	}

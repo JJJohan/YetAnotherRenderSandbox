@@ -15,7 +15,7 @@ namespace Engine::OS
 
 namespace Engine::Rendering
 {
-	class MeshManager;
+	class SceneManager;
 	class Camera;
 
 	enum class RendererType
@@ -45,7 +45,7 @@ namespace Engine::Rendering
 		EXPORT Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::string>& programs);
 		EXPORT virtual void DestroyShader(Shader* shader);
 
-		EXPORT virtual MeshManager* GetMeshManager() const;
+		EXPORT virtual SceneManager* GetSceneManager() const;
 
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);

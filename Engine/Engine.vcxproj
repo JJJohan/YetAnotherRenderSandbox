@@ -44,6 +44,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -166,7 +167,7 @@
     <ClCompile Include="OS\Window.cpp" />
     <ClCompile Include="Rendering\Camera.cpp" />
     <ClCompile Include="Rendering\GLTFLoader.cpp" />
-    <ClCompile Include="Rendering\MeshManager.cpp" />
+    <ClCompile Include="Rendering\SceneManager.cpp" />
     <ClCompile Include="Rendering\Renderer.cpp" />
     <ClCompile Include="Rendering\Shader.cpp" />
     <ClCompile Include="Rendering\VertexData.cpp" />
@@ -181,7 +182,7 @@
     <ClCompile Include="Rendering\Vulkan\ImageView.cpp" />
     <ClCompile Include="Rendering\Vulkan\Instance.cpp" />
     <ClCompile Include="Rendering\Vulkan\PhysicalDevice.cpp" />
-    <ClCompile Include="Rendering\Vulkan\VulkanMeshManager.cpp" />
+    <ClCompile Include="Rendering\Vulkan\VulkanSceneManager.cpp" />
     <ClCompile Include="Rendering\Vulkan\RenderPass.cpp" />
     <ClCompile Include="Rendering\Vulkan\PipelineLayout.cpp" />
     <ClCompile Include="Rendering\Vulkan\VulkanRenderer.cpp" />
@@ -200,7 +201,8 @@
     <ClInclude Include="OS\Window.hpp" />
     <ClInclude Include="Rendering\Camera.hpp" />
     <ClInclude Include="Rendering\GLTFLoader.hpp" />
-    <ClInclude Include="Rendering\MeshManager.hpp" />
+    <ClInclude Include="Rendering\MeshInfo.hpp" />
+    <ClInclude Include="Rendering\SceneManager.hpp" />
     <ClInclude Include="Rendering\Renderer.hpp" />
     <ClInclude Include="Rendering\Shader.hpp" />
     <ClInclude Include="Rendering\VertexData.hpp" />
@@ -212,13 +214,13 @@
     <ClInclude Include="Rendering\Vulkan\Framebuffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\FrameInfoUniformBuffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\ImageSampler.hpp" />
-    <ClInclude Include="Rendering\Vulkan\MeshPushConstants.hpp" />
     <ClInclude Include="Rendering\Vulkan\RenderImage.hpp" />
     <ClInclude Include="Rendering\Vulkan\ImageView.hpp" />
     <ClInclude Include="Rendering\Vulkan\Instance.hpp" />
     <ClInclude Include="Rendering\Vulkan\PhysicalDevice.hpp" />
     <ClInclude Include="Rendering\Vulkan\QueueFamilyIndices.hpp" />
-    <ClInclude Include="Rendering\Vulkan\VulkanMeshManager.hpp" />
+    <ClInclude Include="Rendering\Vulkan\RenderMeshInfo.hpp" />
+    <ClInclude Include="Rendering\Vulkan\VulkanSceneManager.hpp" />
     <ClInclude Include="Rendering\Vulkan\RenderPass.hpp" />
     <ClInclude Include="Rendering\Vulkan\PipelineLayout.hpp" />
     <ClInclude Include="Rendering\Vulkan\VulkanRenderer.hpp" />

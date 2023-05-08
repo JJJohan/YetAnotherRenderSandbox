@@ -4,8 +4,7 @@
 #include <OS/Window.hpp>
 #include <OS/Files.hpp>
 #include <Rendering/Renderer.hpp>
-#include <Rendering/Shader.hpp>
-#include <Rendering/MeshManager.hpp>
+#include <Rendering/SceneManager.hpp>
 #include <Rendering/VertexData.hpp>
 #include <Rendering/GLTFLoader.hpp>
 
@@ -20,9 +19,9 @@ const bool debug = true;
 const bool debug = false;
 #endif
 
-uint32_t CreateTestMesh(const Renderer& renderer, const Shader* shader, std::shared_ptr<Image>& image)
+uint32_t CreateTestMesh(const Renderer& renderer, std::shared_ptr<Image>& image)
 {
-	return renderer.GetMeshManager()->CreateMesh(shader,
+	return renderer.GetSceneManager()->CreateMesh(
 		{
 			{
 				glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(-0.5f, 0.5f, 0.0f),
@@ -59,17 +58,6 @@ int main()
 	renderer->SetClearColour(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 	renderer->SetMultiSampleCount(multiSampleCount);
 
-	Shader* shader = renderer->CreateShader("Triangle", {
-		{ ShaderProgramType::VERTEX, "Shaders/Triangle_vert.spv" },
-		{ ShaderProgramType::FRAGMENT, "Shaders/Triangle_frag.spv" }
-		});
-
-	if (shader == nullptr)
-	{
-		Logger::Error("Shader invalid.");
-		return 1;
-	}
-
 	std::shared_ptr<Image> image2 = std::make_shared<Image>();
 	if (!image2->LoadFromFile("C:/Users/Johan/Desktop/texture.jpg"))
 	{
@@ -78,7 +66,7 @@ int main()
 
 	std::vector<uint32_t> addedMeshes;
 	GLTFLoader gltfLoader;
-	if (!gltfLoader.LoadGLTF("C:/Users/Johan/Desktop/test/Bistro_small.glb", renderer->GetMeshManager(), shader, addedMeshes))
+	if (!gltfLoader.LoadGLTF("C:/Users/Johan/Desktop/test/Bistro_small.glb", renderer->GetSceneManager(), addedMeshes))
 	{
 		return 1;
 	}

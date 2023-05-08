@@ -12,7 +12,7 @@ struct VmaAllocator_T;
 namespace Engine::Rendering
 {
 	class Shader;
-	class MeshManager;
+	class SceneManager;
 }
 
 namespace Engine::Rendering::Vulkan
@@ -27,7 +27,7 @@ namespace Engine::Rendering::Vulkan
 	class RenderPass;
 	class Framebuffer;
 	class CommandPool;
-	class VulkanMeshManager;
+	class VulkanSceneManager;
 	class Buffer;
 
 	class VulkanRenderer : public Renderer
@@ -44,7 +44,7 @@ namespace Engine::Rendering::Vulkan
 
 		virtual void SetMultiSampleCount(uint32_t sampleCount);
 
-		virtual MeshManager* GetMeshManager() const;
+		virtual SceneManager* GetSceneManager() const;
 
 	private:
 		bool RecordCommandBuffer(const vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
@@ -76,7 +76,7 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::UniqueSemaphore> m_renderFinishedSemaphores;
 		std::vector<vk::UniqueFence> m_inFlightFences;
 
-		std::unique_ptr<VulkanMeshManager> m_meshManager;
+		std::unique_ptr<VulkanSceneManager> m_sceneManager;
 		std::vector<std::unique_ptr<PipelineLayout>> m_pipelineLayouts;
 		concurrency::concurrent_queue<std::function<bool()>> m_actionQueue;
 

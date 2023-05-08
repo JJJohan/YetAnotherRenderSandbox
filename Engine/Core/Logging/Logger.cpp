@@ -1,6 +1,12 @@
 #include "Logger.hpp"
 #include <iostream>
 
+#ifdef _MSC_VER
+#define DEBUG_BREAK __debugbreak()
+#else
+#define DEBUG_BREAK (void)
+#endif
+
 namespace Engine::Logging
 {
 	LogLevel Logger::m_logOutputLevel = LogLevel::DEBUG;
@@ -26,6 +32,7 @@ namespace Engine::Logging
 			break;
 		case LogLevel::FATAL:
 			std::cout << "\033[31m" << "[ERROR] " << message << "\033[0m" << std::endl;
+			DEBUG_BREAK;
 			break;
 		}
 	}
