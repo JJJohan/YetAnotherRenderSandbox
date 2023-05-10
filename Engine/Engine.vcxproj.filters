@@ -19,6 +19,18 @@
     <Filter Include="Rendering\Vulkan">
       <UniqueIdentifier>{b01ef0bd-2b82-4e0a-a452-15b2db879669}</UniqueIdentifier>
     </Filter>
+    <Filter Include="UI">
+      <UniqueIdentifier>{f12299b0-7d4a-40f0-baa7-a558ad32ce1f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\imgui">
+      <UniqueIdentifier>{57dfb541-9436-4b06-bfca-63928fae9a97}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\imgui\backends">
+      <UniqueIdentifier>{f4d8dd5e-ad92-45bf-9d07-879a7e334bf2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\Vulkan">
+      <UniqueIdentifier>{f05028ca-587a-4975-ae00-ce1c29f90011}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
@@ -117,6 +129,33 @@
     </ClCompile>
     <ClCompile Include="Core\Hash.cpp">
       <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\UIManager.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\imgui\imgui.cpp">
+      <Filter>UI\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\imgui\imgui_demo.cpp">
+      <Filter>UI\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\imgui\imgui_draw.cpp">
+      <Filter>UI\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\imgui\imgui_tables.cpp">
+      <Filter>UI\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\imgui\imgui_widgets.cpp">
+      <Filter>UI\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\imgui\backends\imgui_impl_vulkan.cpp">
+      <Filter>UI\imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\Vulkan\VulkanUIManager.cpp">
+      <Filter>UI\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\imgui\backends\imgui_impl_win32.cpp">
+      <Filter>UI\imgui\backends</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -230,6 +269,39 @@
     </ClInclude>
     <ClInclude Include="Rendering\Vulkan\RenderMeshInfo.hpp">
       <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\UIManager.hpp">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui\imconfig.h">
+      <Filter>UI\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui\imgui.h">
+      <Filter>UI\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui\imgui_internal.h">
+      <Filter>UI\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui\imstb_rectpack.h">
+      <Filter>UI\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui\imstb_textedit.h">
+      <Filter>UI\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui\imstb_truetype.h">
+      <Filter>UI\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui\backends\imgui_impl_vulkan.h">
+      <Filter>UI\imgui\backends</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\Vulkan\VulkanUIManager.hpp">
+      <Filter>UI\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui\backends\imgui_impl_win32.h">
+      <Filter>UI\imgui\backends</Filter>
+    </ClInclude>
+    <ClInclude Include="OS\Win32\WindowProc.hpp">
+      <Filter>OS\Win32</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

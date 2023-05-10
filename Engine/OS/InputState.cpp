@@ -9,6 +9,7 @@ namespace Engine::OS
 		, m_mouseButtonsDownPrevFrame()
 		, m_mousePos()
 		, m_mouseDelta()
+		, m_mouseWheelDelta(0.0f)
 	{
 	}
 
@@ -58,11 +59,17 @@ namespace Engine::OS
 		return m_mouseDelta;
 	}
 
+	float InputState::GetMouseWheelDelta() const
+	{
+		return m_mouseWheelDelta;
+	}
+
 	void InputState::Update()
 	{
 		m_mouseButtonsDownPrevFrame = m_mouseButtonsDown;
 		m_keysDownPrevFrame = m_keysDown;
 		m_mouseDelta = glm::vec2();
+		m_mouseWheelDelta = 0.0f;
 	}
 
 	void InputState::SetKeyDown(KeyCode keyCode, bool down)
@@ -84,5 +91,10 @@ namespace Engine::OS
 	void InputState::SetMousePos(const glm::vec2& pos)
 	{
 		m_mousePos = pos;
+	}
+
+	void InputState::SetMouseWheelDelta(float mouseWheelDelta)
+	{
+		m_mouseWheelDelta = mouseWheelDelta;
 	}
 }

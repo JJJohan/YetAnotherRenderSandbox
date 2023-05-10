@@ -36,7 +36,7 @@ namespace Engine::Rendering::Vulkan
 	public:
 		VulkanSceneManager(const uint32_t maxConcurrentFrames);
 
-		bool Initialise(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool,
+		bool Initialise(VmaAllocator allocator, const Device& device, const vk::CommandBuffer& setupCommandBuffer,
 			Shader* shader, const vk::PhysicalDeviceLimits& limits);
 
 		bool Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool,
@@ -45,35 +45,28 @@ namespace Engine::Rendering::Vulkan
 		void Draw(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex);
 
 	private:
-		bool SetupIndirectDrawBuffer(const Device& device, const CommandPool& resourceCommandPool,
-			std::vector<vk::UniqueCommandBuffer>& resourceCommands, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
+		bool SetupIndirectDrawBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
 			VmaAllocator allocator);
 
-		bool SetupVertexBuffers(const Device& device, const CommandPool& resourceCommandPool,
-			std::vector<vk::UniqueCommandBuffer>& resourceCommands, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
+		bool SetupVertexBuffers(const Device& device, const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
 			VmaAllocator allocator);
 
-		bool SetupIndexBuffer(const Device& device, const CommandPool& resourceCommandPool,
-			std::vector<vk::UniqueCommandBuffer>& resourceCommands, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
+		bool SetupIndexBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
 			VmaAllocator allocator);
 
-		bool SetupRenderImage(const Device& device, const CommandPool& resourceCommandPool,
-			std::vector<vk::UniqueCommandBuffer>& resourceCommands, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
+		bool SetupRenderImage(const Device& device, const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
 			VmaAllocator allocator, float maxAnisotropy, uint32_t& imageCount);
 
-		bool SetupMeshInfoBuffer(const Device& device, const CommandPool& resourceCommandPool,
-			std::vector<vk::UniqueCommandBuffer>& resourceCommands, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
+		bool SetupMeshInfoBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
 			VmaAllocator allocator, vk::DeviceSize minOffsetAlignment);
 
 		bool CreateStagingBuffer(VmaAllocator allocator, const Device& device,
-			const CommandPool& resourceCommandPool, const Buffer* destinationBuffer, const void* data,
-			uint64_t size, std::vector<std::unique_ptr<Buffer>>& copyBufferCollection,
-			std::vector<vk::UniqueCommandBuffer>& copyCommandCollection);
+			const vk::CommandBuffer& commandBuffer, const Buffer* destinationBuffer, const void* data,
+			uint64_t size, std::vector<std::unique_ptr<Buffer>>& copyBufferCollection);
 
 		bool CreateImageStagingBuffer(VmaAllocator allocator, const Device& device,
-			const CommandPool& resourceCommandPool, const RenderImage* destinationImage, const void* data, uint64_t size,
-			std::vector<std::unique_ptr<Buffer>>& copyBufferCollection,
-			std::vector<vk::UniqueCommandBuffer>& copyCommandCollection);
+			const vk::CommandBuffer& commandBufferl, const RenderImage* destinationImage, const void* data, uint64_t size,
+			std::vector<std::unique_ptr<Buffer>>& copyBufferCollection);
 
 		const uint32_t m_maxConcurrentFrames;
 

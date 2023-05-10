@@ -44,10 +44,11 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	bool VulkanSceneManager::Initialise(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool, Shader* shader, const vk::PhysicalDeviceLimits& limits)
+	bool VulkanSceneManager::Initialise(VmaAllocator allocator, const Device& device, const vk::CommandBuffer& setupCommandBuffer,
+		Shader* shader, const vk::PhysicalDeviceLimits& limits)
 	{
 		m_shader = shader;
-		m_resourceFence = device.Get().createFenceUnique(vk::FenceCreateInfo());
+		m_resourceFence = device.Get().createFenceUnique(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled));
 
 		m_sampler = std::make_unique<ImageSampler>();
 		bool samplerInitialised = m_sampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear, vk::SamplerAddressMode::eRepeat, limits.maxSamplerAnisotropy);
@@ -74,14 +75,14 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		m_prevFrameCommandBuffers.emplace_back(m_blankImage->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eTransferDstOptimal));
+		m_blankImage->TransitionImageLayout(device, setupCommandBuffer, vk::ImageLayout::eTransferDstOptimal);
 
 		Colour blankPixel = Colour();
-		if (!CreateImageStagingBuffer(allocator, device, resourceCommandPool, m_blankImage.get(), &blankPixel,
-			sizeof(uint32_t), m_prevFrameBuffers, m_prevFrameCommandBuffers))
+		if (!CreateImageStagingBuffer(allocator, device, setupCommandBuffer, m_blankImage.get(), &blankPixel,
+			sizeof(uint32_t), m_prevFrameBuffers))
 			return false;
 
-		m_prevFrameCommandBuffers.emplace_back(m_blankImage->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eShaderReadOnlyOptimal));
+		m_blankImage->TransitionImageLayout(device, setupCommandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
 
 		std::vector<vk::DescriptorPoolSize> poolSizes =
 		{
@@ -96,32 +97,11 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		uint32_t resourceCommandCount = static_cast<uint32_t>(m_prevFrameCommandBuffers.size());
-		std::vector<vk::CommandBuffer> resourceCommandViews;
-		resourceCommandViews.resize(resourceCommandCount);
-		for (uint32_t i = 0; i < resourceCommandCount; ++i)
-		{
-			resourceCommandViews[i] = m_prevFrameCommandBuffers[i].get();
-		}
-
-		vk::SubmitInfo submitInfo;
-		submitInfo.commandBufferCount = resourceCommandCount;
-		submitInfo.pCommandBuffers = resourceCommandViews.data();
-
-		const vk::Queue& queue = device.GetGraphicsQueue();
-
-		vk::Result submitResult = queue.submit(1, &submitInfo, m_resourceFence.get());
-		if (submitResult != vk::Result::eSuccess)
-		{
-			return false;
-		}
-
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupIndirectDrawBuffer(const Device& device, const CommandPool& resourceCommandPool,
-		std::vector<vk::UniqueCommandBuffer>& resourceCommands, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
-		VmaAllocator allocator)
+	bool VulkanSceneManager::SetupIndirectDrawBuffer(const Device& device, const vk::CommandBuffer& commandBuffer,
+		std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator)
 	{
 		std::vector<vk::DrawIndexedIndirectCommand> indirectBufferData;
 		indirectBufferData.reserve(m_meshCapacity);
@@ -154,16 +134,15 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!CreateStagingBuffer(allocator, device, resourceCommandPool, buffer, indirectBufferData.data(),
-			totalSize, temporaryBuffers, resourceCommands))
+		if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, indirectBufferData.data(),
+			totalSize, temporaryBuffers))
 			return false;
 
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupVertexBuffers(const Device& device, const CommandPool& resourceCommandPool,
-		std::vector<vk::UniqueCommandBuffer>& resourceCommands, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
-		VmaAllocator allocator)
+	bool VulkanSceneManager::SetupVertexBuffers(const Device& device, const vk::CommandBuffer& commandBuffer,
+		std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator)
 	{
 		// Dodgy...
 		m_vertexBuffers.resize(2);
@@ -214,17 +193,16 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
-			if (!CreateStagingBuffer(allocator, device, resourceCommandPool, buffer, vertexBufferData.data(),
-				totalSize, temporaryBuffers, resourceCommands))
+			if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, vertexBufferData.data(),
+				totalSize, temporaryBuffers))
 				return false;
 		}
 
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupIndexBuffer(const Device& device, const CommandPool& resourceCommandPool,
-		std::vector<vk::UniqueCommandBuffer>& resourceCommands, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
-		VmaAllocator allocator)
+	bool VulkanSceneManager::SetupIndexBuffer(const Device& device, const vk::CommandBuffer& commandBuffer,
+		std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator)
 	{
 		m_indexOffsets.resize(m_indexArrays.size());
 		m_indexCounts.resize(m_indexArrays.size());
@@ -272,16 +250,16 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!CreateStagingBuffer(allocator, device, resourceCommandPool, buffer, indexBufferData.data(),
-			totalSize, temporaryBuffers, resourceCommands))
+		if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, indexBufferData.data(),
+			totalSize, temporaryBuffers))
 			return false;
 
 		return true;
 	}
 
 	bool VulkanSceneManager::CreateStagingBuffer(VmaAllocator allocator, const Device& device,
-		const CommandPool& resourceCommandPool, const Buffer* destinationBuffer, const void* data, uint64_t size,
-		std::vector<std::unique_ptr<Buffer>>& copyBufferCollection, std::vector<vk::UniqueCommandBuffer>& resourceCommands)
+		const vk::CommandBuffer& commandBuffer, const Buffer* destinationBuffer, const void* data, uint64_t size,
+		std::vector<std::unique_ptr<Buffer>>& copyBufferCollection)
 	{
 		Buffer* stagingBuffer = copyBufferCollection.emplace_back(std::make_unique<Buffer>(allocator)).get();
 		if (!stagingBuffer->Initialise(size,
@@ -296,14 +274,14 @@ namespace Engine::Rendering::Vulkan
 		if (!stagingBuffer->UpdateContents(data, size))
 			return false;
 
-		resourceCommands.emplace_back(stagingBuffer->Copy(device, resourceCommandPool, *destinationBuffer, size));
+		stagingBuffer->Copy(device, commandBuffer, *destinationBuffer, size);
 
 		return true;
 	}
 
 	bool VulkanSceneManager::CreateImageStagingBuffer(VmaAllocator allocator, const Device& device,
-		const CommandPool& resourceCommandPool, const RenderImage* destinationImage, const void* data, uint64_t size,
-		std::vector<std::unique_ptr<Buffer>>& copyBufferCollection, std::vector<vk::UniqueCommandBuffer>& resourceCommands)
+		const vk::CommandBuffer& commandBuffer, const RenderImage* destinationImage, const void* data, uint64_t size,
+		std::vector<std::unique_ptr<Buffer>>& copyBufferCollection)
 	{
 		Buffer* stagingBuffer = copyBufferCollection.emplace_back(std::make_unique<Buffer>(allocator)).get();
 		if (!stagingBuffer->Initialise(size,
@@ -318,13 +296,13 @@ namespace Engine::Rendering::Vulkan
 		if (!stagingBuffer->UpdateContents(data, size))
 			return false;
 
-		resourceCommands.emplace_back(stagingBuffer->CopyToImage(device, resourceCommandPool, *destinationImage));
+		stagingBuffer->CopyToImage(device, commandBuffer, *destinationImage);
 
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupRenderImage(const Device& device, const CommandPool& resourceCommandPool,
-		std::vector<vk::UniqueCommandBuffer>& resourceCommands, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
+	bool VulkanSceneManager::SetupRenderImage(const Device& device,
+		const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
 		VmaAllocator allocator, float maxAnisotropy, uint32_t& imageCount)
 	{
 		m_imageArray.reserve(m_images.size());
@@ -382,13 +360,13 @@ namespace Engine::Rendering::Vulkan
 
 			const std::vector<uint8_t>& pixels = image->GetPixels();
 
-			resourceCommands.emplace_back(renderImage->TransitionImageLayout(device, resourceCommandPool, vk::ImageLayout::eTransferDstOptimal));
+			renderImage->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eTransferDstOptimal);
 
-			if (!CreateImageStagingBuffer(allocator, device, resourceCommandPool, renderImage.get(), pixels.data(),
-				pixels.size(), temporaryBuffers, resourceCommands))
+			if (!CreateImageStagingBuffer(allocator, device, commandBuffer, renderImage.get(), pixels.data(),
+				pixels.size(), temporaryBuffers))
 				return false;
 
-			resourceCommands.emplace_back(renderImage->GenerateMipmaps(device, resourceCommandPool));
+			renderImage->GenerateMipmaps(device, commandBuffer);
 
 			++imageCount;
 
@@ -398,9 +376,8 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupMeshInfoBuffer(const Device& device, const CommandPool& resourceCommandPool,
-		std::vector<vk::UniqueCommandBuffer>& resourceCommands, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
-		VmaAllocator allocator, vk::DeviceSize minOffsetAlignment)
+	bool VulkanSceneManager::SetupMeshInfoBuffer(const Device& device, const vk::CommandBuffer& commandBuffer,
+		std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator, vk::DeviceSize minOffsetAlignment)
 	{
 		uint64_t totalSize = 0;
 		for (uint32_t i = 0; i < m_meshCapacity; ++i)
@@ -443,8 +420,8 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!CreateStagingBuffer(allocator, device, resourceCommandPool, buffer, uniformBufferData.data(),
-			totalSize, temporaryBuffers, resourceCommands))
+		if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, uniformBufferData.data(),
+			totalSize, temporaryBuffers))
 			return false;
 
 		return true;
@@ -484,15 +461,15 @@ namespace Engine::Rendering::Vulkan
 
 		m_build = false;
 
-		std::vector<vk::UniqueCommandBuffer> resourceCommands;
+		vk::UniqueCommandBuffer commandBuffer = resourceCommandPool.BeginResourceCommandBuffer(device);
 		std::vector<std::unique_ptr<Buffer>> temporaryBuffers;
 
 		uint32_t imageCount;
-		if (!SetupVertexBuffers(device, resourceCommandPool, resourceCommands, temporaryBuffers, allocator)
-			|| !SetupIndexBuffer(device, resourceCommandPool, resourceCommands, temporaryBuffers, allocator)
-			|| !SetupRenderImage(device, resourceCommandPool, resourceCommands, temporaryBuffers, allocator, limits.maxSamplerAnisotropy, imageCount)
-			|| !SetupMeshInfoBuffer(device, resourceCommandPool, resourceCommands, temporaryBuffers, allocator, limits.minUniformBufferOffsetAlignment)
-			|| !SetupIndirectDrawBuffer(device, resourceCommandPool, resourceCommands, temporaryBuffers, allocator))
+		if (!SetupVertexBuffers(device, commandBuffer.get(), temporaryBuffers, allocator)
+			|| !SetupIndexBuffer(device, commandBuffer.get(), temporaryBuffers, allocator)
+			|| !SetupRenderImage(device, commandBuffer.get(), temporaryBuffers, allocator, limits.maxSamplerAnisotropy, imageCount)
+			|| !SetupMeshInfoBuffer(device, commandBuffer.get(), temporaryBuffers, allocator, limits.minUniformBufferOffsetAlignment)
+			|| !SetupIndirectDrawBuffer(device, commandBuffer.get(), temporaryBuffers, allocator))
 		{
 			return false;
 		}
@@ -545,24 +522,12 @@ namespace Engine::Rendering::Vulkan
 			device.Get().updateDescriptorSets(writeDescriptorSets, nullptr);
 		}
 
+		commandBuffer->end();
 		const vk::Queue& queue = device.GetGraphicsQueue();
 
-		uint32_t resourceCommandCount = static_cast<uint32_t>(resourceCommands.size());
-		if (resourceCommandCount == 0)
-		{
-			return true;
-		}
-
-		std::vector<vk::CommandBuffer> resourceCommandViews;
-		resourceCommandViews.resize(resourceCommandCount);
-		for (uint32_t i = 0; i < resourceCommandCount; ++i)
-		{
-			resourceCommandViews[i] = resourceCommands[i].get();
-		}
-
 		vk::SubmitInfo submitInfo;
-		submitInfo.commandBufferCount = resourceCommandCount;
-		submitInfo.pCommandBuffers = resourceCommandViews.data();
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer.get();
 
 		vk::Result submitResult = queue.submit(1, &submitInfo, m_resourceFence.get());
 		if (submitResult != vk::Result::eSuccess)
@@ -570,10 +535,7 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		for (auto& command : resourceCommands)
-		{
-			m_prevFrameCommandBuffers.push_back(std::move(command));
-		}
+		m_prevFrameCommandBuffers.push_back(std::move(commandBuffer));
 
 		for (auto& buffer : temporaryBuffers)
 		{

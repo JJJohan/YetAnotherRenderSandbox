@@ -56,29 +56,18 @@ namespace Engine::Rendering::Vulkan
 	}
 
 
-	vk::UniqueCommandBuffer Buffer::Copy(const Device& device, const CommandPool& commandPool, const Buffer& destination, vk::DeviceSize size) const
+	void Buffer::Copy(const Device& device, const vk::CommandBuffer& commandBuffer, const Buffer& destination, vk::DeviceSize size) const
 	{
-		vk::UniqueCommandBuffer commandBuffer = commandPool.BeginResourceCommandBuffer(device);
-
 		vk::BufferCopy copyRegion(0, 0, size);
-		commandBuffer->copyBuffer(m_buffer, destination.m_buffer, 1, &copyRegion);
-		commandBuffer->end();
-
-		return commandBuffer;
+		commandBuffer.copyBuffer(m_buffer, destination.m_buffer, 1, &copyRegion);
 	}
 
-	vk::UniqueCommandBuffer Buffer::CopyToImage(const Device& device, const CommandPool& commandPool, const RenderImage& destination) const
+	void Buffer::CopyToImage(const Device& device, const vk::CommandBuffer& commandBuffer, const RenderImage& destination) const
 	{
-		vk::UniqueCommandBuffer commandBuffer = commandPool.BeginResourceCommandBuffer(device);
-
 		vk::ImageSubresourceLayers subresource(vk::ImageAspectFlagBits::eColor, 0, 0, 1);
 		vk::BufferImageCopy region(0, 0, 0, subresource, vk::Offset3D(0, 0, 0), destination.GetDimensions());
 
-		commandBuffer->copyBufferToImage(m_buffer, destination.Get(), vk::ImageLayout::eTransferDstOptimal, { region });
-
-		commandBuffer->end();
-
-		return commandBuffer;
+		commandBuffer.copyBufferToImage(m_buffer, destination.Get(), vk::ImageLayout::eTransferDstOptimal, { region });
 	}
 
 	bool Buffer::Initialise(uint64_t size, vk::BufferUsageFlags bufferUsage,

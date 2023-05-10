@@ -13,6 +13,11 @@ namespace Engine::OS
 	class Window;
 }
 
+namespace Engine::UI
+{
+	class UIManager;
+}
+
 namespace Engine::Rendering
 {
 	class SceneManager;
@@ -30,7 +35,7 @@ namespace Engine::Rendering
 		EXPORT virtual ~Renderer();
 
 		EXPORT virtual bool Initialise();
-		EXPORT virtual void Render();
+		EXPORT virtual bool Render();
 
 		EXPORT void SetClearColour(const glm::vec4& colour);
 		EXPORT const glm::vec4& GetClearColor() const;
@@ -46,6 +51,7 @@ namespace Engine::Rendering
 		EXPORT virtual void DestroyShader(Shader* shader);
 
 		EXPORT virtual SceneManager* GetSceneManager() const;
+		EXPORT virtual Engine::UI::UIManager* GetUIManager() const;
 
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);

@@ -15,6 +15,16 @@ namespace Engine::Rendering
 	class SceneManager;
 }
 
+namespace Engine::UI
+{
+	class UIManager;
+}
+
+namespace Engine::UI::Vulkan
+{
+	class VulkanUIManager;
+}
+
 namespace Engine::Rendering::Vulkan
 {
 	class Debug;
@@ -37,7 +47,7 @@ namespace Engine::Rendering::Vulkan
 		virtual ~VulkanRenderer();
 
 		virtual bool Initialise();
-		virtual void Render();
+		virtual bool Render();
 
 		virtual Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs);
 		virtual void DestroyShader(Shader* shader);
@@ -45,6 +55,7 @@ namespace Engine::Rendering::Vulkan
 		virtual void SetMultiSampleCount(uint32_t sampleCount);
 
 		virtual SceneManager* GetSceneManager() const;
+		virtual Engine::UI::UIManager* GetUIManager() const;
 
 	private:
 		bool RecordCommandBuffer(const vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
@@ -52,6 +63,8 @@ namespace Engine::Rendering::Vulkan
 		bool CreateAllocator();
 		bool RecreateSwapChain(const glm::uvec2& size);
 		bool CreateFrameInfoUniformBuffer();
+
+		void OnResize(const glm::uvec2& size);
 
 		vk::SampleCountFlagBits GetMultiSampleCount(uint32_t sampleCount) const;
 		uint32_t MultiSampleCountToInteger(vk::SampleCountFlagBits sampleCount) const;
@@ -63,6 +76,7 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<Surface> m_surface;
 		std::unique_ptr<SwapChain> m_swapChain;
 		std::unique_ptr<RenderPass> m_renderPass;
+		std::unique_ptr<Engine::UI::Vulkan::VulkanUIManager> m_uiManager;
 		struct VmaAllocator_T* m_allocator;
 
 		std::unique_ptr<CommandPool> m_resourceCommandPool;
@@ -85,5 +99,6 @@ namespace Engine::Rendering::Vulkan
 		bool m_swapChainOutOfDate;
 		uint32_t m_currentFrame;
 		const uint32_t m_maxConcurrentFrames;
+		glm::uvec2 m_lastWindowSize;
 	};
 }

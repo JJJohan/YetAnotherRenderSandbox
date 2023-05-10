@@ -7,7 +7,6 @@
 namespace Engine::Rendering::Vulkan
 {
 	class Device;
-	class CommandPool;
 
 	class RenderImage
 	{
@@ -17,8 +16,8 @@ namespace Engine::Rendering::Vulkan
 		bool Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, vk::SampleCountFlagBits sampleCount, bool mipMapped, vk::ImageTiling tiling,
 			vk::ImageUsageFlags imageUsage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode);
 		bool UpdateContents(const void* data, vk::DeviceSize size);
-		vk::UniqueCommandBuffer TransitionImageLayout(const Device& device, const CommandPool& commandPool, vk::ImageLayout newLayout);
-		vk::UniqueCommandBuffer GenerateMipmaps(const Device& device, const CommandPool& commandPool);
+		void TransitionImageLayout(const Device& device, const vk::CommandBuffer& commandBuffer, vk::ImageLayout newLayout);
+		void GenerateMipmaps(const Device& device, const vk::CommandBuffer& commandBuffer);
 		const VkImage& Get() const;
 		const vk::Extent3D& GetDimensions() const;
 		const vk::Format& GetFormat() const;

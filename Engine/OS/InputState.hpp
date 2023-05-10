@@ -22,12 +22,14 @@ namespace Engine::OS
 
 		EXPORT glm::vec2 GetMousePos() const;
 		EXPORT glm::vec2 GetMouseDelta() const;
+		EXPORT float GetMouseWheelDelta() const;
 
 		void Update();
 		void SetKeyDown(KeyCode keyCode, bool down);
 		void SetMouseButtonDown(MouseButton mouseButton, bool down);
 		void SetMouseDelta(const glm::vec2& delta);
 		void SetMousePos(const glm::vec2& pos);
+		void SetMouseWheelDelta(float mouseWheelDelta);
 
 	private:
 		std::array<bool, 256> m_keysDown;
@@ -36,5 +38,6 @@ namespace Engine::OS
 		std::array<bool, 3> m_mouseButtonsDownPrevFrame;
 		glm::vec2 m_mousePos;
 		glm::vec2 m_mouseDelta;
+		float m_mouseWheelDelta;
 	};
 }

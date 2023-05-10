@@ -6,6 +6,7 @@
 #include "Core/Logging/Logger.hpp"
 #include "PipelineLayout.hpp"
 #include "VulkanSceneManager.hpp"
+#include "UI/Vulkan/VulkanUIManager.hpp"
 #include "../Shader.hpp"
 #include "Debug.hpp"
 #include "Device.hpp"
@@ -30,6 +31,8 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 using namespace Engine::OS;
 using namespace Engine::Logging;
+using namespace Engine::UI;
+using namespace Engine::UI::Vulkan;
 
 namespace Engine::Rendering::Vulkan
 {
@@ -53,12 +56,14 @@ namespace Engine::Rendering::Vulkan
 		, m_inFlightFences()
 		, m_actionQueue()
 		, m_running(false)
+		, m_lastWindowSize()
 		, m_swapChainOutOfDate(false)
 		, m_currentFrame(0)
 		, m_allocator()
 		, m_maxConcurrentFrames(DEFAULT_MAX_CONCURRENT_FRAMES)
 		, m_frameInfoBuffers()
 		, m_frameInfoBufferData()
+		, m_uiManager(std::make_unique<VulkanUIManager>(window, *this))
 	{
 	}
 
@@ -82,6 +87,7 @@ namespace Engine::Rendering::Vulkan
 		const vk::Device& deviceImp = m_device->Get();
 		deviceImp.waitIdle();
 
+		m_uiManager.reset();
 		m_sceneManager.reset();
 
 		m_frameInfoBuffers.clear();
@@ -164,6 +170,8 @@ namespace Engine::Rendering::Vulkan
 
 		m_sceneManager->Draw(commandBuffer, m_currentFrame);
 
+		m_uiManager->Draw(commandBuffer, width, height);
+
 		commandBuffer.endRenderPass();
 		commandBuffer.end();
 
@@ -197,6 +205,11 @@ namespace Engine::Rendering::Vulkan
 		return m_sceneManager.get();
 	}
 
+	UIManager* VulkanRenderer::GetUIManager() const
+	{
+		return m_uiManager.get();
+	}
+
 	bool VulkanRenderer::CreateSyncObjects()
 	{
 		const vk::Device& deviceImp = m_device->Get();
@@ -214,7 +227,7 @@ namespace Engine::Rendering::Vulkan
 			vk::UniqueFence inFlightFence = deviceImp.createFenceUnique(fenceInfo);
 			if (!imageAvailableSemaphore.get() || !renderFinishedSemaphore.get() || !inFlightFence.get())
 			{
-				Logger::Error("Failed to create synchronization objects for.");
+				Logger::Error("Failed to create synchronization objects.");
 				return false;
 			}
 
@@ -315,6 +328,12 @@ namespace Engine::Rendering::Vulkan
 					}
 				}
 
+				if (!m_uiManager->Rebuild(this->m_device->Get(), this->m_renderPass->Get(), multiSampleCount))
+				{
+					Logger::Error("Failed to recreate UI render backend.");
+					return false;
+				}
+
 				return true;
 			});
 	}
@@ -357,7 +376,17 @@ namespace Engine::Rendering::Vulkan
 			|| !m_renderCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
 			|| !CreateSyncObjects()
 			|| !CreateFrameInfoUniformBuffer())
+
 		{
+			return false;
+		}
+
+		vk::UniqueCommandBuffer setupCommandBuffer = m_resourceCommandPool->BeginResourceCommandBuffer(*m_device);
+
+		// Initialise UI
+		if (!m_uiManager->Initialise(m_instance->Get(), *m_device, *m_physicalDevice, m_renderPass->Get(), setupCommandBuffer.get()))
+		{
+			Logger::Error("Failed to initialise UI.");
 			return false;
 		}
 
@@ -381,10 +410,30 @@ namespace Engine::Rendering::Vulkan
 			return 1;
 		}
 
-		if (!m_sceneManager->Initialise(m_allocator, *m_device, *m_resourceCommandPool, shader, m_physicalDevice->GetLimits()))
+		if (!m_sceneManager->Initialise(m_allocator, *m_device, setupCommandBuffer.get(), shader, m_physicalDevice->GetLimits()))
 		{
 			return false;
 		}
+
+		setupCommandBuffer->end();
+
+		vk::SubmitInfo submitInfo;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &setupCommandBuffer.get();
+
+		const vk::Queue& queue = m_device->GetGraphicsQueue();
+
+		vk::Result submitResult = queue.submit(1, &submitInfo, nullptr);
+		if (submitResult != vk::Result::eSuccess)
+		{
+			return false;
+		}
+
+		m_device->Get().waitIdle();
+
+		m_uiManager->PostInitialise();
+
+		m_lastWindowSize = m_window.GetSize();
 
 		static auto endTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
@@ -443,13 +492,14 @@ namespace Engine::Rendering::Vulkan
 		vk::SampleCountFlagBits multiSampleCount = GetMultiSampleCount(m_multiSampleCount);
 		m_device->Get().waitIdle();
 
+		m_lastWindowSize = size;
 		m_swapChainOutOfDate = false;
 
 		return m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size, multiSampleCount)
 			&& m_swapChain->CreateFramebuffers(*m_device, *m_renderPass);
 	}
 
-	void VulkanRenderer::Render()
+	bool VulkanRenderer::Render()
 	{
 		const vk::Device& deviceImp = m_device->Get();
 		vk::Queue graphicsQueue = m_device->GetGraphicsQueue();
@@ -465,24 +515,28 @@ namespace Engine::Rendering::Vulkan
 				if (!action())
 				{
 					Logger::Error("Queued render action failed, aborting render loop.");
-					return;
+					return false;
 				}
 			}
 
 			if (!m_sceneManager->Update(m_allocator, *m_device, *m_resourceCommandPool, m_frameInfoBuffers, *m_renderPass, limits))
 			{
 				Logger::Error("Failed to update meshes.");
-				return;
+				return false;
+			}
+
+			if (!m_sceneManager->Update(m_allocator, *m_device, *m_resourceCommandPool, m_frameInfoBuffers, *m_renderPass, limits))
+			{
+				Logger::Error("Failed to update meshes.");
+				return false;
 			}
 
 			// Skip rendering in minimised state.
 			const glm::uvec2& windowSize = m_window.GetSize();
 			if (windowSize.x == 0 || windowSize.y == 0)
-			{
 				continue;
-			}
 
-			if (m_swapChainOutOfDate)
+			if (m_swapChainOutOfDate || windowSize != m_lastWindowSize)
 			{
 				RecreateSwapChain(windowSize);
 				continue;
@@ -491,7 +545,7 @@ namespace Engine::Rendering::Vulkan
 			if (deviceImp.waitForFences(1, &m_inFlightFences[m_currentFrame].get(), true, UINT64_MAX) != vk::Result::eSuccess)
 			{
 				Logger::Error("Failed to wait for fences.");
-				return; // abort render loop on error.
+				return false;
 			}
 
 			const vk::SwapchainKHR& swapchainImp = m_swapChain->Get();
@@ -500,19 +554,19 @@ namespace Engine::Rendering::Vulkan
 			vk::Result acquireNextImageResult = deviceImp.acquireNextImageKHR(swapchainImp, UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame].get(), VK_NULL_HANDLE, &imageIndex);
 			if (acquireNextImageResult == vk::Result::eErrorOutOfDateKHR)
 			{
-				m_swapChainOutOfDate = true;
+				m_swapChainOutOfDate = true;    
 				continue; // Restart rendering.
 			}
 			else if (acquireNextImageResult != vk::Result::eSuccess && acquireNextImageResult != vk::Result::eSuboptimalKHR)
 			{
 				Logger::Error("Failed to reset command buffer.");
-				return; // abort render loop on error.
+				return false;
 			}
 
 			if (deviceImp.resetFences(1, &m_inFlightFences[m_currentFrame].get()) != vk::Result::eSuccess)
 			{
 				Logger::Error("Failed to reset fences.");
-				return; // abort render loop on error.
+				return false;
 			}
 
 			m_renderCommandBuffers[m_currentFrame]->reset();
@@ -521,7 +575,7 @@ namespace Engine::Rendering::Vulkan
 
 			if (!RecordCommandBuffer(m_renderCommandBuffers[m_currentFrame].get(), imageIndex))
 			{
-				return; // abort render loop on error.
+				return false;
 			}
 
 			vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
@@ -531,7 +585,7 @@ namespace Engine::Rendering::Vulkan
 			if (graphicsQueue.submit(1, &submitInfo, m_inFlightFences[m_currentFrame].get()) != vk::Result::eSuccess)
 			{
 				Logger::Error("Failed to submit draw command buffer.");
-				return; // abort render loop on error.
+				return false;
 			}
 
 			vk::PresentInfoKHR presentInfo(1, &m_renderFinishedSemaphores[m_currentFrame].get(), 1, &swapchainImp, &imageIndex);
@@ -550,10 +604,12 @@ namespace Engine::Rendering::Vulkan
 			catch (std::exception ex)
 			{
 				Logger::Error("Fatal exception during present call occured: {}", ex.what());
-				return;
+				return false;
 			}
 
 			m_currentFrame = (m_currentFrame + 1) % m_maxConcurrentFrames;
 		}
+
+		return true;
 	}
 }

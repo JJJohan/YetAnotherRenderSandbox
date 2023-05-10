@@ -7,11 +7,14 @@
 #include <Rendering/SceneManager.hpp>
 #include <Rendering/VertexData.hpp>
 #include <Rendering/GLTFLoader.hpp>
+#include <UI/Drawer.hpp>
+#include <UI/UIManager.hpp>
 
 using namespace Engine;
 using namespace Engine::Rendering;
 using namespace Engine::Logging;
 using namespace Engine::OS;
+using namespace Engine::UI;
 
 #ifndef NDEBUG
 const bool debug = true;
@@ -39,6 +42,11 @@ uint32_t CreateTestMesh(const Renderer& renderer, std::shared_ptr<Image>& image)
 		glm::mat4(1.0f),
 		Colour(),
 		image);
+}
+
+void DrawUI()
+{
+
 }
 
 int main()
@@ -76,44 +84,66 @@ int main()
 	static auto startTime = std::chrono::high_resolution_clock::now();
 	static auto prevTime = startTime;
 
+	window->SetCursorVisible(false);
+
+	bool drawUI = false;
 	while (!window->IsClosed())
 	{
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevTime).count();
 
-		if (window->InputState.KeyDown(KeyCode::X))
+		if (window->InputState.KeyDown(KeyCode::Escape))
 		{
-			multiSampleCount *= 2;
-			if (multiSampleCount > renderer->GetMaxMultiSampleCount())
+			drawUI = !drawUI;
+			window->SetCursorVisible(drawUI);
+		}
+
+		if (drawUI)
+		{
+			DrawUI();
+		}
+		else
+		{
+			if (window->InputState.KeyDown(KeyCode::X))
 			{
-				multiSampleCount = 1;
+				multiSampleCount *= 2;
+				if (multiSampleCount > renderer->GetMaxMultiSampleCount())
+				{
+					multiSampleCount = 1;
+				}
+
+				renderer->SetMultiSampleCount(multiSampleCount);
+				Logger::Info("Set multisample count to {}.", multiSampleCount);
 			}
 
-			renderer->SetMultiSampleCount(multiSampleCount);
-			Logger::Info("Set multisample count to {}.", multiSampleCount);
-		}
+			float speed = 10.0f;
+			if (window->InputState.KeyPressed(KeyCode::Shift))
+			{
+				speed *= 2.0f;
+			}
 
-		if (window->InputState.KeyPressed(KeyCode::W))
-		{
-			camera.TranslateLocal(glm::vec3(0.0f, 0.0f, 10.0f) * deltaTime);
-		}
-		if (window->InputState.KeyPressed(KeyCode::A))
-		{
-			camera.TranslateLocal(glm::vec3(10.0f, 0.0f, 0.0f) * deltaTime);
-		}
-		if (window->InputState.KeyPressed(KeyCode::S))
-		{
-			camera.TranslateLocal(glm::vec3(0.0f, 0.0f, -10.0f) * deltaTime);
-		}
-		if (window->InputState.KeyPressed(KeyCode::D))
-		{
-			camera.TranslateLocal(glm::vec3(-10.0f, 0.0f, 0.0f) * deltaTime);
-		}
+			if (window->InputState.KeyPressed(KeyCode::W))
+			{
+				camera.TranslateLocal(glm::vec3(0.0f, 0.0f, speed) * deltaTime);
+			}
+			if (window->InputState.KeyPressed(KeyCode::A))
+			{
+				camera.TranslateLocal(glm::vec3(speed, 0.0f, 0.0f) * deltaTime);
+			}
+			if (window->InputState.KeyPressed(KeyCode::S))
+			{
+				camera.TranslateLocal(glm::vec3(0.0f, 0.0f, -speed) * deltaTime);
+			}
+			if (window->InputState.KeyPressed(KeyCode::D))
+			{
+				camera.TranslateLocal(glm::vec3(-speed, 0.0f, 0.0f) * deltaTime);
+			}
 
-		const glm::vec2& mouseDelta = window->InputState.GetMouseDelta();
-		if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f)
-		{
-			camera.RotateFPS(mouseDelta.y * 0.01f, mouseDelta.x * 0.01f);
+			const glm::vec2& mouseDelta = window->InputState.GetMouseDelta();
+			if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f)
+			{
+				camera.RotateFPS(mouseDelta.y * 0.02f, mouseDelta.x * 0.02f);
+			}
 		}
 
 		window->Poll();

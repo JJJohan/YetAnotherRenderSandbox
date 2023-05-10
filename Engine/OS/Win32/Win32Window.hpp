@@ -15,6 +15,9 @@ namespace Engine::OS
 
 		virtual void* GetHandle() const;
 		virtual void* GetInstance() const;
+
+		void OnSizeEvent(uint64_t sizeEventFlag);
+		virtual void SetCursorVisible(bool visible);
 		virtual void SetTitle(const std::string& title);
 		virtual void SetFullscreen(bool fullscreen);
 		virtual void Resize(const glm::uvec2& size);
@@ -25,5 +28,6 @@ namespace Engine::OS
 	private:
 		HWND m_hWnd;
 		WINDOWPLACEMENT m_prevPlacement;
+		uint64_t m_lastSizeState;
 	};
 }

@@ -4,8 +4,10 @@
 #include "SceneManager.hpp"
 #include "OS/Window.hpp"
 #include "OS/Files.hpp"
+#include "UI/UIManager.hpp"
 
 using namespace Engine::OS;
+using namespace Engine::UI;
 using namespace Engine::Logging;
 using namespace Engine::Rendering::Vulkan;
 
@@ -48,6 +50,11 @@ namespace Engine::Rendering
 	}
 
 	SceneManager* Renderer::GetSceneManager() const
+	{
+		return nullptr;
+	}
+
+	UIManager* Renderer::GetUIManager() const
 	{
 		return nullptr;
 	}
@@ -111,7 +118,8 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	void Renderer::Render()
+	bool Renderer::Render()
 	{
+		return false;
 	}
 }

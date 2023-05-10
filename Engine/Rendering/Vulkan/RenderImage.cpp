@@ -46,14 +46,13 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	vk::UniqueCommandBuffer RenderImage::GenerateMipmaps(const Device& device, const CommandPool& commandPool)
+	void RenderImage::GenerateMipmaps(const Device& device, const vk::CommandBuffer& commandBuffer)
 	{
 		if (m_mipLevels == 1)
 		{
-			return TransitionImageLayout(device, commandPool, vk::ImageLayout::eShaderReadOnlyOptimal);
+			TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+			return;
 		}
-
-		vk::UniqueCommandBuffer commandBuffer = commandPool.BeginResourceCommandBuffer(device);
 
 		vk::ImageMemoryBarrier barrier;
 		barrier.image = m_image;
@@ -73,7 +72,7 @@ namespace Engine::Rendering::Vulkan
 			barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
 			barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
 
-			commandBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+			commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
 				vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlagBits::eByRegion,
 				nullptr, nullptr, { barrier });
 
@@ -83,14 +82,14 @@ namespace Engine::Rendering::Vulkan
 			blit.dstSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i, 0, 1);
 			blit.dstOffsets = std::array<vk::Offset3D, 2> { vk::Offset3D(), vk::Offset3D(mipDimensions.width > 1 ? mipDimensions.width / 2 : 1, mipDimensions.height > 1 ? mipDimensions.height / 2 : 1, 1) };
 
-			commandBuffer->blitImage(m_image, vk::ImageLayout::eTransferSrcOptimal, m_image, vk::ImageLayout::eTransferDstOptimal, { blit }, vk::Filter::eLinear);
+			commandBuffer.blitImage(m_image, vk::ImageLayout::eTransferSrcOptimal, m_image, vk::ImageLayout::eTransferDstOptimal, { blit }, vk::Filter::eLinear);
 
 			barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
 			barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 			barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
 			barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
-			commandBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+			commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
 				vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlagBits::eByRegion,
 				nullptr, nullptr, { barrier });
 
@@ -104,13 +103,9 @@ namespace Engine::Rendering::Vulkan
 		barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
 		barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
-		commandBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+		commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
 			vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlagBits::eByRegion,
 			nullptr, nullptr, { barrier });
-
-		commandBuffer->end();
-
-		return commandBuffer;
 	}
 
 	bool RenderImage::Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, vk::SampleCountFlagBits sampleCount, bool mipMapped, vk::ImageTiling tiling,
@@ -143,10 +138,8 @@ namespace Engine::Rendering::Vulkan
 		return format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint;
 	}
 
-	vk::UniqueCommandBuffer RenderImage::TransitionImageLayout(const Device& device, const CommandPool& commandPool, vk::ImageLayout newLayout)
+	void RenderImage::TransitionImageLayout(const Device& device, const vk::CommandBuffer& commandBuffer, vk::ImageLayout newLayout)
 	{
-		vk::UniqueCommandBuffer commandBuffer = commandPool.BeginResourceCommandBuffer(device);
-
 		vk::AccessFlags srcAccessMask;
 		vk::AccessFlags dstAccessMask;
 		vk::PipelineStageFlags srcStage;
@@ -204,13 +197,10 @@ namespace Engine::Rendering::Vulkan
 			vk::ImageMemoryBarrier barrier(srcAccessMask, dstAccessMask, m_layout, newLayout,
 				VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
 
-			commandBuffer->pipelineBarrier(srcStage, dstStage, vk::DependencyFlagBits::eByRegion, nullptr, nullptr, { barrier });
+			commandBuffer.pipelineBarrier(srcStage, dstStage, vk::DependencyFlagBits::eByRegion, nullptr, nullptr, { barrier });
 		}
 
-		commandBuffer->end();
-
 		m_layout = newLayout;
-		return commandBuffer;
 	}
 
 	const VkImage& RenderImage::Get() const
