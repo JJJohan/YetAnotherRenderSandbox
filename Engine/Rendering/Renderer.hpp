@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include "Core/Colour.hpp"
 #include "Core/Macros.hpp"
 #include "Shader.hpp"
 #include <glm/glm.hpp>
@@ -37,11 +38,14 @@ namespace Engine::Rendering
 		EXPORT virtual bool Initialise();
 		EXPORT virtual bool Render();
 
-		EXPORT void SetClearColour(const glm::vec4& colour);
-		EXPORT const glm::vec4& GetClearColor() const;
+		EXPORT void SetClearColour(const Colour& colour);
+		EXPORT const Colour GetClearColor() const;
 
 		EXPORT virtual void SetMultiSampleCount(uint32_t multiSampleCount);
 		EXPORT uint32_t GetMaxMultiSampleCount() const;
+
+		EXPORT void SetSunLightDirection(const glm::vec3& dir);
+		EXPORT void SetSunLightColour(const Colour& colour);
 
 		EXPORT void SetCamera(const Camera& camera);
 		EXPORT Camera& GetCamera();
@@ -56,6 +60,8 @@ namespace Engine::Rendering
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);
 
+		glm::vec3 m_sunDirection;
+		Colour m_sunColour;
 		uint32_t m_multiSampleCount;
 		uint32_t m_maxMultiSampleCount;
 		const Engine::OS::Window& m_window;

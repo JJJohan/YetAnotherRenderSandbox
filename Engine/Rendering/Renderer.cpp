@@ -20,6 +20,8 @@ namespace Engine::Rendering
 		, m_camera()
 		, m_multiSampleCount(1)
 		, m_maxMultiSampleCount(1)
+		, m_sunDirection(glm::normalize(glm::vec3(0.2f, -1.0f, 2.0f)))
+		, m_sunColour(Colour(1.0f, 1.0f, 1.0f))
 	{
 	}
 
@@ -37,6 +39,16 @@ namespace Engine::Rendering
 			Logger::Error("Requested renderer type not supported.");
 			return nullptr;
 		}
+	}
+
+	void Renderer::SetSunLightDirection(const glm::vec3& dir)
+	{
+		m_sunDirection = glm::normalize(dir);
+	}
+
+	void Renderer::SetSunLightColour(const Colour& colour)
+	{
+		m_sunColour = colour;
 	}
 
 	void Renderer::SetCamera(const Camera& camera)
@@ -75,14 +87,14 @@ namespace Engine::Rendering
 		return m_maxMultiSampleCount;
 	}
 
-	void Renderer::SetClearColour(const glm::vec4& clearColour)
+	void Renderer::SetClearColour(const Colour& clearColour)
 	{
-		m_clearColour = clearColour;
+		m_clearColour = clearColour.GetVec4();
 	}
 
-	const glm::vec4& Renderer::GetClearColor() const
+	const Colour Renderer::GetClearColor() const
 	{
-		return m_clearColour;
+		return Colour(m_clearColour);
 	}
 
 	Shader* Renderer::CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs)

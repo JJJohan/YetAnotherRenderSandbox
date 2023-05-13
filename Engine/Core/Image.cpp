@@ -17,18 +17,20 @@ namespace Engine
 		, m_size()
 		, m_components(0)
 		, m_hash(0)
+		, m_srgb(true)
 	{
 	}
 
-	Image::Image(const glm::uvec2& dimensions, uint32_t components, const std::vector<uint8_t>& pixels)
+	Image::Image(const glm::uvec2& dimensions, uint32_t components, const std::vector<uint8_t>& pixels, bool srgb)
 		: m_pixels(pixels)
 		, m_size(dimensions)
 		, m_components(components)
 		, m_hash(Hash::CalculateHash(pixels))
+		, m_srgb(srgb)
 	{
 	}
 
-	bool Image::LoadFromFile(const std::string& filePath)
+	bool Image::LoadFromFile(const std::string& filePath, bool srgb)
 	{
 		if (!std::filesystem::exists(filePath))
 		{
@@ -40,7 +42,7 @@ namespace Engine
 		std::vector<uint8_t> buffer(std::istreambuf_iterator<char>(input), {});
 		input.close();
 
-		if (LoadFromMemory(buffer.data(), buffer.size()))
+		if (!LoadFromMemory(buffer.data(), buffer.size()), srgb)
 		{
 			Logger::Error("Failed to load image {}.", filePath);
 			return false;
@@ -49,8 +51,10 @@ namespace Engine
 		return true;
 	}
 
-	bool Image::LoadFromMemory(const uint8_t* memory, size_t size)
+	bool Image::LoadFromMemory(const uint8_t* memory, size_t size, bool srgb)
 	{
+		m_srgb = srgb;
+
 		wuffs_png__decoder* dec = wuffs_png__decoder__alloc();
 
 		wuffs_png__decoder__set_quirk_enabled(dec, WUFFS_BASE__QUIRK_IGNORE_CHECKSUM, true);
@@ -126,6 +130,11 @@ namespace Engine
 	const glm::uvec2& Image::GetSize() const
 	{
 		return m_size;
+	}
+
+	bool Image::IsSRGB() const
+	{
+		return m_srgb;
 	}
 
 	uint32_t Image::GetComponentCount() const

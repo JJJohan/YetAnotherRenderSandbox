@@ -2,10 +2,9 @@
 
 #include "../Renderer.hpp"
 #include <vulkan/vulkan.hpp>
-#include <thread>
 #include <unordered_map>
-#include <concurrent_queue.h>
 #include <functional>
+#include <queue>
 
 struct VmaAllocator_T;
 
@@ -92,10 +91,8 @@ namespace Engine::Rendering::Vulkan
 
 		std::unique_ptr<VulkanSceneManager> m_sceneManager;
 		std::vector<std::unique_ptr<PipelineLayout>> m_pipelineLayouts;
-		concurrency::concurrent_queue<std::function<bool()>> m_actionQueue;
+		std::queue<std::function<bool()>> m_actionQueue;
 
-		std::thread m_renderThread;
-		bool m_running;
 		bool m_swapChainOutOfDate;
 		uint32_t m_currentFrame;
 		const uint32_t m_maxConcurrentFrames;

@@ -58,7 +58,7 @@ namespace Engine::Rendering::Vulkan
 			VmaAllocator allocator, float maxAnisotropy, uint32_t& imageCount);
 
 		bool SetupMeshInfoBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
-			VmaAllocator allocator, vk::DeviceSize minOffsetAlignment);
+			VmaAllocator allocator);
 
 		bool CreateStagingBuffer(VmaAllocator allocator, const Device& device,
 			const vk::CommandBuffer& commandBuffer, const Buffer* destinationBuffer, const void* data,

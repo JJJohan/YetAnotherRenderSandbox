@@ -11,6 +11,7 @@ namespace Engine::Rendering
 		Colour colour;
 		size_t indexBufferIndex;
 		size_t vertexBufferIndex;
-		size_t imageIndex;
+		size_t diffuseImageIndex;
+		size_t normalImageIndex;
 	};
 }

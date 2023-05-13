@@ -148,14 +148,17 @@
     <ClCompile Include="UI\imgui\imgui_widgets.cpp">
       <Filter>UI\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="UI\imgui\backends\imgui_impl_vulkan.cpp">
-      <Filter>UI\imgui\backends</Filter>
-    </ClCompile>
     <ClCompile Include="UI\Vulkan\VulkanUIManager.cpp">
       <Filter>UI\Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="UI\imgui\backends\imgui_impl_win32.cpp">
       <Filter>UI\imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\TangentCalculator.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\Drawer.cpp">
+      <Filter>UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -302,6 +305,12 @@
     </ClInclude>
     <ClInclude Include="OS\Win32\WindowProc.hpp">
       <Filter>OS\Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\TangentCalculator.hpp">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\Drawer.hpp">
+      <Filter>UI</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

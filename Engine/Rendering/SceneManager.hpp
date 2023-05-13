@@ -25,7 +25,8 @@ namespace Engine::Rendering
 			const std::vector<uint32_t>& indices,
 			const glm::mat4& transform,
 			const Colour& colour = {},
-			std::shared_ptr<Image> image = nullptr);
+			std::shared_ptr<Image> diffuseImage = nullptr,
+			std::shared_ptr<Image> normalImage = nullptr);
 
 		EXPORT void Build();
 

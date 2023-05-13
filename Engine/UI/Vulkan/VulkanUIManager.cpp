@@ -4,8 +4,8 @@
 #include "Rendering/Vulkan/PhysicalDevice.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "OS/Window.hpp"
-
 #include "imgui.h"
+
 #include <vulkan/vulkan.hpp>
 #include "backends/imgui_impl_vulkan.h"
 #ifdef _WIN32
@@ -14,31 +14,13 @@
 #error Not implemented.
 #endif
 
+// Currently the CPP file itself is included to expose recreating the pipeline without having to recreate the entire rendering backend when e.g. multi-sampling changes.
+#include "backends/imgui_impl_vulkan.cpp"
+
 using namespace Engine::OS;
 using namespace Engine::Rendering;
 using namespace Engine::Rendering::Vulkan;
 using namespace Engine::Logging;
-
-struct ImGui_ImplVulkan_Data
-{
-	ImGui_ImplVulkan_InitInfo   VulkanInitInfo;
-	VkRenderPass                RenderPass;
-	VkDeviceSize                BufferMemoryAlignment;
-	VkPipelineCreateFlags       PipelineCreateFlags;
-	VkDescriptorSetLayout       DescriptorSetLayout;
-	VkPipelineLayout            PipelineLayout;
-	VkPipeline                  Pipeline;
-	uint32_t                    Subpass;
-	VkShaderModule              ShaderModuleVert;
-	VkShaderModule              ShaderModuleFrag;
-	VkSampler                   FontSampler;
-	VkDeviceMemory              FontMemory;
-	VkImage                     FontImage;
-	VkImageView                 FontView;
-	VkDescriptorSet             FontDescriptorSet;
-	VkDeviceMemory              UploadBufferMemory;
-	VkBuffer                    UploadBuffer;
-};
 
 namespace Engine::UI::Vulkan
 {
@@ -72,25 +54,8 @@ namespace Engine::UI::Vulkan
 	{
 		uint32_t minImageCount = 2; // Safe or should this match maxConcurrentFrames?
 
-		// Are these really needed?
-		uint32_t size = 100;
-		std::vector<vk::DescriptorPoolSize> poolSizes =
-		{
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampler, size),
-			vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, size),
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, size),
-			vk::DescriptorPoolSize(vk::DescriptorType::eStorageImage, size),
-			vk::DescriptorPoolSize(vk::DescriptorType::eUniformTexelBuffer, size),
-			vk::DescriptorPoolSize(vk::DescriptorType::eStorageTexelBuffer, size),
-			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, size),
-			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, size),
-			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBufferDynamic, size),
-			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBufferDynamic, size),
-			vk::DescriptorPoolSize(vk::DescriptorType::eInputAttachment, size)
-		};
-
 		m_descriptorPool = std::make_unique<DescriptorPool>();
-		if (!m_descriptorPool->Initialise(device, minImageCount, poolSizes))
+		if (!m_descriptorPool->Initialise(device, minImageCount, {}))
 		{
 			return false;
 		}
@@ -99,8 +64,8 @@ namespace Engine::UI::Vulkan
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 		ImGuiIO& io = ImGui::GetIO();
-		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-		io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+		io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
 		// Setup Dear ImGui style
 		ImGui::StyleColorsDark();
@@ -149,6 +114,8 @@ namespace Engine::UI::Vulkan
 
 	bool VulkanUIManager::Rebuild(const vk::Device& device, const vk::RenderPass& renderPass, vk::SampleCountFlagBits multiSampleCount) const
 	{
+		// This code block is partially taken from ImGui's Vulkan backend code to perform minimal rebuilds.
+
 		ImGui_ImplVulkan_Data* bd = (ImGui_ImplVulkan_Data*)ImGui::GetIO().BackendRendererUserData;
 		ImGui_ImplVulkan_InitInfo* v = &bd->VulkanInitInfo;
 		if (bd->ShaderModuleVert) { vkDestroyShaderModule(v->Device, bd->ShaderModuleVert, v->Allocator); bd->ShaderModuleVert = nullptr; }
@@ -199,8 +166,10 @@ namespace Engine::UI::Vulkan
 		ImGui_ImplVulkan_NewFrame();
 		ImGui::NewFrame();
 
-		bool show = true;
-		ImGui::ShowDemoWindow(&show);
+		for (const auto& callback : m_drawCallbacks)
+		{
+			callback(m_drawer);
+		}
 
 		ImGui::Render();
 

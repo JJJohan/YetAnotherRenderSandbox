@@ -45,6 +45,19 @@ namespace Engine::OS
 		}
 	}
 
+	void Win32Window::OnFocusChanged(bool focused)
+	{
+		if (focused)
+		{
+			SetCursorVisible(m_cursorVisible);
+		}
+		else
+		{
+			::ShowCursor(true);
+			::ClipCursor(nullptr);
+		}
+	}
+
 	std::unique_ptr<Win32Window> Win32Window::Create(const std::string& title, const glm::uvec2& size, bool fullscreen)
 	{
 		std::wstring title_w = std::wstring(title.begin(), title.end());

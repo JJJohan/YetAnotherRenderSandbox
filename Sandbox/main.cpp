@@ -7,7 +7,6 @@
 #include <Rendering/SceneManager.hpp>
 #include <Rendering/VertexData.hpp>
 #include <Rendering/GLTFLoader.hpp>
-#include <UI/Drawer.hpp>
 #include <UI/UIManager.hpp>
 
 using namespace Engine;
@@ -44,9 +43,44 @@ uint32_t CreateTestMesh(const Renderer& renderer, std::shared_ptr<Image>& image)
 		image);
 }
 
-void DrawUI()
-{
+Colour g_clearColour = Colour(0, 0, 0);
+Colour g_sunColour = Colour(1, 1, 0.9f);
+float g_sunIntensity;
+uint32_t g_multiSampleCount = 4;
+Renderer* g_renderer;
+UIManager* g_uiManager;
 
+void DrawUI(const Drawer& drawer)
+{
+	if (drawer.Begin("Test"))
+	{
+		drawer.Text("FPS: %.2f", g_uiManager->GetFPS());
+
+		if (drawer.Colour3("Clear Colour", g_clearColour))
+		{
+			g_renderer->SetClearColour(g_clearColour);
+		}
+
+		if (drawer.Colour3("Sun Colour", g_sunColour))
+		{
+			g_renderer->SetSunLightColour(g_sunColour);
+		}
+		
+		if (drawer.SliderFloat("Sun Intensity", &g_sunIntensity, 0.0f, 10.0f))
+		{
+			//g_renderer->SetSunLightColour(g_sunColour);
+		}
+
+		int32_t multiSampleCount = static_cast<int32_t>(g_multiSampleCount);
+		int32_t multiSampleMax = static_cast<int32_t>(g_renderer->GetMaxMultiSampleCount());
+		if (drawer.SliderInt("Multisampling", &multiSampleCount, 1, multiSampleMax))
+		{
+			g_multiSampleCount = static_cast<uint32_t>(multiSampleCount);
+			g_renderer->SetMultiSampleCount(g_multiSampleCount);
+		}
+
+		drawer.End();
+	}
 }
 
 int main()
@@ -55,6 +89,7 @@ int main()
 
 	std::unique_ptr<Window> window = Window::Create("Test", glm::uvec2(1280, 720), false);
 	std::unique_ptr<Renderer> renderer = Renderer::Create(RendererType::VULKAN, *window, debug);
+	g_renderer = renderer.get();
 
 	if (!renderer || !renderer->Initialise())
 	{
@@ -62,15 +97,11 @@ int main()
 		return 1;
 	}
 
-	uint32_t multiSampleCount = 4;
-	renderer->SetClearColour(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-	renderer->SetMultiSampleCount(multiSampleCount);
+	g_uiManager = renderer->GetUIManager();
 
-	std::shared_ptr<Image> image2 = std::make_shared<Image>();
-	if (!image2->LoadFromFile("C:/Users/Johan/Desktop/texture.jpg"))
-	{
-		return 1;
-	}
+	renderer->SetMultiSampleCount(g_multiSampleCount);
+	renderer->SetClearColour(g_clearColour);
+	renderer->SetSunLightColour(g_sunColour);
 
 	std::vector<uint32_t> addedMeshes;
 	GLTFLoader gltfLoader;
@@ -82,6 +113,7 @@ int main()
 	Camera& camera = renderer->GetCamera();
 
 	static auto startTime = std::chrono::high_resolution_clock::now();
+	static auto lastRenderTime = std::chrono::high_resolution_clock::now();
 	static auto prevTime = startTime;
 
 	window->SetCursorVisible(false);
@@ -91,32 +123,28 @@ int main()
 	{
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevTime).count();
+		float totalTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+		float deltaRenderTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastRenderTime).count();
 
 		if (window->InputState.KeyDown(KeyCode::Escape))
 		{
 			drawUI = !drawUI;
 			window->SetCursorVisible(drawUI);
+			if (drawUI)
+				g_uiManager->RegisterDrawCallback(DrawUI);
+			else
+				g_uiManager->UnregisterDrawCallback(DrawUI);
 		}
 
-		if (drawUI)
-		{
-			DrawUI();
-		}
-		else
-		{
-			if (window->InputState.KeyDown(KeyCode::X))
-			{
-				multiSampleCount *= 2;
-				if (multiSampleCount > renderer->GetMaxMultiSampleCount())
-				{
-					multiSampleCount = 1;
-				}
+		// Rotate sunlight for testing
+		glm::vec3 sunDir = glm::vec3(cosf(totalTime), -5.0f, sinf(totalTime));
+		//glm::vec3 sunDir = glm::vec3(0, 1, 0) * glm::angleAxis(totalTime, glm::vec3(1, 0, 0));
 
-				renderer->SetMultiSampleCount(multiSampleCount);
-				Logger::Info("Set multisample count to {}.", multiSampleCount);
-			}
+		renderer->SetSunLightDirection(sunDir);
 
-			float speed = 10.0f;
+		if (!drawUI)
+		{
+			float speed = 100.0f * deltaTime;
 			if (window->InputState.KeyPressed(KeyCode::Shift))
 			{
 				speed *= 2.0f;
@@ -124,32 +152,42 @@ int main()
 
 			if (window->InputState.KeyPressed(KeyCode::W))
 			{
-				camera.TranslateLocal(glm::vec3(0.0f, 0.0f, speed) * deltaTime);
+				camera.TranslateLocal(glm::vec3(0.0f, 0.0f, speed));
 			}
 			if (window->InputState.KeyPressed(KeyCode::A))
 			{
-				camera.TranslateLocal(glm::vec3(speed, 0.0f, 0.0f) * deltaTime);
+				camera.TranslateLocal(glm::vec3(speed, 0.0f, 0.0f));
 			}
 			if (window->InputState.KeyPressed(KeyCode::S))
 			{
-				camera.TranslateLocal(glm::vec3(0.0f, 0.0f, -speed) * deltaTime);
+				camera.TranslateLocal(glm::vec3(0.0f, 0.0f, -speed));
 			}
 			if (window->InputState.KeyPressed(KeyCode::D))
 			{
-				camera.TranslateLocal(glm::vec3(-speed, 0.0f, 0.0f) * deltaTime);
+				camera.TranslateLocal(glm::vec3(-speed, 0.0f, 0.0f));
 			}
 
+			const float mouseSensitivity = 0.02f;
 			const glm::vec2& mouseDelta = window->InputState.GetMouseDelta();
 			if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f)
 			{
-				camera.RotateFPS(mouseDelta.y * 0.02f, mouseDelta.x * 0.02f);
+				camera.RotateFPS(mouseDelta.y * mouseSensitivity, mouseDelta.x * mouseSensitivity);
 			}
+		}
+
+		if (deltaRenderTime > (1.0f / 144.0f))
+		{
+			if (!renderer->Render())
+			{
+				return 1;
+			}
+
+			lastRenderTime = std::chrono::high_resolution_clock::now();
 		}
 
 		window->Poll();
 
 		prevTime = std::chrono::high_resolution_clock::now();
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 
 	return 0;

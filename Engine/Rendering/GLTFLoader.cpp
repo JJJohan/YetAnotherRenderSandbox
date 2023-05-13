@@ -124,6 +124,10 @@ namespace Engine::Rendering
 			if (!LoadBuffer<glm::vec2>(importState, primitive, vertexDataArrays, 1, "TEXCOORD_0"))
 				continue;
 
+			// Normals
+			if (!LoadBuffer<glm::vec3>(importState, primitive, vertexDataArrays, 2, "NORMAL"))
+				continue;
+
 			std::vector<uint32_t> indices;
 
 			size_t indexAccessorIndex = primitive.indicesAccessor.value();
@@ -158,7 +162,8 @@ namespace Engine::Rendering
 			}
 
 			Colour colour = {};
-			std::shared_ptr<Image> image;
+			std::shared_ptr<Image> diffuseImage;
+			std::shared_ptr<Image> normalImage;
 
 			if (primitive.materialIndex.has_value())
 			{
@@ -175,13 +180,24 @@ namespace Engine::Rendering
 						if (texture.imageIndex.has_value())
 						{
 							size_t imageIndex = texture.imageIndex.value();
-							image = importState.loadedImages[imageIndex];
+							diffuseImage = importState.loadedImages[imageIndex];
 						}
+					}
+				}
+
+				if (material.normalTexture.has_value())
+				{
+					const fastgltf::TextureInfo& textureInfo = material.normalTexture.value();
+					const fastgltf::Texture& texture = asset.textures[textureInfo.textureIndex];
+					if (texture.imageIndex.has_value())
+					{
+						size_t imageIndex = texture.imageIndex.value();
+						normalImage = importState.loadedImages[imageIndex];
 					}
 				}
 			}
 
-			uint32_t id = importState.sceneManager->CreateMesh( vertexDataArrays, indices, transform, colour, image);
+			uint32_t id = importState.sceneManager->CreateMesh( vertexDataArrays, indices, transform, colour, diffuseImage, normalImage);
 			importState.results->push_back(id);
 		}
 
@@ -304,11 +320,30 @@ namespace Engine::Rendering
 
 		std::atomic<uint32_t> imageCounter = 0;
 
+		// Track if images should be treated as SRGB.
+		std::vector<bool> m_srgbStates;
+		m_srgbStates.resize(asset->images.size());
+		for (const fastgltf::Material& material : asset->materials)
+		{
+			if (material.pbrData.has_value())
+			{
+				const fastgltf::PBRData& pbrData = material.pbrData.value();
+				if (pbrData.baseColorTexture.has_value())
+				{
+					const fastgltf::TextureInfo& baseColorTexture = pbrData.baseColorTexture.value();
+					if (baseColorTexture.texCoordIndex < asset->images.size())
+					{
+						m_srgbStates[baseColorTexture.textureIndex] = true;
+					}
+				}
+			}
+		}
+
 		std::for_each(
 			std::execution::par,
 			asset->images.cbegin(),
 			asset->images.cend(),
-			[&asset, &importState, &imageCounter](const fastgltf::Image& gltfImage)
+			[&asset, &importState, &imageCounter, &m_srgbStates](const fastgltf::Image& gltfImage)
 			{
 				const fastgltf::sources::BufferView* bufferViewInfo = std::get_if<fastgltf::sources::BufferView>(&gltfImage.data);
 				if (bufferViewInfo != nullptr)
@@ -320,7 +355,9 @@ namespace Engine::Rendering
 					uint32_t index = imageCounter++;
 					importState.loadedImages[index] = std::make_shared<Image>();
 
-					if (!importState.loadedImages[index]->LoadFromMemory(imageData->bytes.data() + imageBufferView.byteOffset, imageBufferView.byteLength))
+					bool srgb = m_srgbStates[index];
+
+					if (!importState.loadedImages[index]->LoadFromMemory(imageData->bytes.data() + imageBufferView.byteOffset, imageBufferView.byteLength, srgb))
 					{
 						importState.loadedImages[index].reset();
 					}

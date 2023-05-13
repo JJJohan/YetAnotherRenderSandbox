@@ -3,6 +3,7 @@
 #include "Core/Logging/Logger.hpp"
 #include <filesystem>
 #include "GltfLoader.hpp"
+#include "TangentCalculator.hpp"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
@@ -31,7 +32,8 @@ namespace Engine::Rendering
 		const std::vector<uint32_t>& indices,
 		const glm::mat4& transform,
 		const Colour& colour,
-		std::shared_ptr<Image> image)
+		std::shared_ptr<Image> diffuseImage,
+		std::shared_ptr<Image> normalImage)
 	{
 		if (vertexData.empty())
 		{
@@ -84,25 +86,50 @@ namespace Engine::Rendering
 			meshInfo.vertexBufferIndex = m_vertexDataArrays.size();
 
 			std::vector<std::unique_ptr<VertexData>> localVertexData;
-			localVertexData.reserve(vertexData.size());
+			localVertexData.reserve(vertexData.size() + 2);
 			for (auto& vertices : vertexData)
 				localVertexData.emplace_back(std::make_unique<VertexData>(vertices));
+
+			// TODO: Clean up so this isn't done if not necessary, and buffer order isn't assumed.			
+			std::unique_ptr<VertexData> tangents;
+			std::unique_ptr<VertexData> bitangents;
+			TangentCalculator::CalculateTangents(vertexData[0], vertexData[2], vertexData[1], indices, tangents, bitangents);
+
+			localVertexData.emplace_back(std::move(tangents));
+			localVertexData.emplace_back(std::move(bitangents));
+
 			m_vertexDataArrays.push_back(std::move(localVertexData));
 		}
 
-		if (image.get() != nullptr)
+		if (diffuseImage.get() != nullptr)
 		{
-			uint64_t imageHash = image->GetHash();
+			uint64_t imageHash = diffuseImage->GetHash();
 			const auto& imageResult = m_imageHashTable.find(imageHash);
 			if (imageResult != m_imageHashTable.cend())
 			{
-				meshInfo.imageIndex = imageResult->second;
+				meshInfo.diffuseImageIndex = imageResult->second;
 			}
 			else
 			{
 				m_imageHashTable[imageHash] = m_images.size();
-				meshInfo.imageIndex = m_images.size();
-				m_images.emplace_back(image);
+				meshInfo.diffuseImageIndex = m_images.size();
+				m_images.emplace_back(diffuseImage);
+			}
+		}
+
+		if (normalImage.get() != nullptr)
+		{
+			uint64_t imageHash = normalImage->GetHash();
+			const auto& imageResult = m_imageHashTable.find(imageHash);
+			if (imageResult != m_imageHashTable.cend())
+			{
+				meshInfo.normalImageIndex = imageResult->second;
+			}
+			else
+			{
+				m_imageHashTable[imageHash] = m_images.size();
+				meshInfo.normalImageIndex = m_images.size();
+				m_images.emplace_back(normalImage);
 			}
 		}
 

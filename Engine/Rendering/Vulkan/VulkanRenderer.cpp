@@ -2,6 +2,7 @@
 #include <vma/vk_mem_alloc.h>
 
 #include "VulkanRenderer.hpp"
+#include "Core/Colour.hpp"
 #include "OS/Window.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "PipelineLayout.hpp"
@@ -48,14 +49,12 @@ namespace Engine::Rendering::Vulkan
 		, m_renderCommandPool()
 		, m_resourceCommandPool()
 		, m_pipelineLayouts()
-		, m_renderThread()
 		, m_renderCommandBuffers()
 		, m_sceneManager()
 		, m_imageAvailableSemaphores()
 		, m_renderFinishedSemaphores()
 		, m_inFlightFences()
 		, m_actionQueue()
-		, m_running(false)
 		, m_lastWindowSize()
 		, m_swapChainOutOfDate(false)
 		, m_currentFrame(0)
@@ -75,14 +74,6 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		Logger::Verbose("Shutting down Vulkan renderer...");
-
-		m_actionQueue.clear();
-
-		if (m_running)
-		{
-			m_running = false;
-			m_renderThread.join();
-		}
 
 		const vk::Device& deviceImp = m_device->Get();
 		deviceImp.waitIdle();
@@ -155,6 +146,7 @@ namespace Engine::Rendering::Vulkan
 
 		commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 
+
 		float width = static_cast<float>(renderPassInfo.renderArea.extent.width);
 		float height = static_cast<float>(renderPassInfo.renderArea.extent.height);
 		vk::Viewport viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
@@ -166,6 +158,10 @@ namespace Engine::Rendering::Vulkan
 		// Update uniform buffer
 		FrameInfoUniformBuffer frameInfo{};
 		frameInfo.viewProj = m_camera.GetViewProjection();
+		frameInfo.viewPos = glm::vec4(m_camera.GetPosition(), 1.0f);
+		frameInfo.ambientColour = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
+		frameInfo.sunLightColour = m_sunColour.GetVec4();
+		frameInfo.sunLightDir = glm::vec4(m_sunDirection, 1.0f);
 		memcpy(m_frameInfoBufferData[m_currentFrame], &frameInfo, sizeof(FrameInfoUniformBuffer));
 
 		m_sceneManager->Draw(commandBuffer, m_currentFrame);
@@ -439,9 +435,6 @@ namespace Engine::Rendering::Vulkan
 		float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
 		Logger::Verbose("Renderer setup finished in {} seconds.", deltaTime);
 
-		m_running = true;
-		m_renderThread = std::thread([this]() { this->Render(); });
-
 		return true;
 	}
 
@@ -506,110 +499,108 @@ namespace Engine::Rendering::Vulkan
 		vk::Queue presentQueue = m_device->GetPresentQueue();
 		const vk::PhysicalDeviceLimits& limits = m_physicalDevice->GetLimits();
 
-		while (m_running)
+		// Exhaust action queue between frames.
+		while (!m_actionQueue.empty())
 		{
-			// Exhaust action queue between frames.
-			std::function<bool()> action;
-			while (m_actionQueue.try_pop(action))
-			{
-				if (!action())
-				{
-					Logger::Error("Queued render action failed, aborting render loop.");
-					return false;
-				}
-			}
+			std::function<bool()> action = m_actionQueue.front();
+			m_actionQueue.pop();
 
-			if (!m_sceneManager->Update(m_allocator, *m_device, *m_resourceCommandPool, m_frameInfoBuffers, *m_renderPass, limits))
+			if (!action())
 			{
-				Logger::Error("Failed to update meshes.");
+				Logger::Error("Queued render action failed, aborting render loop.");
 				return false;
 			}
-
-			if (!m_sceneManager->Update(m_allocator, *m_device, *m_resourceCommandPool, m_frameInfoBuffers, *m_renderPass, limits))
-			{
-				Logger::Error("Failed to update meshes.");
-				return false;
-			}
-
-			// Skip rendering in minimised state.
-			const glm::uvec2& windowSize = m_window.GetSize();
-			if (windowSize.x == 0 || windowSize.y == 0)
-				continue;
-
-			if (m_swapChainOutOfDate || windowSize != m_lastWindowSize)
-			{
-				RecreateSwapChain(windowSize);
-				continue;
-			}
-
-			if (deviceImp.waitForFences(1, &m_inFlightFences[m_currentFrame].get(), true, UINT64_MAX) != vk::Result::eSuccess)
-			{
-				Logger::Error("Failed to wait for fences.");
-				return false;
-			}
-
-			const vk::SwapchainKHR& swapchainImp = m_swapChain->Get();
-
-			uint32_t imageIndex;
-			vk::Result acquireNextImageResult = deviceImp.acquireNextImageKHR(swapchainImp, UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame].get(), VK_NULL_HANDLE, &imageIndex);
-			if (acquireNextImageResult == vk::Result::eErrorOutOfDateKHR)
-			{
-				m_swapChainOutOfDate = true;    
-				continue; // Restart rendering.
-			}
-			else if (acquireNextImageResult != vk::Result::eSuccess && acquireNextImageResult != vk::Result::eSuboptimalKHR)
-			{
-				Logger::Error("Failed to reset command buffer.");
-				return false;
-			}
-
-			if (deviceImp.resetFences(1, &m_inFlightFences[m_currentFrame].get()) != vk::Result::eSuccess)
-			{
-				Logger::Error("Failed to reset fences.");
-				return false;
-			}
-
-			m_renderCommandBuffers[m_currentFrame]->reset();
-
-			m_camera.Update(windowSize);
-
-			if (!RecordCommandBuffer(m_renderCommandBuffers[m_currentFrame].get(), imageIndex))
-			{
-				return false;
-			}
-
-			vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
-
-			vk::SubmitInfo submitInfo(1, &m_imageAvailableSemaphores[m_currentFrame].get(), waitStages, 1, &m_renderCommandBuffers[m_currentFrame].get(), 1, &m_renderFinishedSemaphores[m_currentFrame].get());
-
-			if (graphicsQueue.submit(1, &submitInfo, m_inFlightFences[m_currentFrame].get()) != vk::Result::eSuccess)
-			{
-				Logger::Error("Failed to submit draw command buffer.");
-				return false;
-			}
-
-			vk::PresentInfoKHR presentInfo(1, &m_renderFinishedSemaphores[m_currentFrame].get(), 1, &swapchainImp, &imageIndex);
-
-			// Exceptions in the core render loop, oh my!
-			// The premise is that these are likely to only occur during swapchain resizing and are truly 'exceptional'.
-			try
-			{
-				vk::Result result = presentQueue.presentKHR(presentInfo);
-			}
-			catch (vk::OutOfDateKHRError)
-			{
-				m_swapChainOutOfDate = true;
-				continue; // Restart rendering, don't increment current frame index.
-			}
-			catch (std::exception ex)
-			{
-				Logger::Error("Fatal exception during present call occured: {}", ex.what());
-				return false;
-			}
-
-			m_currentFrame = (m_currentFrame + 1) % m_maxConcurrentFrames;
 		}
 
+		if (!m_sceneManager->Update(m_allocator, *m_device, *m_resourceCommandPool, m_frameInfoBuffers, *m_renderPass, limits))
+		{
+			Logger::Error("Failed to update meshes.");
+			return false;
+		}
+
+		if (!m_sceneManager->Update(m_allocator, *m_device, *m_resourceCommandPool, m_frameInfoBuffers, *m_renderPass, limits))
+		{
+			Logger::Error("Failed to update meshes.");
+			return false;
+		}
+
+		// Skip rendering in minimised state.
+		const glm::uvec2& windowSize = m_window.GetSize();
+		if (windowSize.x == 0 || windowSize.y == 0)
+			return true;
+
+		if (m_swapChainOutOfDate || windowSize != m_lastWindowSize)
+		{
+			RecreateSwapChain(windowSize);
+			return true;
+		}
+
+		if (deviceImp.waitForFences(1, &m_inFlightFences[m_currentFrame].get(), true, UINT64_MAX) != vk::Result::eSuccess)
+		{
+			Logger::Error("Failed to wait for fences.");
+			return false;
+		}
+
+		const vk::SwapchainKHR& swapchainImp = m_swapChain->Get();
+
+		uint32_t imageIndex;
+		vk::Result acquireNextImageResult = deviceImp.acquireNextImageKHR(swapchainImp, UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame].get(), VK_NULL_HANDLE, &imageIndex);
+		if (acquireNextImageResult == vk::Result::eErrorOutOfDateKHR)
+		{
+			m_swapChainOutOfDate = true;
+			return true; // Restart rendering.
+		}
+		else if (acquireNextImageResult != vk::Result::eSuccess && acquireNextImageResult != vk::Result::eSuboptimalKHR)
+		{
+			Logger::Error("Failed to reset command buffer.");
+			return false;
+		}
+
+		if (deviceImp.resetFences(1, &m_inFlightFences[m_currentFrame].get()) != vk::Result::eSuccess)
+		{
+			Logger::Error("Failed to reset fences.");
+			return false;
+		}
+
+		m_renderCommandBuffers[m_currentFrame]->reset();
+
+		m_camera.Update(windowSize);
+
+		if (!RecordCommandBuffer(m_renderCommandBuffers[m_currentFrame].get(), imageIndex))
+		{
+			return false;
+		}
+
+		vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+
+		vk::SubmitInfo submitInfo(1, &m_imageAvailableSemaphores[m_currentFrame].get(), waitStages, 1, &m_renderCommandBuffers[m_currentFrame].get(), 1, &m_renderFinishedSemaphores[m_currentFrame].get());
+
+		if (graphicsQueue.submit(1, &submitInfo, m_inFlightFences[m_currentFrame].get()) != vk::Result::eSuccess)
+		{
+			Logger::Error("Failed to submit draw command buffer.");
+			return false;
+		}
+
+		vk::PresentInfoKHR presentInfo(1, &m_renderFinishedSemaphores[m_currentFrame].get(), 1, &swapchainImp, &imageIndex);
+
+		// Exceptions in the core render loop, oh my!
+		// The premise is that these are likely to only occur during swapchain resizing and are truly 'exceptional'.
+		try
+		{
+			vk::Result result = presentQueue.presentKHR(presentInfo);
+		}
+		catch (vk::OutOfDateKHRError)
+		{
+			m_swapChainOutOfDate = true;
+			return true; // Restart rendering, don't increment current frame index.
+		}
+		catch (std::exception ex)
+		{
+			Logger::Error("Fatal exception during present call occured: {}", ex.what());
+			return false;
+		}
+
+		m_currentFrame = (m_currentFrame + 1) % m_maxConcurrentFrames;
 		return true;
 	}
 }

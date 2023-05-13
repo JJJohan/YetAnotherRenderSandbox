@@ -17,6 +17,7 @@ namespace Engine::OS
 		virtual void* GetInstance() const;
 
 		void OnSizeEvent(uint64_t sizeEventFlag);
+		void OnFocusChanged(bool focused);
 		virtual void SetCursorVisible(bool visible);
 		virtual void SetTitle(const std::string& title);
 		virtual void SetFullscreen(bool fullscreen);

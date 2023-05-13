@@ -144,11 +144,13 @@ namespace Engine::Rendering::Vulkan
 	bool VulkanSceneManager::SetupVertexBuffers(const Device& device, const vk::CommandBuffer& commandBuffer,
 		std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator)
 	{
-		// Dodgy...
-		m_vertexBuffers.resize(2);
+		if (m_vertexDataArrays.empty())
+			return false;
+
+		m_vertexBuffers.resize(m_vertexDataArrays[0].size());
 		m_vertexOffsets.resize(m_vertexDataArrays.size());
 
-		for (uint32_t vertexBit = 0; vertexBit < 2; ++vertexBit)
+		for (size_t vertexBit = 0; vertexBit < m_vertexBuffers.size(); ++vertexBit)
 		{
 			uint64_t totalSize = 0;
 			for (size_t i = 0; i < m_vertexDataArrays.size(); ++i)
@@ -320,19 +322,16 @@ namespace Engine::Rendering::Vulkan
 				continue;
 			}
 
+			bool srgb = image->IsSRGB();
 			uint32_t componentCount = image->GetComponentCount();
 			vk::Format format;
 			if (componentCount == 4)
 			{
-				format = vk::Format::eR8G8B8A8Srgb;
-			}
-			else if (componentCount == 3)
-			{
-				format = vk::Format::eR8G8B8Srgb;
+				format = srgb ? vk::Format::eR8G8B8A8Srgb : vk::Format::eR8G8B8A8Unorm;
 			}
 			else
 			{
-				Logger::Error("Images without exactly 3 or 4 channels are currently not supported.");
+				Logger::Error("Images without exactly 4 channels are currently not supported.");
 				return false;
 			}
 
@@ -377,7 +376,7 @@ namespace Engine::Rendering::Vulkan
 	}
 
 	bool VulkanSceneManager::SetupMeshInfoBuffer(const Device& device, const vk::CommandBuffer& commandBuffer,
-		std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator, vk::DeviceSize minOffsetAlignment)
+		std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator)
 	{
 		uint64_t totalSize = 0;
 		for (uint32_t i = 0; i < m_meshCapacity; ++i)
@@ -385,7 +384,7 @@ namespace Engine::Rendering::Vulkan
 			if (!m_active[i])
 				continue;
 
-			totalSize += sizeof(MeshInfo);
+			totalSize += sizeof(RenderMeshInfo);
 		}
 
 		std::vector<uint8_t> uniformBufferData;
@@ -401,9 +400,10 @@ namespace Engine::Rendering::Vulkan
 			RenderMeshInfo data = {};
 			data.transform = meshInfo.transform;
 			data.colour = meshInfo.colour.GetVec4();
-			data.imageIndex = static_cast<uint32_t>(meshInfo.imageIndex);
-			memcpy(uniformBufferData.data() + totalSize, &data, sizeof(MeshInfo));
-			totalSize += sizeof(MeshInfo);
+			data.diffuseImageIndex = static_cast<uint32_t>(meshInfo.diffuseImageIndex);
+			data.normalImageIndex = static_cast<uint32_t>(meshInfo.normalImageIndex);
+			memcpy(uniformBufferData.data() + totalSize, &data, sizeof(RenderMeshInfo));
+			totalSize += sizeof(RenderMeshInfo);
 		}
 
 		m_meshInfoBuffer = std::make_unique<Buffer>(allocator);
@@ -468,7 +468,7 @@ namespace Engine::Rendering::Vulkan
 		if (!SetupVertexBuffers(device, commandBuffer.get(), temporaryBuffers, allocator)
 			|| !SetupIndexBuffer(device, commandBuffer.get(), temporaryBuffers, allocator)
 			|| !SetupRenderImage(device, commandBuffer.get(), temporaryBuffers, allocator, limits.maxSamplerAnisotropy, imageCount)
-			|| !SetupMeshInfoBuffer(device, commandBuffer.get(), temporaryBuffers, allocator, limits.minUniformBufferOffsetAlignment)
+			|| !SetupMeshInfoBuffer(device, commandBuffer.get(), temporaryBuffers, allocator)
 			|| !SetupIndirectDrawBuffer(device, commandBuffer.get(), temporaryBuffers, allocator))
 		{
 			return false;
@@ -501,7 +501,7 @@ namespace Engine::Rendering::Vulkan
 
 		std::array<vk::DescriptorBufferInfo, 1> instanceBufferInfos =
 		{
-			vk::DescriptorBufferInfo(m_meshInfoBuffer->Get(), 0, sizeof(MeshInfo) * m_meshInfos.size())
+			vk::DescriptorBufferInfo(m_meshInfoBuffer->Get(), 0, sizeof(RenderMeshInfo) * m_meshInfos.size())
 		};
 
 		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)

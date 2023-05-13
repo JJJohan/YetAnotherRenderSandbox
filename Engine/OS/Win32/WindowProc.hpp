@@ -42,6 +42,16 @@ namespace Engine::OS
 			window->OnSizeEvent(wParam); // Private variant to handle cursor state.
 			break;
 		}
+		case WM_SETFOCUS:
+		{
+			window->OnFocusChanged(true);
+			break;
+		}
+		case WM_KILLFOCUS:
+		{
+			window->OnFocusChanged(false);
+			break;
+		}
 		case WM_MOUSEMOVE:
 		{
 			int32_t xPos = GET_X_LPARAM(lParam);
