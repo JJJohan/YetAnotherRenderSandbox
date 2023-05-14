@@ -36,7 +36,6 @@ namespace Engine::UI::Vulkan
 		virtual ~VulkanUIManager();
 
 		bool Initialise(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer& renderer);
-		void PostInitialise() const;
 
 		void Draw(const vk::CommandBuffer& commandBuffer, float width, float height);
 

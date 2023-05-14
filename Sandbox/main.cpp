@@ -136,7 +136,6 @@ int main()
 
 		// Rotate sunlight for testing
 		glm::vec3 sunDir = glm::vec3(cosf(totalTime), -5.0f, sinf(totalTime));
-		//glm::vec3 sunDir = glm::vec3(0, 1, 0) * glm::angleAxis(totalTime, glm::vec3(1, 0, 0));
 
 		renderer->SetSunLightDirection(sunDir);
 

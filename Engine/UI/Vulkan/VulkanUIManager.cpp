@@ -111,12 +111,10 @@ namespace Engine::UI::Vulkan
 			{
 				ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
 				return true;
+			},
+			[](){
+				ImGui_ImplVulkan_DestroyFontUploadObjects();
 			});
-	}
-
-	void VulkanUIManager::PostInitialise() const
-	{
-		ImGui_ImplVulkan_DestroyFontUploadObjects();
 	}
 
 	bool VulkanUIManager::Rebuild(const vk::Device& device, const vk::RenderPass& renderPass, vk::SampleCountFlagBits multiSampleCount) const

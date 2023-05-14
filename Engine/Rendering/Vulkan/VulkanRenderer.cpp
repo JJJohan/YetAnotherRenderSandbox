@@ -77,7 +77,7 @@ namespace Engine::Rendering::Vulkan
 		Logger::Verbose("Shutting down Vulkan renderer...");
 
 		const vk::Device& deviceImp = m_device->Get();
-		deviceImp.waitIdle();
+		deviceImp.waitIdle(); // Shutdown warrants stalling GPU pipeline.
 
 		m_uiManager.reset();
 		m_sceneManager.reset();
@@ -240,7 +240,8 @@ namespace Engine::Rendering::Vulkan
 		return m_frameInfoBuffers;
 	}
 
-	bool VulkanRenderer::SubmitResourceCommand(std::function<bool(const vk::CommandBuffer&, std::vector<std::unique_ptr<Buffer>>&)> command)
+	bool VulkanRenderer::SubmitResourceCommand(std::function<bool(const vk::CommandBuffer&, std::vector<std::unique_ptr<Buffer>>&)> command,
+		std::optional<std::function<void()>> postAction)
 	{
 		ResourceCommandData resourceData = {};
 		resourceData.commandBuffer = m_resourceCommandPool->BeginResourceCommandBuffer(*m_device);
@@ -258,6 +259,7 @@ namespace Engine::Rendering::Vulkan
 		submitInfo.pCommandBuffers = &resourceData.commandBuffer.get();
 
 		resourceData.fence = m_device->Get().createFenceUnique(vk::FenceCreateInfo());
+		resourceData.postAction = postAction;
 
 		vk::Result submitResult = queue.submit(1, &submitInfo, resourceData.fence.get());
 		if (submitResult != vk::Result::eSuccess)
@@ -358,7 +360,7 @@ namespace Engine::Rendering::Vulkan
 				const glm::uvec2 size = this->m_window.GetSize();
 				vk::SampleCountFlagBits multiSampleCount = GetMultiSampleCount(m_multiSampleCount);
 
-				this->m_device->Get().waitIdle();
+				this->m_device->Get().waitIdle(); // Fence for present?
 
 				if (!this->m_swapChain->Initialise(*this->m_physicalDevice, *this->m_device, *this->m_surface, this->m_allocator, size, multiSampleCount))
 				{
@@ -472,10 +474,6 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		m_device->Get().waitIdle();
-
-		m_uiManager->PostInitialise();
-
 		m_lastWindowSize = m_window.GetSize();
 
 		static auto endTime = std::chrono::high_resolution_clock::now();
@@ -530,7 +528,7 @@ namespace Engine::Rendering::Vulkan
 	bool VulkanRenderer::RecreateSwapChain(const glm::uvec2& size)
 	{
 		vk::SampleCountFlagBits multiSampleCount = GetMultiSampleCount(m_multiSampleCount);
-		m_device->Get().waitIdle();
+		m_device->Get().waitIdle(); // Recreating swapchain warrants stalling GPU pipeline.
 
 		m_lastWindowSize = size;
 		m_swapChainOutOfDate = false;
@@ -562,8 +560,14 @@ namespace Engine::Rendering::Vulkan
 		// Clean up in-flight resources.
 		for (size_t i = 0; i < m_inFlightResources.size();)
 		{
-			if (deviceImp.waitForFences(1, &m_inFlightResources[i].fence.get(), true, 0) == vk::Result::eSuccess)
+			const ResourceCommandData& resourceData = m_inFlightResources[i];
+			if (deviceImp.waitForFences(1, &resourceData.fence.get(), true, 0) == vk::Result::eSuccess)
 			{
+				if (resourceData.postAction.has_value())
+				{
+					resourceData.postAction.value()();
+				}
+
 				m_inFlightResources.erase(m_inFlightResources.begin() + i);
 			}
 			else

@@ -63,7 +63,7 @@ namespace Engine::Rendering::Vulkan
 		uint32_t GetConcurrentFrameCount() const;
 		const std::vector<std::unique_ptr<Buffer>>& GetFrameInfoBuffers() const;
 
-		bool SubmitResourceCommand(std::function<bool(const vk::CommandBuffer&,std::vector<std::unique_ptr<Buffer>>&)> command);
+		bool SubmitResourceCommand(std::function<bool(const vk::CommandBuffer&,std::vector<std::unique_ptr<Buffer>>&)> command, std::optional<std::function<void()>> postAction = std::nullopt);
 
 	private:
 		bool RecordCommandBuffer(const vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
@@ -82,6 +82,7 @@ namespace Engine::Rendering::Vulkan
 			vk::UniqueFence fence;
 			std::vector<std::unique_ptr<Buffer>> buffers;
 			vk::UniqueCommandBuffer commandBuffer;
+			std::optional<std::function<void()>> postAction;
 		};
 
 		std::unique_ptr<Debug> m_Debug;
