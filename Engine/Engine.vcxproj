@@ -159,6 +159,7 @@
     <ClCompile Include="Core\Hash.cpp" />
     <ClCompile Include="Core\Image.cpp" />
     <ClCompile Include="Core\Logging\Logger.cpp" />
+    <ClCompile Include="Core\Utilities.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="OS\Files.cpp" />
     <ClCompile Include="OS\InputEnums.hpp" />
@@ -205,6 +206,7 @@
     <ClInclude Include="Core\Image.hpp" />
     <ClInclude Include="Core\Logging\Logger.hpp" />
     <ClInclude Include="Core\Macros.hpp" />
+    <ClInclude Include="Core\Utilities.hpp" />
     <ClInclude Include="OS\Files.hpp" />
     <ClInclude Include="OS\InputState.hpp" />
     <ClInclude Include="OS\Win32\Win32Window.hpp" />

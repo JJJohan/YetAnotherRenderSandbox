@@ -21,28 +21,27 @@ namespace Engine::Rendering::Vulkan
 {
 	class Buffer;
 	class Device;
-	class PhysicalDevice;
-	class PipelineLayout;
-	class CommandPool;
 	class CommandBuffer;
 	class DescriptorPool;
 	class RenderImage;
 	class ImageView;
 	class ImageSampler;
-	class RenderPass;
+	class VulkanRenderer;
 
 	class VulkanSceneManager : public SceneManager
 	{
 	public:
-		VulkanSceneManager(const uint32_t maxConcurrentFrames);
+		VulkanSceneManager(VulkanRenderer& renderer);
 
-		bool Initialise(VmaAllocator allocator, const Device& device, const vk::CommandBuffer& setupCommandBuffer,
-			Shader* shader, const vk::PhysicalDeviceLimits& limits);
+		bool Initialise(Shader* shader);
 
-		bool Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool,
-			const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers, const RenderPass& renderPass, const vk::PhysicalDeviceLimits& limits);
+		virtual bool Build() override;
 
 		void Draw(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex);
+
+	protected:
+		virtual void ExportCache(const std::filesystem::path& filePath) override;
+		virtual void ImportCache(const std::filesystem::path& filePath) override;
 
 	private:
 		bool SetupIndirectDrawBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
@@ -68,11 +67,7 @@ namespace Engine::Rendering::Vulkan
 			const vk::CommandBuffer& commandBufferl, const RenderImage* destinationImage, const void* data, uint64_t size,
 			std::vector<std::unique_ptr<Buffer>>& copyBufferCollection);
 
-		const uint32_t m_maxConcurrentFrames;
-
-		vk::UniqueFence m_resourceFence;
-		std::vector<vk::UniqueCommandBuffer> m_prevFrameCommandBuffers;
-		std::vector<std::unique_ptr<Buffer>> m_prevFrameBuffers;
+		VulkanRenderer& m_renderer;
 
 		std::shared_ptr<RenderImage> m_blankImage;
 		std::shared_ptr<ImageView> m_blankImageView;

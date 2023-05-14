@@ -12,5 +12,6 @@ namespace Engine::Rendering
 
 		uint32_t diffuseImageIndex;
 		uint32_t normalImageIndex;
+		uint32_t metallicRoughnessImageIndex;
 	};
 }

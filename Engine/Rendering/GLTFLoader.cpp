@@ -22,16 +22,14 @@ namespace Engine::Rendering
 	{
 		const fastgltf::Asset* asset;
 		SceneManager* sceneManager;
-		std::vector<uint32_t>* results;
 		std::vector<std::shared_ptr<Image>> loadedImages;
 		std::unordered_map<size_t, VertexData> bufferMap;
 		std::unordered_map<size_t, std::vector<uint32_t>> indexBufferMap;
 
-		ImportState(const fastgltf::Asset* asset, SceneManager* sceneManager, std::vector<uint32_t>* results)
+		ImportState(const fastgltf::Asset* asset, SceneManager* sceneManager)
 		{
 			this->asset = asset;
 			this->sceneManager = sceneManager;
-			this->results = results;
 			bufferMap = {};
 			indexBufferMap = {};
 
@@ -164,6 +162,7 @@ namespace Engine::Rendering
 			Colour colour = {};
 			std::shared_ptr<Image> diffuseImage;
 			std::shared_ptr<Image> normalImage;
+			std::shared_ptr<Image> metallicRoughnessImage;
 
 			if (primitive.materialIndex.has_value())
 			{
@@ -183,6 +182,17 @@ namespace Engine::Rendering
 							diffuseImage = importState.loadedImages[imageIndex];
 						}
 					}
+
+					if (pbrData.metallicRoughnessTexture.has_value())
+					{
+						const fastgltf::TextureInfo& textureInfo = pbrData.metallicRoughnessTexture.value();
+						const fastgltf::Texture& texture = asset.textures[textureInfo.textureIndex];
+						if (texture.imageIndex.has_value())
+						{
+							size_t imageIndex = texture.imageIndex.value();
+							metallicRoughnessImage = importState.loadedImages[imageIndex];
+						}
+					}
 				}
 
 				if (material.normalTexture.has_value())
@@ -197,8 +207,7 @@ namespace Engine::Rendering
 				}
 			}
 
-			uint32_t id = importState.sceneManager->CreateMesh( vertexDataArrays, indices, transform, colour, diffuseImage, normalImage);
-			importState.results->push_back(id);
+			importState.sceneManager->CreateMesh( vertexDataArrays, indices, transform, colour, diffuseImage, normalImage, metallicRoughnessImage);
 		}
 
 		return true;
@@ -244,11 +253,11 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GLTFLoader::LoadGLTF(const std::string& filePath, SceneManager* sceneManager, std::vector<uint32_t>& results)
+	bool GLTFLoader::LoadGLTF(const std::filesystem::path& filePath, SceneManager* sceneManager)
 	{
 		if (!std::filesystem::exists(filePath))
 		{
-			Logger::Error("File at '{}' does not exist.", filePath);
+			Logger::Error("File at '{}' does not exist.", filePath.string());
 			return false;
 		}
 
@@ -316,7 +325,7 @@ namespace Engine::Rendering
 
 		static auto loadStartTime = std::chrono::high_resolution_clock::now();
 
-		ImportState importState(asset.get(), sceneManager, &results);
+		ImportState importState(asset.get(), sceneManager);
 
 		std::atomic<uint32_t> imageCounter = 0;
 
@@ -331,7 +340,7 @@ namespace Engine::Rendering
 				if (pbrData.baseColorTexture.has_value())
 				{
 					const fastgltf::TextureInfo& baseColorTexture = pbrData.baseColorTexture.value();
-					if (baseColorTexture.texCoordIndex < asset->images.size())
+					if (baseColorTexture.textureIndex < asset->images.size())
 					{
 						m_srgbStates[baseColorTexture.textureIndex] = true;
 					}
@@ -369,8 +378,6 @@ namespace Engine::Rendering
 		static auto loadEndTime = std::chrono::high_resolution_clock::now();
 		float loadDeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(loadEndTime - loadStartTime).count();
 		Logger::Verbose("GLTF file loaded in {} seconds.", loadDeltaTime);
-
-		sceneManager->Build();
 
 		return true;
 	}

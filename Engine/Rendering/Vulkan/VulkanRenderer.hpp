@@ -5,8 +5,7 @@
 #include <unordered_map>
 #include <functional>
 #include <queue>
-
-struct VmaAllocator_T;
+#include <vma/vk_mem_alloc.h>
 
 namespace Engine::Rendering
 {
@@ -56,6 +55,16 @@ namespace Engine::Rendering::Vulkan
 		virtual SceneManager* GetSceneManager() const;
 		virtual Engine::UI::UIManager* GetUIManager() const;
 
+		const Device& GetDevice() const;
+		const PhysicalDevice& GetPhysicalDevice() const;
+		const RenderPass& GetRenderPass() const;
+		const SwapChain& GetSwapChain() const;
+		VmaAllocator GetAllocator() const;
+		uint32_t GetConcurrentFrameCount() const;
+		const std::vector<std::unique_ptr<Buffer>>& GetFrameInfoBuffers() const;
+
+		bool SubmitResourceCommand(std::function<bool(const vk::CommandBuffer&,std::vector<std::unique_ptr<Buffer>>&)> command);
+
 	private:
 		bool RecordCommandBuffer(const vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
 		bool CreateSyncObjects();
@@ -68,6 +77,13 @@ namespace Engine::Rendering::Vulkan
 		vk::SampleCountFlagBits GetMultiSampleCount(uint32_t sampleCount) const;
 		uint32_t MultiSampleCountToInteger(vk::SampleCountFlagBits sampleCount) const;
 
+		struct ResourceCommandData
+		{
+			vk::UniqueFence fence;
+			std::vector<std::unique_ptr<Buffer>> buffers;
+			vk::UniqueCommandBuffer commandBuffer;
+		};
+
 		std::unique_ptr<Debug> m_Debug;
 		std::unique_ptr<Device> m_device;
 		std::unique_ptr<PhysicalDevice> m_physicalDevice;
@@ -76,7 +92,7 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<SwapChain> m_swapChain;
 		std::unique_ptr<RenderPass> m_renderPass;
 		std::unique_ptr<Engine::UI::Vulkan::VulkanUIManager> m_uiManager;
-		struct VmaAllocator_T* m_allocator;
+		VmaAllocator m_allocator;
 
 		std::unique_ptr<CommandPool> m_resourceCommandPool;
 		std::unique_ptr<CommandPool> m_renderCommandPool;
@@ -88,6 +104,7 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::UniqueSemaphore> m_imageAvailableSemaphores;
 		std::vector<vk::UniqueSemaphore> m_renderFinishedSemaphores;
 		std::vector<vk::UniqueFence> m_inFlightFences;
+		std::vector<ResourceCommandData> m_inFlightResources;
 
 		std::unique_ptr<VulkanSceneManager> m_sceneManager;
 		std::vector<std::unique_ptr<PipelineLayout>> m_pipelineLayouts;

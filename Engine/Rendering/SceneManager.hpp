@@ -10,6 +10,8 @@
 #include <stack>
 #include <mutex>
 #include <unordered_map>
+#include <filesystem>
+#include <string>
 
 namespace Engine::Rendering
 {
@@ -26,19 +28,23 @@ namespace Engine::Rendering
 			const glm::mat4& transform,
 			const Colour& colour = {},
 			std::shared_ptr<Image> diffuseImage = nullptr,
-			std::shared_ptr<Image> normalImage = nullptr);
+			std::shared_ptr<Image> normalImage = nullptr,
+			std::shared_ptr<Image> metallicRoughnessImage = nullptr);
 
-		EXPORT void Build();
+		virtual bool Build();
+		EXPORT bool LoadScene(const std::string& filePath, bool cache);
 
 		EXPORT uint32_t CreateFromOBJ(const std::string& filePath,
 			const glm::mat4& transform, const Colour& colour = {}, std::shared_ptr<Image> image = nullptr);
 
 	protected:
+		virtual void ExportCache(const std::filesystem::path& filePath);
+		virtual void ImportCache(const std::filesystem::path& filePath);
+
 		std::stack<uint32_t> m_recycledIds;
 		std::vector<bool> m_active;
 		std::mutex m_creationMutex;
 		uint32_t m_meshCapacity;
-		bool m_build;
 
 		Shader* m_shader;
 		std::vector<std::vector<std::unique_ptr<VertexData>>> m_vertexDataArrays;

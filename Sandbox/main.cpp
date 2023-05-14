@@ -103,9 +103,7 @@ int main()
 	renderer->SetClearColour(g_clearColour);
 	renderer->SetSunLightColour(g_sunColour);
 
-	std::vector<uint32_t> addedMeshes;
-	GLTFLoader gltfLoader;
-	if (!gltfLoader.LoadGLTF("C:/Users/Johan/Desktop/test/Bistro_small.glb", renderer->GetSceneManager(), addedMeshes))
+	if (!renderer->GetSceneManager()->LoadScene("C:/Users/Johan/Desktop/test/Bistro_small.glb", true))
 	{
 		return 1;
 	}

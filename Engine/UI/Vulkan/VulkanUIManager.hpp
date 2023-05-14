@@ -6,8 +6,6 @@
 namespace vk
 {
 	class Instance;
-	class PhysicalDevice;
-	class Queue;
 	class RenderPass;
 	class CommandBuffer;
 }
@@ -16,6 +14,7 @@ namespace Engine::Rendering::Vulkan
 {
 	class Device;
 	class PhysicalDevice;
+	class VulkanRenderer;
 }
 
 namespace Engine::Rendering
@@ -36,9 +35,7 @@ namespace Engine::UI::Vulkan
 		VulkanUIManager(const Engine::OS::Window& window, Engine::Rendering::Renderer& renderer);
 		virtual ~VulkanUIManager();
 
-		bool Initialise(const vk::Instance& instance, const Engine::Rendering::Vulkan::Device& device,
-			const Engine::Rendering::Vulkan::PhysicalDevice& physicalDevice, const vk::RenderPass& renderPass,
-			vk::CommandBuffer& setupCommandBuffer);
+		bool Initialise(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer& renderer);
 		void PostInitialise() const;
 
 		void Draw(const vk::CommandBuffer& commandBuffer, float width, float height);

@@ -8,6 +8,7 @@
 #include "ImageView.hpp"
 #include "ImageSampler.hpp"
 #include "RenderPass.hpp"
+#include "VulkanRenderer.hpp"
 #include "CommandPool.hpp"
 #include "FrameInfoUniformBuffer.hpp"
 #include "RenderMeshInfo.hpp"
@@ -21,11 +22,8 @@ using namespace Engine::Logging;
 
 namespace Engine::Rendering::Vulkan
 {
-	VulkanSceneManager::VulkanSceneManager(const uint32_t maxConcurrentFrames)
-		: m_maxConcurrentFrames(maxConcurrentFrames)
-		, m_resourceFence()
-		, m_prevFrameCommandBuffers()
-		, m_prevFrameBuffers()
+	VulkanSceneManager::VulkanSceneManager(VulkanRenderer& renderer)
+		: m_renderer(renderer)
 		, m_descriptorPool()
 		, m_descriptorSets()
 		, m_blankImage()
@@ -44,14 +42,17 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	bool VulkanSceneManager::Initialise(VmaAllocator allocator, const Device& device, const vk::CommandBuffer& setupCommandBuffer,
-		Shader* shader, const vk::PhysicalDeviceLimits& limits)
+	bool VulkanSceneManager::Initialise(Shader* shader)
 	{
 		m_shader = shader;
-		m_resourceFence = device.Get().createFenceUnique(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled));
+
+		const Device& device = m_renderer.GetDevice();
+		const PhysicalDevice& physicalDevice = m_renderer.GetPhysicalDevice();
+		VmaAllocator allocator = m_renderer.GetAllocator();
+		uint32_t concurrentFrames = m_renderer.GetConcurrentFrameCount();
 
 		m_sampler = std::make_unique<ImageSampler>();
-		bool samplerInitialised = m_sampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear, vk::SamplerAddressMode::eRepeat, limits.maxSamplerAnisotropy);
+		bool samplerInitialised = m_sampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear, vk::SamplerAddressMode::eRepeat, physicalDevice.GetLimits().maxSamplerAnisotropy);
 		if (!samplerInitialised)
 		{
 			return false;
@@ -75,29 +76,30 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		m_blankImage->TransitionImageLayout(device, setupCommandBuffer, vk::ImageLayout::eTransferDstOptimal);
-
-		Colour blankPixel = Colour();
-		if (!CreateImageStagingBuffer(allocator, device, setupCommandBuffer, m_blankImage.get(), &blankPixel,
-			sizeof(uint32_t), m_prevFrameBuffers))
-			return false;
-
-		m_blankImage->TransitionImageLayout(device, setupCommandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
-
 		std::vector<vk::DescriptorPoolSize> poolSizes =
 		{
-			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, m_maxConcurrentFrames),
-			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, m_maxConcurrentFrames),
-			vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, m_maxConcurrentFrames),
+			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, concurrentFrames),
+			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, concurrentFrames),
+			vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, concurrentFrames),
 		};
 
 		m_descriptorPool = std::make_unique<DescriptorPool>();
-		if (!m_descriptorPool->Initialise(device, m_maxConcurrentFrames, poolSizes))
+		if (!m_descriptorPool->Initialise(device, concurrentFrames, poolSizes))
 		{
 			return false;
 		}
 
-		return true;
+		return m_renderer.SubmitResourceCommand([this, &device, &allocator](const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers)
+			{
+				m_blankImage->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eTransferDstOptimal);
+
+				Colour blankPixel = Colour();
+				if (!CreateImageStagingBuffer(allocator, device, commandBuffer, m_blankImage.get(), &blankPixel,
+					sizeof(uint32_t), temporaryBuffers))
+					return false;
+
+				m_blankImage->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+			});
 	}
 
 	bool VulkanSceneManager::SetupIndirectDrawBuffer(const Device& device, const vk::CommandBuffer& commandBuffer,
@@ -303,6 +305,16 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
+	void VulkanSceneManager::ExportCache(const std::filesystem::path& filePath)
+	{
+
+	}
+
+	void VulkanSceneManager::ImportCache(const std::filesystem::path& filePath)
+	{
+
+	}
+
 	bool VulkanSceneManager::SetupRenderImage(const Device& device,
 		const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
 		VmaAllocator allocator, float maxAnisotropy, uint32_t& imageCount)
@@ -402,6 +414,7 @@ namespace Engine::Rendering::Vulkan
 			data.colour = meshInfo.colour.GetVec4();
 			data.diffuseImageIndex = static_cast<uint32_t>(meshInfo.diffuseImageIndex);
 			data.normalImageIndex = static_cast<uint32_t>(meshInfo.normalImageIndex);
+			data.metallicRoughnessImageIndex = static_cast<uint32_t>(meshInfo.metallicRoughnessImageIndex);
 			memcpy(uniformBufferData.data() + totalSize, &data, sizeof(RenderMeshInfo));
 			totalSize += sizeof(RenderMeshInfo);
 		}
@@ -427,30 +440,9 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::Update(VmaAllocator allocator, const Device& device, const CommandPool& resourceCommandPool,
-		const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers, const RenderPass& renderPass, const vk::PhysicalDeviceLimits& limits)
+	bool VulkanSceneManager::Build()
 	{
 		const std::lock_guard<std::mutex> lock(m_creationMutex);
-		const vk::Device& deviceImp = device.Get();
-
-		if (!m_prevFrameBuffers.empty() || !m_prevFrameCommandBuffers.empty())
-		{
-			if (deviceImp.waitForFences(1, &m_resourceFence.get(), true, UINT64_MAX) != vk::Result::eSuccess)
-			{
-				return false;
-			}
-
-			m_prevFrameBuffers.clear();
-			m_prevFrameCommandBuffers.clear();
-
-			if (deviceImp.resetFences(1, &m_resourceFence.get()) != vk::Result::eSuccess)
-			{
-				return false;
-			}
-		}
-
-		if (!m_build)
-			return true;
 
 		// TODO: Handle resizing
 		if (m_indexBuffer.get() != nullptr)
@@ -459,90 +451,75 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		m_build = false;
-
-		vk::UniqueCommandBuffer commandBuffer = resourceCommandPool.BeginResourceCommandBuffer(device);
-		std::vector<std::unique_ptr<Buffer>> temporaryBuffers;
-
-		uint32_t imageCount;
-		if (!SetupVertexBuffers(device, commandBuffer.get(), temporaryBuffers, allocator)
-			|| !SetupIndexBuffer(device, commandBuffer.get(), temporaryBuffers, allocator)
-			|| !SetupRenderImage(device, commandBuffer.get(), temporaryBuffers, allocator, limits.maxSamplerAnisotropy, imageCount)
-			|| !SetupMeshInfoBuffer(device, commandBuffer.get(), temporaryBuffers, allocator)
-			|| !SetupIndirectDrawBuffer(device, commandBuffer.get(), temporaryBuffers, allocator))
-		{
-			return false;
-		}
-
-		PipelineLayout* pipelineLayout = static_cast<PipelineLayout*>(m_shader);
-		if (!pipelineLayout->Rebuild(device, renderPass, imageCount))
-		{
-			return false;
-		}
-
-		std::vector<vk::DescriptorSetLayout> layouts;
-		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
-		{
-			layouts.append_range(pipelineLayout->GetDescriptorSetLayouts());
-		}
-		m_descriptorSets = m_descriptorPool->CreateDescriptorSets(device, layouts);
-
-		std::array<vk::DescriptorImageInfo, 1> samplerInfos =
-		{
-			vk::DescriptorImageInfo(m_sampler->Get(), nullptr, vk::ImageLayout::eShaderReadOnlyOptimal)
-		};
-
-		std::vector<vk::DescriptorImageInfo> imageInfos;
-		imageInfos.resize(m_imageArrayView.size());
-		for (uint32_t i = 0; i < m_imageArrayView.size(); ++i)
-		{
-			imageInfos[i] = vk::DescriptorImageInfo(nullptr, m_imageArrayView[i]->Get(), vk::ImageLayout::eShaderReadOnlyOptimal);
-		}
-
-		std::array<vk::DescriptorBufferInfo, 1> instanceBufferInfos =
-		{
-			vk::DescriptorBufferInfo(m_meshInfoBuffer->Get(), 0, sizeof(RenderMeshInfo) * m_meshInfos.size())
-		};
-
-		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
-		{
-			std::array<vk::DescriptorBufferInfo, 1> frameBufferInfos =
+		return m_renderer.SubmitResourceCommand([this](const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers)
 			{
-				vk::DescriptorBufferInfo(frameInfoBuffers[i]->Get(), 0, sizeof(FrameInfoUniformBuffer))
-			};
+				const Device& device = m_renderer.GetDevice();
+				const RenderPass& renderPass = m_renderer.GetRenderPass();
+				uint32_t concurrentFrames = m_renderer.GetConcurrentFrameCount();
+				VmaAllocator allocator = m_renderer.GetAllocator();
+				PhysicalDevice physicalDevice = m_renderer.GetPhysicalDevice();
+				const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers = m_renderer.GetFrameInfoBuffers();
 
-			std::array<vk::WriteDescriptorSet, 4> writeDescriptorSets =
-			{
-				vk::WriteDescriptorSet(m_descriptorSets[i], 0, 0, vk::DescriptorType::eUniformBuffer, nullptr, frameBufferInfos),
-				vk::WriteDescriptorSet(m_descriptorSets[i], 1, 0, vk::DescriptorType::eStorageBuffer, nullptr, instanceBufferInfos),
-				vk::WriteDescriptorSet(m_descriptorSets[i], 2, 0, vk::DescriptorType::eSampler, samplerInfos),
-				vk::WriteDescriptorSet(m_descriptorSets[i], 3, 0, vk::DescriptorType::eSampledImage, imageInfos)
-			};
+				uint32_t imageCount;
+				if (!SetupVertexBuffers(device, commandBuffer, temporaryBuffers, allocator)
+					|| !SetupIndexBuffer(device, commandBuffer, temporaryBuffers, allocator)
+					|| !SetupRenderImage(device, commandBuffer, temporaryBuffers, allocator, physicalDevice.GetLimits().maxSamplerAnisotropy, imageCount)
+					|| !SetupMeshInfoBuffer(device, commandBuffer, temporaryBuffers, allocator)
+					|| !SetupIndirectDrawBuffer(device, commandBuffer, temporaryBuffers, allocator))
+				{
+					return false;
+				}
 
-			device.Get().updateDescriptorSets(writeDescriptorSets, nullptr);
-		}
+				PipelineLayout* pipelineLayout = static_cast<PipelineLayout*>(m_shader);
+				if (!pipelineLayout->Rebuild(device, renderPass, imageCount))
+				{
+					return false;
+				}
 
-		commandBuffer->end();
-		const vk::Queue& queue = device.GetGraphicsQueue();
+				std::vector<vk::DescriptorSetLayout> layouts;
+				for (uint32_t i = 0; i < concurrentFrames; ++i)
+				{
+					layouts.append_range(pipelineLayout->GetDescriptorSetLayouts());
+				}
+				m_descriptorSets = m_descriptorPool->CreateDescriptorSets(device, layouts);
 
-		vk::SubmitInfo submitInfo;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffer.get();
+				std::array<vk::DescriptorImageInfo, 1> samplerInfos =
+				{
+					vk::DescriptorImageInfo(m_sampler->Get(), nullptr, vk::ImageLayout::eShaderReadOnlyOptimal)
+				};
 
-		vk::Result submitResult = queue.submit(1, &submitInfo, m_resourceFence.get());
-		if (submitResult != vk::Result::eSuccess)
-		{
-			return false;
-		}
+				std::vector<vk::DescriptorImageInfo> imageInfos;
+				imageInfos.resize(m_imageArrayView.size());
+				for (uint32_t i = 0; i < m_imageArrayView.size(); ++i)
+				{
+					imageInfos[i] = vk::DescriptorImageInfo(nullptr, m_imageArrayView[i]->Get(), vk::ImageLayout::eShaderReadOnlyOptimal);
+				}
 
-		m_prevFrameCommandBuffers.push_back(std::move(commandBuffer));
+				std::array<vk::DescriptorBufferInfo, 1> instanceBufferInfos =
+				{
+					vk::DescriptorBufferInfo(m_meshInfoBuffer->Get(), 0, sizeof(RenderMeshInfo) * m_meshInfos.size())
+				};
 
-		for (auto& buffer : temporaryBuffers)
-		{
-			m_prevFrameBuffers.push_back(std::move(buffer));
-		}
+				for (uint32_t i = 0; i < concurrentFrames; ++i)
+				{
+					std::array<vk::DescriptorBufferInfo, 1> frameBufferInfos =
+					{
+						vk::DescriptorBufferInfo(frameInfoBuffers[i]->Get(), 0, sizeof(FrameInfoUniformBuffer))
+					};
 
-		return true;
+					std::array<vk::WriteDescriptorSet, 4> writeDescriptorSets =
+					{
+						vk::WriteDescriptorSet(m_descriptorSets[i], 0, 0, vk::DescriptorType::eUniformBuffer, nullptr, frameBufferInfos),
+						vk::WriteDescriptorSet(m_descriptorSets[i], 1, 0, vk::DescriptorType::eStorageBuffer, nullptr, instanceBufferInfos),
+						vk::WriteDescriptorSet(m_descriptorSets[i], 2, 0, vk::DescriptorType::eSampler, samplerInfos),
+						vk::WriteDescriptorSet(m_descriptorSets[i], 3, 0, vk::DescriptorType::eSampledImage, imageInfos)
+					};
+
+					device.Get().updateDescriptorSets(writeDescriptorSets, nullptr);
+				}
+
+				return true;
+			});
 	}
 
 	void VulkanSceneManager::Draw(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex)

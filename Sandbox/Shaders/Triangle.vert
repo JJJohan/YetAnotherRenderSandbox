@@ -16,6 +16,7 @@ struct MeshInfo
 	vec4 color;
 	uint diffuseImageIndex;
 	uint normalImageIndex;
+	uint metallicRoughnessImageIndex;
 };
 
 layout(std140, binding = 1) readonly buffer MeshInfoBuffer
@@ -33,10 +34,11 @@ layout(location = 0) out vec4 fragColor;
 layout(location = 1) out vec2 fragUv;
 layout(location = 2) flat out uint fragDiffuseImageIndex;
 layout(location = 3) flat out uint fragNormalImageIndex;
+layout(location = 4) flat out uint fragMetallicRoughnessImageIndex;
 
-layout(location = 4) out vec3 fragTangentLightPos;
-layout(location = 5) out vec3 fragTangentViewPos;
-layout(location = 6) out vec3 fragTangentFragPos;
+layout(location = 5) out vec3 fragTangentLightPos;
+layout(location = 6) out vec3 fragTangentViewPos;
+layout(location = 7) out vec3 fragTangentFragPos;
 
 void main() 
 {
@@ -58,6 +60,7 @@ void main()
 	
 	fragDiffuseImageIndex = infoBuffer.meshInfo[gl_DrawID].diffuseImageIndex;
 	fragNormalImageIndex = infoBuffer.meshInfo[gl_DrawID].normalImageIndex;
+	fragMetallicRoughnessImageIndex = infoBuffer.meshInfo[gl_DrawID].metallicRoughnessImageIndex;
 	
     gl_Position = frameInfo.viewProj * transformedPos;
 }

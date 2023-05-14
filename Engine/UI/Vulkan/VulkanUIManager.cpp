@@ -1,7 +1,10 @@
 #include "VulkanUIManager.hpp"
 #include "Rendering/Renderer.hpp"
+#include "Rendering/Vulkan/VulkanRenderer.hpp"
 #include "Rendering/Vulkan/Device.hpp"
 #include "Rendering/Vulkan/PhysicalDevice.hpp"
+#include "Rendering/Vulkan/RenderPass.hpp"
+#include "Rendering/Vulkan/Buffer.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "OS/Window.hpp"
 #include "imgui.h"
@@ -49,13 +52,15 @@ namespace Engine::UI::Vulkan
 #endif
 	}
 
-	bool VulkanUIManager::Initialise(const vk::Instance& instance, const Device& device, const PhysicalDevice& physicalDevice,
-		const vk::RenderPass& renderPass, vk::CommandBuffer& setupCommandBuffer)
+	bool VulkanUIManager::Initialise(const vk::Instance& instance, VulkanRenderer& renderer)
 	{
-		uint32_t minImageCount = 2; // Safe or should this match maxConcurrentFrames?
+		uint32_t concurrentFrames = renderer.GetConcurrentFrameCount();
+		const Device& device = renderer.GetDevice();
+		const PhysicalDevice& physicalDevice = renderer.GetPhysicalDevice();
+		const RenderPass& renderPass = renderer.GetRenderPass();
 
 		m_descriptorPool = std::make_unique<DescriptorPool>();
-		if (!m_descriptorPool->Initialise(device, minImageCount, {}))
+		if (!m_descriptorPool->Initialise(device, concurrentFrames, {}))
 		{
 			return false;
 		}
@@ -83,12 +88,12 @@ namespace Engine::UI::Vulkan
 		initInfo.PipelineCache = nullptr;
 		initInfo.DescriptorPool = m_descriptorPool->Get();
 		initInfo.Subpass = 0;
-		initInfo.MinImageCount = minImageCount;
-		initInfo.ImageCount = minImageCount;
+		initInfo.MinImageCount = concurrentFrames;
+		initInfo.ImageCount = concurrentFrames;
 		initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 		initInfo.Allocator = nullptr;
 		initInfo.CheckVkResultFn = check_vk_result;
-		if (!ImGui_ImplVulkan_Init(&initInfo, renderPass))
+		if (!ImGui_ImplVulkan_Init(&initInfo, renderPass.Get()))
 		{
 			return false;
 		}
@@ -102,9 +107,11 @@ namespace Engine::UI::Vulkan
 #error Not implemented.
 #endif
 
-		ImGui_ImplVulkan_CreateFontsTexture(setupCommandBuffer);
-
-		return true;
+		return renderer.SubmitResourceCommand([](const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers)
+			{
+				ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
+				return true;
+			});
 	}
 
 	void VulkanUIManager::PostInitialise() const

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string>
+#include <string_view>
 #include <format>
 #include "../Macros.hpp"
 
@@ -19,7 +19,7 @@ namespace Engine::Logging
 	{
 	private:
 		Logger() = delete;
-		EXPORT static void LogMessage(LogLevel level, const std::string& message);
+		EXPORT static void LogMessage(LogLevel level, const std::string_view& message);
 
 		static LogLevel m_logOutputLevel;
 

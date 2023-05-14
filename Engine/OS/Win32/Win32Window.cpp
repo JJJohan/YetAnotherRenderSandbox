@@ -12,6 +12,7 @@ namespace Engine::OS
 		, m_hWnd(nullptr)
 		, m_prevPlacement()
 		, m_lastSizeState(0)
+		, m_cursorVisibleWin32(true)
 	{
 	}
 
@@ -37,11 +38,12 @@ namespace Engine::OS
 			// Keep cursor visibility in sync.
 			SetCursorVisible(m_cursorVisible);
 		}
-		else if (currentState == SIZE_MINIMIZED)
+		else if (currentState == SIZE_MINIMIZED && !m_cursorVisibleWin32)
 		{
 			// Unhide cursor if window was somehow minimized with cursor hidden.
 			::ShowCursor(true);
 			::ClipCursor(nullptr);
+			m_cursorVisibleWin32 = true;
 		}
 	}
 
@@ -51,10 +53,11 @@ namespace Engine::OS
 		{
 			SetCursorVisible(m_cursorVisible);
 		}
-		else
+		else if (!m_cursorVisibleWin32)
 		{
 			::ShowCursor(true);
 			::ClipCursor(nullptr);
+			m_cursorVisibleWin32 = true;
 		}
 	}
 
@@ -241,7 +244,12 @@ namespace Engine::OS
 	{
 		Window::SetCursorVisible(visible);
 
-		::ShowCursor(visible);
+		if (m_cursorVisibleWin32 != visible)
+		{
+			::ShowCursor(visible);
+			m_cursorVisibleWin32 = visible;
+		}
+
 		if (visible)
 		{
 			::ClipCursor(nullptr);

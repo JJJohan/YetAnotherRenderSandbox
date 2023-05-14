@@ -30,5 +30,6 @@ namespace Engine::OS
 		HWND m_hWnd;
 		WINDOWPLACEMENT m_prevPlacement;
 		uint64_t m_lastSizeState;
+		bool m_cursorVisibleWin32;
 	};
 }

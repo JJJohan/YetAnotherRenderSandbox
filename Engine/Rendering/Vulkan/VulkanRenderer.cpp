@@ -54,6 +54,7 @@ namespace Engine::Rendering::Vulkan
 		, m_imageAvailableSemaphores()
 		, m_renderFinishedSemaphores()
 		, m_inFlightFences()
+		, m_inFlightResources()
 		, m_actionQueue()
 		, m_lastWindowSize()
 		, m_swapChainOutOfDate(false)
@@ -204,6 +205,68 @@ namespace Engine::Rendering::Vulkan
 	UIManager* VulkanRenderer::GetUIManager() const
 	{
 		return m_uiManager.get();
+	}
+
+	const Device& VulkanRenderer::GetDevice() const
+	{
+		return *m_device;
+	}
+
+	const PhysicalDevice& VulkanRenderer::GetPhysicalDevice() const
+	{
+		return *m_physicalDevice;
+	}
+	const RenderPass& VulkanRenderer::GetRenderPass() const
+	{
+		return *m_renderPass;
+	}
+	const SwapChain& VulkanRenderer::GetSwapChain() const
+	{
+		return *m_swapChain;
+	}
+
+	VmaAllocator VulkanRenderer::GetAllocator() const
+	{
+		return m_allocator;
+	}
+
+	uint32_t VulkanRenderer::GetConcurrentFrameCount() const
+	{
+		return m_maxConcurrentFrames;
+	}
+
+	const std::vector<std::unique_ptr<Buffer>>& VulkanRenderer::GetFrameInfoBuffers() const
+	{
+		return m_frameInfoBuffers;
+	}
+
+	bool VulkanRenderer::SubmitResourceCommand(std::function<bool(const vk::CommandBuffer&, std::vector<std::unique_ptr<Buffer>>&)> command)
+	{
+		ResourceCommandData resourceData = {};
+		resourceData.commandBuffer = m_resourceCommandPool->BeginResourceCommandBuffer(*m_device);
+
+		if (!command(resourceData.commandBuffer.get(), resourceData.buffers))
+		{
+			return false;
+		}
+
+		resourceData.commandBuffer->end();
+		const vk::Queue& queue = m_device->GetGraphicsQueue();
+
+		vk::SubmitInfo submitInfo;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &resourceData.commandBuffer.get();
+
+		resourceData.fence = m_device->Get().createFenceUnique(vk::FenceCreateInfo());
+
+		vk::Result submitResult = queue.submit(1, &submitInfo, resourceData.fence.get());
+		if (submitResult != vk::Result::eSuccess)
+		{
+			return false;
+		}
+
+		m_inFlightResources.push_back(std::move(resourceData));
+		return true;
 	}
 
 	bool VulkanRenderer::CreateSyncObjects()
@@ -358,7 +421,7 @@ namespace Engine::Rendering::Vulkan
 		m_resourceCommandPool = std::make_unique<CommandPool>();
 		m_renderCommandPool = std::make_unique<CommandPool>();
 		m_Debug = std::make_unique<Debug>();
-		m_sceneManager = std::make_unique<VulkanSceneManager>(m_maxConcurrentFrames);
+		m_sceneManager = std::make_unique<VulkanSceneManager>(*this);
 
 		if (!m_instance->Initialise(title, *m_Debug, m_debug)
 			|| !m_surface->Initialise(*m_instance, m_window)
@@ -377,10 +440,8 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		vk::UniqueCommandBuffer setupCommandBuffer = m_resourceCommandPool->BeginResourceCommandBuffer(*m_device);
-
 		// Initialise UI
-		if (!m_uiManager->Initialise(m_instance->Get(), *m_device, *m_physicalDevice, m_renderPass->Get(), setupCommandBuffer.get()))
+		if (!m_uiManager->Initialise(m_instance->Get(), *this))
 		{
 			Logger::Error("Failed to initialise UI.");
 			return false;
@@ -406,21 +467,7 @@ namespace Engine::Rendering::Vulkan
 			return 1;
 		}
 
-		if (!m_sceneManager->Initialise(m_allocator, *m_device, setupCommandBuffer.get(), shader, m_physicalDevice->GetLimits()))
-		{
-			return false;
-		}
-
-		setupCommandBuffer->end();
-
-		vk::SubmitInfo submitInfo;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &setupCommandBuffer.get();
-
-		const vk::Queue& queue = m_device->GetGraphicsQueue();
-
-		vk::Result submitResult = queue.submit(1, &submitInfo, nullptr);
-		if (submitResult != vk::Result::eSuccess)
+		if (!m_sceneManager->Initialise(shader))
 		{
 			return false;
 		}
@@ -512,16 +559,17 @@ namespace Engine::Rendering::Vulkan
 			}
 		}
 
-		if (!m_sceneManager->Update(m_allocator, *m_device, *m_resourceCommandPool, m_frameInfoBuffers, *m_renderPass, limits))
+		// Clean up in-flight resources.
+		for (size_t i = 0; i < m_inFlightResources.size();)
 		{
-			Logger::Error("Failed to update meshes.");
-			return false;
-		}
-
-		if (!m_sceneManager->Update(m_allocator, *m_device, *m_resourceCommandPool, m_frameInfoBuffers, *m_renderPass, limits))
-		{
-			Logger::Error("Failed to update meshes.");
-			return false;
+			if (deviceImp.waitForFences(1, &m_inFlightResources[i].fence.get(), true, 0) == vk::Result::eSuccess)
+			{
+				m_inFlightResources.erase(m_inFlightResources.begin() + i);
+			}
+			else
+			{
+				++i;
+			}
 		}
 
 		// Skip rendering in minimised state.

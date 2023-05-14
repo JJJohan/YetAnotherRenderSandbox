@@ -1,6 +1,7 @@
 #include "SceneManager.hpp"
 #include "Shader.hpp"
 #include "Core/Logging/Logger.hpp"
+#include "Core/Utilities.hpp"
 #include <filesystem>
 #include "GltfLoader.hpp"
 #include "TangentCalculator.hpp"
@@ -24,7 +25,6 @@ namespace Engine::Rendering
 		, m_images()
 		, m_vertexDataHashTable()
 		, m_imageHashTable()
-		, m_build(false)
 	{
 	}
 
@@ -33,7 +33,8 @@ namespace Engine::Rendering
 		const glm::mat4& transform,
 		const Colour& colour,
 		std::shared_ptr<Image> diffuseImage,
-		std::shared_ptr<Image> normalImage)
+		std::shared_ptr<Image> normalImage,
+		std::shared_ptr<Image> metallicRoughnessImage)
 	{
 		if (vertexData.empty())
 		{
@@ -131,6 +132,22 @@ namespace Engine::Rendering
 				meshInfo.normalImageIndex = m_images.size();
 				m_images.emplace_back(normalImage);
 			}
+		}	
+		
+		if (metallicRoughnessImage.get() != nullptr)
+		{
+			uint64_t imageHash = metallicRoughnessImage->GetHash();
+			const auto& imageResult = m_imageHashTable.find(imageHash);
+			if (imageResult != m_imageHashTable.cend())
+			{
+				meshInfo.metallicRoughnessImageIndex = imageResult->second;
+			}
+			else
+			{
+				m_imageHashTable[imageHash] = m_images.size();
+				meshInfo.metallicRoughnessImageIndex = m_images.size();
+				m_images.emplace_back(metallicRoughnessImage);
+			}
 		}
 
 		m_active[id] = true;
@@ -138,10 +155,71 @@ namespace Engine::Rendering
 		return id;
 	}
 
-	void SceneManager::Build()
+	bool SceneManager::Build()
 	{
-		const std::lock_guard<std::mutex> lock(m_creationMutex);
-		m_build = true;
+		return true;
+	}
+
+	void SceneManager::ExportCache(const std::filesystem::path& filePath)
+	{
+	}
+
+	void SceneManager::ImportCache(const std::filesystem::path& filePath)
+	{
+	}
+
+	bool SceneManager::LoadScene(const std::string& filePath, bool cache)
+	{
+		std::filesystem::path path(filePath);
+		std::filesystem::path chunkPath(path);
+		chunkPath.replace_extension("chunk");
+		if (cache)
+		{
+			if (std::filesystem::exists(chunkPath))
+			{
+				std::filesystem::file_time_type chunkWriteTime(std::filesystem::last_write_time(chunkPath));
+				std::filesystem::file_time_type fileWriteTime(std::filesystem::last_write_time(path));
+				if (fileWriteTime > chunkWriteTime)
+				{
+					Logger::Info("Scene cache file out of date, rebuilding.");
+				}
+				else
+				{
+					ImportCache(chunkPath.string());
+					Build();
+					return true;
+				}
+			}
+		}
+
+		if (!std::filesystem::exists(path))
+		{
+			Logger::Error("Scene file does not exist.");
+			return false;
+		}
+
+		std::string pathExtension(path.extension().string());
+		if (Utilities::EqualsIgnoreCase(pathExtension, ".glb") || Utilities::EqualsIgnoreCase(pathExtension, ".gltf"))
+		{
+			GLTFLoader gltfLoader;
+			if (!gltfLoader.LoadGLTF(path, this))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			Logger::Error("Scene file type not handled.");
+			return false;
+		}
+
+		if (cache)
+		{
+			ExportCache(chunkPath.string());
+		}
+
+		Build();
+		return true;
 	}
 
 	uint32_t SceneManager::CreateFromOBJ(const std::string& filePath,

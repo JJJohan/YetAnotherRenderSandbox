@@ -11,7 +11,7 @@ namespace Engine::Logging
 {
 	LogLevel Logger::m_logOutputLevel = LogLevel::DEBUG;
 
-	void Logger::LogMessage(LogLevel level, const std::string& message)
+	void Logger::LogMessage(LogLevel level, const std::string_view& message)
 	{
 		if (level < Logger::m_logOutputLevel)
 			return;

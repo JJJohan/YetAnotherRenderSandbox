@@ -13,5 +13,6 @@ namespace Engine::Rendering
 		size_t vertexBufferIndex;
 		size_t diffuseImageIndex;
 		size_t normalImageIndex;
+		size_t metallicRoughnessImageIndex;
 	};
 }
