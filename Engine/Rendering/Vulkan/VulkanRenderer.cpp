@@ -403,7 +403,7 @@ namespace Engine::Rendering::Vulkan
 	{
 		Logger::Verbose("Initialising Vulkan renderer...");
 
-		static auto startTime = std::chrono::high_resolution_clock::now();
+		auto startTime = std::chrono::high_resolution_clock::now();
 
 		static vk::DynamicLoader dl;
 		auto vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
@@ -476,7 +476,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_lastWindowSize = m_window.GetSize();
 
-		static auto endTime = std::chrono::high_resolution_clock::now();
+		auto endTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
 		Logger::Verbose("Renderer setup finished in {} seconds.", deltaTime);
 

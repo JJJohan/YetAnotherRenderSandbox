@@ -261,7 +261,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		static auto parseStartTime = std::chrono::high_resolution_clock::now();
+		auto parseStartTime = std::chrono::high_resolution_clock::now();
 
 		constexpr auto gltfOptions =
 			fastgltf::Options::DontRequireValidAssetMember |
@@ -319,11 +319,11 @@ namespace Engine::Rendering
 
 		std::unique_ptr<fastgltf::Asset> asset = gltf->getParsedAsset();
 
-		static auto parseEndTime = std::chrono::high_resolution_clock::now();
+		auto parseEndTime = std::chrono::high_resolution_clock::now();
 		float parseDeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(parseEndTime - parseStartTime).count();
 		Logger::Verbose("GLTF file parsed in {} seconds.", parseDeltaTime);
 
-		static auto loadStartTime = std::chrono::high_resolution_clock::now();
+		auto loadStartTime = std::chrono::high_resolution_clock::now();
 
 		ImportState importState(asset.get(), sceneManager);
 
@@ -375,7 +375,7 @@ namespace Engine::Rendering
 
 		bool result = LoadData(importState);
 
-		static auto loadEndTime = std::chrono::high_resolution_clock::now();
+		auto loadEndTime = std::chrono::high_resolution_clock::now();
 		float loadDeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(loadEndTime - loadStartTime).count();
 		Logger::Verbose("GLTF file loaded in {} seconds.", loadDeltaTime);
 

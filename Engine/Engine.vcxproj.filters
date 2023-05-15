@@ -163,6 +163,9 @@
     <ClCompile Include="Core\Utilities.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="Core\ChunkData.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Macros.hpp">
@@ -316,6 +319,12 @@
       <Filter>UI</Filter>
     </ClInclude>
     <ClInclude Include="Core\Utilities.hpp">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\ChunkTypeInfo.hpp">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\ChunkData.hpp">
       <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>

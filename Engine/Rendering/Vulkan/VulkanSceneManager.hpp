@@ -10,6 +10,7 @@ typedef struct VmaAllocator_T* VmaAllocator;
 namespace Engine
 {
 	class Image;
+	class ChunkData;
 }
 
 namespace Engine::Rendering
@@ -35,29 +36,25 @@ namespace Engine::Rendering::Vulkan
 
 		bool Initialise(Shader* shader);
 
-		virtual bool Build() override;
+		virtual bool Build(ChunkData* chunkData) override;
 
 		void Draw(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex);
 
-	protected:
-		virtual void ExportCache(const std::filesystem::path& filePath) override;
-		virtual void ImportCache(const std::filesystem::path& filePath) override;
-
 	private:
-		bool SetupIndirectDrawBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
-			VmaAllocator allocator);
+		bool SetupIndirectDrawBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, ChunkData* chunkData,
+			std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator);
 
-		bool SetupVertexBuffers(const Device& device, const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
-			VmaAllocator allocator);
+		bool SetupVertexBuffers(const Device& device, const vk::CommandBuffer& commandBuffer, ChunkData* chunkData,
+			std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator);
 
-		bool SetupIndexBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
-			VmaAllocator allocator);
+		bool SetupIndexBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, ChunkData* chunkData,
+			std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator);
 
-		bool SetupRenderImage(const Device& device, const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
-			VmaAllocator allocator, float maxAnisotropy, uint32_t& imageCount);
+		bool SetupRenderImage(const Device& device, const vk::CommandBuffer& commandBuffer, ChunkData* chunkData,
+			std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator, float maxAnisotropy, uint32_t& imageCount);
 
-		bool SetupMeshInfoBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
-			VmaAllocator allocator);
+		bool SetupMeshInfoBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, ChunkData* chunkData,
+			std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator);
 
 		bool CreateStagingBuffer(VmaAllocator allocator, const Device& device,
 			const vk::CommandBuffer& commandBuffer, const Buffer* destinationBuffer, const void* data,

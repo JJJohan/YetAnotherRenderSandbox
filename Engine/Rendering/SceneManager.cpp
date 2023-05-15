@@ -1,6 +1,7 @@
 #include "SceneManager.hpp"
 #include "Shader.hpp"
 #include "Core/Logging/Logger.hpp"
+#include "Core/ChunkData.hpp"
 #include "Core/Utilities.hpp"
 #include <filesystem>
 #include "GltfLoader.hpp"
@@ -132,8 +133,8 @@ namespace Engine::Rendering
 				meshInfo.normalImageIndex = m_images.size();
 				m_images.emplace_back(normalImage);
 			}
-		}	
-		
+		}
+
 		if (metallicRoughnessImage.get() != nullptr)
 		{
 			uint64_t imageHash = metallicRoughnessImage->GetHash();
@@ -155,17 +156,9 @@ namespace Engine::Rendering
 		return id;
 	}
 
-	bool SceneManager::Build()
+	bool SceneManager::Build(ChunkData* chunkData)
 	{
 		return true;
-	}
-
-	void SceneManager::ExportCache(const std::filesystem::path& filePath)
-	{
-	}
-
-	void SceneManager::ImportCache(const std::filesystem::path& filePath)
-	{
 	}
 
 	bool SceneManager::LoadScene(const std::string& filePath, bool cache)
@@ -185,9 +178,11 @@ namespace Engine::Rendering
 				}
 				else
 				{
-					ImportCache(chunkPath.string());
-					Build();
-					return true;
+					ChunkData chunkData{};
+					if (chunkData.Parse(chunkPath))
+					{
+						return Build(&chunkData);
+					}
 				}
 			}
 		}
@@ -213,13 +208,17 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		if (cache)
+		ChunkData chunkData{};
+		bool buildSuccess = Build(cache ? &chunkData : nullptr);
+		if (buildSuccess && cache)
 		{
-			ExportCache(chunkPath.string());
+			if (!chunkData.WriteToFile(chunkPath))
+			{
+				Logger::Error("Failed to write imported scene data to file, data was not cached.");
+			}
 		}
 
-		Build();
-		return true;
+		return buildSuccess;
 	}
 
 	uint32_t SceneManager::CreateFromOBJ(const std::string& filePath,

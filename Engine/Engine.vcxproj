@@ -155,6 +155,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Core\ChunkData.cpp" />
     <ClCompile Include="Core\Colour.cpp" />
     <ClCompile Include="Core\Hash.cpp" />
     <ClCompile Include="Core\Image.cpp" />
@@ -201,6 +202,8 @@
     <ClCompile Include="UI\Vulkan\VulkanUIManager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Core\ChunkData.hpp" />
+    <ClInclude Include="Core\ChunkTypeInfo.hpp" />
     <ClInclude Include="Core\Colour.hpp" />
     <ClInclude Include="Core\Hash.hpp" />
     <ClInclude Include="Core\Image.hpp" />

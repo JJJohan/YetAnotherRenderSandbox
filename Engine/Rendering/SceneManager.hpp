@@ -13,6 +13,11 @@
 #include <filesystem>
 #include <string>
 
+namespace Engine
+{
+	class ChunkData;
+}
+
 namespace Engine::Rendering
 {
 	class Shader;
@@ -31,16 +36,13 @@ namespace Engine::Rendering
 			std::shared_ptr<Image> normalImage = nullptr,
 			std::shared_ptr<Image> metallicRoughnessImage = nullptr);
 
-		virtual bool Build();
+		virtual bool Build(ChunkData* chunkData);
 		EXPORT bool LoadScene(const std::string& filePath, bool cache);
 
 		EXPORT uint32_t CreateFromOBJ(const std::string& filePath,
 			const glm::mat4& transform, const Colour& colour = {}, std::shared_ptr<Image> image = nullptr);
 
 	protected:
-		virtual void ExportCache(const std::filesystem::path& filePath);
-		virtual void ImportCache(const std::filesystem::path& filePath);
-
 		std::stack<uint32_t> m_recycledIds;
 		std::vector<bool> m_active;
 		std::mutex m_creationMutex;
