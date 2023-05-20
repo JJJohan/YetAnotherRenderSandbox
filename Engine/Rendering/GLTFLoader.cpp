@@ -1,5 +1,6 @@
 #include "GLTFLoader.hpp"
 #include "Core/Logging/Logger.hpp"
+#include "Core/AsyncData.hpp"
 #include "SceneManager.hpp"
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -180,6 +181,12 @@ namespace Engine::Rendering
 						{
 							size_t imageIndex = texture.imageIndex.value();
 							diffuseImage = importState.loadedImages[imageIndex];
+							if (diffuseImage.get() != nullptr)
+							{
+								assert(!diffuseImage->IsNormalMap());
+								assert(!diffuseImage->IsMetallicRoughnessMap());
+								assert(diffuseImage->IsSRGB());
+							}
 						}
 					}
 
@@ -191,6 +198,12 @@ namespace Engine::Rendering
 						{
 							size_t imageIndex = texture.imageIndex.value();
 							metallicRoughnessImage = importState.loadedImages[imageIndex];
+							if (metallicRoughnessImage.get() != nullptr)
+							{
+								assert(!metallicRoughnessImage->IsNormalMap());
+								assert(metallicRoughnessImage->IsMetallicRoughnessMap());
+								assert(!metallicRoughnessImage->IsSRGB());
+							}
 						}
 					}
 				}
@@ -203,11 +216,17 @@ namespace Engine::Rendering
 					{
 						size_t imageIndex = texture.imageIndex.value();
 						normalImage = importState.loadedImages[imageIndex];
+						if (normalImage.get() != nullptr)
+						{
+							assert(normalImage->IsNormalMap());
+							assert(!normalImage->IsMetallicRoughnessMap());
+							assert(!normalImage->IsSRGB());
+						}
 					}
 				}
 			}
 
-			importState.sceneManager->CreateMesh( vertexDataArrays, indices, transform, colour, diffuseImage, normalImage, metallicRoughnessImage);
+			importState.sceneManager->CreateMesh(vertexDataArrays, indices, transform, colour, diffuseImage, normalImage, metallicRoughnessImage);
 		}
 
 		return true;
@@ -253,7 +272,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GLTFLoader::LoadGLTF(const std::filesystem::path& filePath, SceneManager* sceneManager)
+	bool GLTFLoader::LoadGLTF(const std::filesystem::path& filePath, SceneManager* sceneManager, AsyncData* asyncData)
 	{
 		if (!std::filesystem::exists(filePath))
 		{
@@ -323,15 +342,16 @@ namespace Engine::Rendering
 		float parseDeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(parseEndTime - parseStartTime).count();
 		Logger::Verbose("GLTF file parsed in {} seconds.", parseDeltaTime);
 
+		if (asyncData != nullptr)
+			asyncData->AddSubProgress(100.0f);
+
 		auto loadStartTime = std::chrono::high_resolution_clock::now();
 
 		ImportState importState(asset.get(), sceneManager);
 
-		std::atomic<uint32_t> imageCounter = 0;
-
-		// Track if images should be treated as SRGB.
-		std::vector<bool> m_srgbStates;
-		m_srgbStates.resize(asset->images.size());
+		// Track if images should be treated as SRGB, normal maps, etc.
+		std::vector<ImageFlags> m_imageFlags;
+		m_imageFlags.resize(asset->images.size());
 		for (const fastgltf::Material& material : asset->materials)
 		{
 			if (material.pbrData.has_value())
@@ -339,41 +359,89 @@ namespace Engine::Rendering
 				const fastgltf::PBRData& pbrData = material.pbrData.value();
 				if (pbrData.baseColorTexture.has_value())
 				{
-					const fastgltf::TextureInfo& baseColorTexture = pbrData.baseColorTexture.value();
-					if (baseColorTexture.textureIndex < asset->images.size())
+					const fastgltf::TextureInfo& textureInfo = pbrData.baseColorTexture.value();
+					const fastgltf::Texture& texture = asset->textures[textureInfo.textureIndex];
+					if (texture.imageIndex.has_value())
 					{
-						m_srgbStates[baseColorTexture.textureIndex] = true;
+						size_t imageIndex = texture.imageIndex.value();
+						if (imageIndex < asset->images.size())
+						{
+							m_imageFlags[imageIndex] |= ImageFlags::SRGB;
+						}
+					}
+				}
+
+				if (pbrData.metallicRoughnessTexture.has_value())
+				{
+					const fastgltf::TextureInfo& textureInfo = pbrData.metallicRoughnessTexture.value();
+					const fastgltf::Texture& texture = asset->textures[textureInfo.textureIndex];
+					if (texture.imageIndex.has_value())
+					{
+						size_t imageIndex = texture.imageIndex.value();
+						if (imageIndex < asset->images.size())
+						{
+							m_imageFlags[imageIndex] |= ImageFlags::MetallicRoughnessMap;
+						}
+					}
+				}
+			}
+
+			if (material.normalTexture.has_value())
+			{
+				const fastgltf::TextureInfo& textureInfo = material.normalTexture.value();
+				const fastgltf::Texture& texture = asset->textures[textureInfo.textureIndex];
+				if (texture.imageIndex.has_value())
+				{
+					size_t imageIndex = texture.imageIndex.value();
+					if (imageIndex < asset->images.size())
+					{
+						m_imageFlags[imageIndex] |= ImageFlags::NormalMap;
 					}
 				}
 			}
 		}
 
+		float subTicks = 200.0f / static_cast<float>(asset->textures.size());
+		std::vector<std::atomic_bool> imageWriteStates(asset->images.size());
+
 		std::for_each(
 			std::execution::par,
-			asset->images.cbegin(),
-			asset->images.cend(),
-			[&asset, &importState, &imageCounter, &m_srgbStates](const fastgltf::Image& gltfImage)
+			asset->textures.cbegin(),
+			asset->textures.cend(),
+			[&asset, &importState, &m_imageFlags, &imageWriteStates, asyncData, subTicks](const fastgltf::Texture& texture)
 			{
-				const fastgltf::sources::BufferView* bufferViewInfo = std::get_if<fastgltf::sources::BufferView>(&gltfImage.data);
-				if (bufferViewInfo != nullptr)
+				if (texture.imageIndex.has_value())
 				{
-					const fastgltf::BufferView& imageBufferView = asset->bufferViews[bufferViewInfo->bufferViewIndex];
-					const fastgltf::Buffer& imageBuffer = asset->buffers[imageBufferView.bufferIndex];
-					const fastgltf::sources::Vector* imageData = std::get_if<fastgltf::sources::Vector>(&imageBuffer.data);
-
-					uint32_t index = imageCounter++;
-					importState.loadedImages[index] = std::make_shared<Image>();
-
-					bool srgb = m_srgbStates[index];
-
-					if (!importState.loadedImages[index]->LoadFromMemory(imageData->bytes.data() + imageBufferView.byteOffset, imageBufferView.byteLength, srgb))
+					size_t imageIndex = texture.imageIndex.value();
+					if (!imageWriteStates[imageIndex].exchange(true))
 					{
-						importState.loadedImages[index].reset();
+						const fastgltf::Image& gltfImage = asset->images[imageIndex];
+						const fastgltf::sources::BufferView* bufferViewInfo = std::get_if<fastgltf::sources::BufferView>(&gltfImage.data);
+						if (bufferViewInfo != nullptr)
+						{
+							const fastgltf::BufferView& imageBufferView = asset->bufferViews[bufferViewInfo->bufferViewIndex];
+							const fastgltf::Buffer& imageBuffer = asset->buffers[imageBufferView.bufferIndex];
+							const fastgltf::sources::Vector* imageData = std::get_if<fastgltf::sources::Vector>(&imageBuffer.data);
+
+							importState.loadedImages[imageIndex] = std::make_shared<Image>();
+
+							if (!importState.loadedImages[imageIndex]->LoadFromMemory(imageData->bytes.data() + imageBufferView.byteOffset, imageBufferView.byteLength, m_imageFlags[imageIndex]))
+							{
+								importState.loadedImages[imageIndex].reset();
+							}
+						}
 					}
 				}
+
+				if (asyncData != nullptr)
+					asyncData->AddSubProgress(subTicks);
 			});
 
+
 		bool result = LoadData(importState);
+
+		if (asyncData != nullptr)
+			asyncData->AddSubProgress(100.0f);
 
 		auto loadEndTime = std::chrono::high_resolution_clock::now();
 		float loadDeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(loadEndTime - loadStartTime).count();

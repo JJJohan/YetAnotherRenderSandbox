@@ -110,7 +110,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>_DEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;KHRONOS_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;$(SolutionDir)Engine\UI\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -125,7 +125,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\lib;$(VULKAN_SDK)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;tinyobjloader.lib;fastgltf_d.lib;fastgltf_simdjson_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;tinyobjloader.lib;fastgltf_d.lib;fastgltf_simdjson_d.lib;meshoptimizer_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -133,7 +133,7 @@
       <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NDEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;KHRONOS_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;$(SolutionDir)Engine\UI\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -151,15 +151,19 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\lib;$(VULKAN_SDK)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;tinyobjloader.lib;fastgltf.lib;fastgltf_simdjson.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;tinyobjloader.lib;fastgltf.lib;fastgltf_simdjson.lib;meshoptimizer.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\Dependencies\include\bc7enc.cpp" />
+    <ClCompile Include="..\Dependencies\include\rgbcx.cpp" />
+    <ClCompile Include="Core\AsyncData.cpp" />
     <ClCompile Include="Core\ChunkData.cpp" />
     <ClCompile Include="Core\Colour.cpp" />
     <ClCompile Include="Core\Hash.cpp" />
     <ClCompile Include="Core\Image.cpp" />
     <ClCompile Include="Core\Logging\Logger.cpp" />
+    <ClCompile Include="Core\MeshOptimiser.cpp" />
     <ClCompile Include="Core\Utilities.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="OS\Files.cpp" />
@@ -202,6 +206,7 @@
     <ClCompile Include="UI\Vulkan\VulkanUIManager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Core\AsyncData.hpp" />
     <ClInclude Include="Core\ChunkData.hpp" />
     <ClInclude Include="Core\ChunkTypeInfo.hpp" />
     <ClInclude Include="Core\Colour.hpp" />
@@ -209,6 +214,7 @@
     <ClInclude Include="Core\Image.hpp" />
     <ClInclude Include="Core\Logging\Logger.hpp" />
     <ClInclude Include="Core\Macros.hpp" />
+    <ClInclude Include="Core\MeshOptimiser.hpp" />
     <ClInclude Include="Core\Utilities.hpp" />
     <ClInclude Include="OS\Files.hpp" />
     <ClInclude Include="OS\InputState.hpp" />

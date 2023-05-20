@@ -1,4 +1,5 @@
 #include "ChunkData.hpp"
+#include "AsyncData.hpp"
 #include "Logging/Logger.hpp"
 #include <fstream>
 #include <chrono>
@@ -16,7 +17,7 @@ namespace Engine
 	{
 	}
 
-	bool ChunkData::WriteToFile(const std::filesystem::path& path) const
+	bool ChunkData::WriteToFile(const std::filesystem::path& path, AsyncData* asyncData) const
 	{
 		auto writeStartTime = std::chrono::high_resolution_clock::now();
 
@@ -37,7 +38,9 @@ namespace Engine
 		ChunkHeader header{};
 		header.ResourceCount = static_cast<uint32_t>(resourceCount);
 		stream.write(reinterpret_cast<const char*>(&header), sizeof(ChunkHeader));
+		const char* memoryData = reinterpret_cast<const char*>(m_memory.data());
 
+		float subTicks = 500.0f / static_cast<float>(m_genericDataMap.size()) / 3.0f;
 		for (const auto& data : m_genericDataMap)
 		{			
 			ChunkResourceHeader resourceHeader;
@@ -45,9 +48,13 @@ namespace Engine
 			resourceHeader.ResourceType = ChunkResourceType::Generic;
 			resourceHeader.ResourceSize = data.second.Size;
 			stream.write(reinterpret_cast<const char*>(&resourceHeader), sizeof(ChunkResourceHeader));
-			std::copy(m_memory.begin() + data.second.Offset, m_memory.begin() + data.second.Offset + data.second.Size, std::ostreambuf_iterator<char>(stream));
+			stream.write(memoryData + data.second.Offset, data.second.Size);
+
+			if (asyncData != nullptr)
+				asyncData->AddSubProgress(subTicks);
 		}
 
+		subTicks = 500.0f / static_cast<float>(m_vertexDataMap.size()) / 3.0f;
 		for (const auto& data : m_vertexDataMap)
 		{
 			ChunkResourceHeader resourceHeader;
@@ -57,9 +64,13 @@ namespace Engine
 			VertexBufferHeader vertexHeader;
 			vertexHeader.Type = data.first;
 			stream.write(reinterpret_cast<const char*>(&vertexHeader), sizeof(VertexBufferHeader));
-			std::copy(m_memory.begin() + data.second.Offset, m_memory.begin() + data.second.Offset + data.second.Size, std::ostreambuf_iterator<char>(stream));
+			stream.write(memoryData + data.second.Offset, data.second.Size);
+
+			if (asyncData != nullptr)
+				asyncData->AddSubProgress(subTicks);
 		}
 
+		subTicks = 500.0f / static_cast<float>(m_imageData.size()) / 3.0f;
 		for (const auto& data : m_imageData)
 		{
 			ChunkResourceHeader resourceHeader;
@@ -67,7 +78,10 @@ namespace Engine
 			resourceHeader.ResourceSize = data.Entry.Size;
 			stream.write(reinterpret_cast<const char*>(&resourceHeader), sizeof(ChunkResourceHeader));
 			stream.write(reinterpret_cast<const char*>(&data.Header), sizeof(ImageHeader));
-			std::copy(m_memory.begin() + data.Entry.Offset, m_memory.begin() + data.Entry.Offset + data.Entry.Size, std::ostreambuf_iterator<char>(stream));
+			stream.write(memoryData + data.Entry.Offset, data.Entry.Size);
+
+			if (asyncData != nullptr)
+				asyncData->AddSubProgress(subTicks);
 		}
 
 		bool success = stream.good();
@@ -81,7 +95,7 @@ namespace Engine
 		return success;
 	}
 
-	bool ChunkData::Parse(const std::filesystem::path& path)
+	bool ChunkData::Parse(const std::filesystem::path& path, AsyncData* asyncData)
 	{
 		auto parseStartTime = std::chrono::high_resolution_clock::now();
 
@@ -101,11 +115,17 @@ namespace Engine
 			return false;
 		}
 
+		if (asyncData != nullptr)
+			asyncData->AddSubProgress(100.0f);
+
 		// Currently, just read the entire file into memory.
 		m_memory.resize(size);
 		stream.read(reinterpret_cast<char*>(m_memory.data()), size);
 		stream.close();
 		uint64_t dataIndex = 0;
+
+		if (asyncData != nullptr)
+			asyncData->AddSubProgress(500.0f);
 
 		ChunkHeader header;
 		memcpy(&header, m_memory.data(), sizeof(ChunkHeader));
@@ -123,6 +143,7 @@ namespace Engine
 			return false;
 		}
 
+		float resourceSubTicks = static_cast<float>(header.ResourceCount) / 400.0f;
 		for (uint32_t i = 0; i < header.ResourceCount; ++i)
 		{
 			ChunkResourceHeader resource;
@@ -151,7 +172,7 @@ namespace Engine
 				memcpy(&imageHeader, m_memory.data() + dataIndex, sizeof(ImageHeader));
 				dataIndex += sizeof(ImageHeader);
 
-				m_imageData.emplace_back(ImageData(imageHeader.Width, imageHeader.Height, imageHeader.Srgb, ChunkMemoryEntry(dataIndex, resource.ResourceSize), m_memory));
+				m_imageData.emplace_back(ImageData(imageHeader, ChunkMemoryEntry(dataIndex, resource.ResourceSize), m_memory));
 				dataIndex += resource.ResourceSize;
 			}
 			break;
@@ -160,6 +181,9 @@ namespace Engine
 				Logger::Error("Input file '{}' contains malformed data.", path.string());
 				return false;
 			}
+
+			if (asyncData != nullptr)
+				asyncData->AddSubProgress(resourceSubTicks);
 		}
 
 		m_loadedFromDisk = true;
@@ -235,10 +259,20 @@ namespace Engine
 		return false;
 	}
 
-	void ChunkData::AddImageData(const ImageHeader& image, const std::vector<uint8_t>& pixelData)
+	void ChunkData::AddImageData(const ImageHeader& image, const std::vector<std::vector<uint8_t>>& mipMaps)
 	{
+		ImageHeader header = image;
+		header.MipLevels = static_cast<uint32_t>(mipMaps.size());
+		header.FirstMipSize = mipMaps.front().size();
+
 		uint64_t offset = m_memory.size();
-		m_memory.insert(m_memory.end(), pixelData.begin(), pixelData.end());
-		m_imageData.emplace_back(ImageData(image.Width, image.Height, image.Srgb, ChunkMemoryEntry(offset, pixelData.size())));
+		size_t totalSize = 0;
+		for (const auto& data : mipMaps)
+		{
+			m_memory.insert(m_memory.end(), data.begin(), data.end());
+			totalSize += data.size();
+		}
+
+		m_imageData.emplace_back(ImageData(header, ChunkMemoryEntry(offset, totalSize)));
 	}
 }

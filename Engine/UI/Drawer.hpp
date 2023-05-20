@@ -3,6 +3,11 @@
 #include "Core/Macros.hpp"
 #include "Core/Colour.hpp"
 
+namespace Engine
+{
+	struct ProgressInfo;
+}
+
 namespace Engine::UI
 {
 	class Drawer
@@ -17,5 +22,6 @@ namespace Engine::UI
 		EXPORT bool SliderInt(const char* label, int32_t* value, int32_t min, int32_t max) const;
 		EXPORT bool Checkbox(const char* label, bool* value) const;
 		EXPORT void End() const;
+		EXPORT void Progress(const ProgressInfo& progress) const;
 	};
 }

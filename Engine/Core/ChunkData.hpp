@@ -8,6 +8,8 @@
 
 namespace Engine
 {
+	class AsyncData;
+
 	struct ChunkMemoryEntry
 	{
 		uint64_t Offset;
@@ -30,26 +32,32 @@ namespace Engine
 	{
 		ImageHeader Header;
 		ChunkMemoryEntry Entry;
-		std::span<const uint8_t> Span;
+		std::vector<std::span<const uint8_t>> Spans;
 
-		ImageData(uint32_t width, uint32_t height, bool srgb)
+		ImageData(ImageHeader header)
+			: Header(header)
 		{
-			Header.Width = width;
-			Header.Height = height;
-			Header.Srgb = srgb;
 		}
 
-		ImageData(uint32_t width, uint32_t height, bool srgb, ChunkMemoryEntry entry)
-			: ImageData(width, height, srgb)
+		ImageData(ImageHeader header, ChunkMemoryEntry entry)
+			: ImageData(header)
 		{
 			Entry = entry;
 		}
 
-		ImageData(uint32_t width, uint32_t height, bool srgb, ChunkMemoryEntry entry, const std::vector<uint8_t>& memory)
-			: ImageData(width, height, srgb)
+		ImageData(ImageHeader header, ChunkMemoryEntry entry, const std::vector<uint8_t>& memory)
+			: ImageData(header, entry)
 		{
-			Entry = entry;
-			Span = std::span<const uint8_t>(memory.begin() + entry.Offset, entry.Size);
+			Spans.resize(header.MipLevels);
+			uint64_t offset = entry.Offset;
+			uint64_t size = header.FirstMipSize;
+			for (uint32_t i = 0; i < header.MipLevels; ++i)
+			{
+				Spans[i] = std::span<const uint8_t>(memory.begin() + offset, size);
+				offset += size;
+				size /= 4;
+			}
+
 		}
 	};
 
@@ -58,8 +66,8 @@ namespace Engine
 	public:
 		ChunkData();
 
-		bool WriteToFile(const std::filesystem::path& path) const;
-		bool Parse(const std::filesystem::path& path);
+		bool WriteToFile(const std::filesystem::path& path, AsyncData* asyncData) const;
+		bool Parse(const std::filesystem::path& path, AsyncData* asyncData);
 
 		bool GetVertexData(VertexBufferType type, std::span<uint8_t>& data);
 		void SetVertexData(VertexBufferType type, const std::vector<uint8_t>& data);
@@ -68,7 +76,7 @@ namespace Engine
 		void SetGenericData(uint32_t identifier, const std::vector<uint8_t>& data);
 
 		bool GetImageData(std::vector<ImageData>** imageData);
-		void AddImageData(const ImageHeader& image, const std::vector<uint8_t>& pixelData);
+		void AddImageData(const ImageHeader& image, const std::vector<std::vector<uint8_t>>& mipMaps);
 
 		bool LoadedFromDisk() const;
 

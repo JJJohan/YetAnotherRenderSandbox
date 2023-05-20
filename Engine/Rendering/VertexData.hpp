@@ -31,6 +31,8 @@ namespace Engine::Rendering
 			m_hash = Hash::CalculateHash(m_data);
 		}
 
+		void ReplaceData(const std::vector<uint8_t>& data, uint32_t newCount);
+
 		const void* GetData() const;
 		uint32_t GetCount() const;
 		uint32_t GetElementSize() const;

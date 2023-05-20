@@ -15,9 +15,12 @@
 #include "PipelineLayout.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "Core/ChunkData.hpp"
+#include "Core/AsyncData.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <vma/vk_mem_alloc.h>
+#include <algorithm>
+#include <execution>
 
 using namespace Engine::Logging;
 
@@ -60,7 +63,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		m_blankImage = std::make_shared<RenderImage>(allocator);
-		bool imageInitialised = m_blankImage->Initialise(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, vk::Extent3D(1, 1, 1), vk::SampleCountFlagBits::e1, false, vk::ImageTiling::eOptimal,
+		bool imageInitialised = m_blankImage->Initialise(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, vk::Extent3D(1, 1, 1), vk::SampleCountFlagBits::e1, 1, vk::ImageTiling::eOptimal,
 			vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 			0,
@@ -95,7 +98,7 @@ namespace Engine::Rendering::Vulkan
 				m_blankImage->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eTransferDstOptimal);
 
 				Colour blankPixel = Colour();
-				if (!CreateImageStagingBuffer(allocator, device, commandBuffer, m_blankImage.get(), &blankPixel,
+				if (!CreateImageStagingBuffer(allocator, device, commandBuffer, m_blankImage.get(), 0, &blankPixel,
 					sizeof(uint32_t), temporaryBuffers))
 					return false;
 
@@ -414,7 +417,7 @@ namespace Engine::Rendering::Vulkan
 	}
 
 	bool VulkanSceneManager::CreateImageStagingBuffer(VmaAllocator allocator, const Device& device,
-		const vk::CommandBuffer& commandBuffer, const RenderImage* destinationImage, const void* data, uint64_t size,
+		const vk::CommandBuffer& commandBuffer, const RenderImage* destinationImage, uint32_t mipLevel, const void* data, uint64_t size,
 		std::vector<std::unique_ptr<Buffer>>& copyBufferCollection)
 	{
 		Buffer* stagingBuffer = copyBufferCollection.emplace_back(std::make_unique<Buffer>(allocator)).get();
@@ -430,12 +433,13 @@ namespace Engine::Rendering::Vulkan
 		if (!stagingBuffer->UpdateContents(data, size))
 			return false;
 
-		stagingBuffer->CopyToImage(device, commandBuffer, *destinationImage);
+		stagingBuffer->CopyToImage(device, mipLevel, commandBuffer, *destinationImage);
+
 
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupRenderImage(const Device& device,
+	bool VulkanSceneManager::SetupRenderImage(AsyncData* asyncData, const Device& device, const PhysicalDevice& physicalDevice,
 		const vk::CommandBuffer& commandBuffer, ChunkData* chunkData, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
 		VmaAllocator allocator, float maxAnisotropy, uint32_t& imageCount)
 	{
@@ -451,14 +455,16 @@ namespace Engine::Rendering::Vulkan
 			m_imageArray.reserve(cachedImageData->size());
 			m_imageArrayView.reserve(cachedImageData->size());
 
+			float subTicks = 400.0f / static_cast<float>(cachedImageData->size());
+
 			for (auto it = cachedImageData->begin(); it != cachedImageData->end(); ++it)
 			{
 				const ImageData& imageData = *it;
-				vk::Format format = imageData.Header.Srgb ? vk::Format::eR8G8B8A8Srgb : vk::Format::eR8G8B8A8Unorm;				
+				vk::Format format = static_cast<vk::Format>(imageData.Header.Format);
 				vk::Extent3D dimensions(imageData.Header.Width, imageData.Header.Height, 1);
 
 				std::unique_ptr<RenderImage>& renderImage = m_imageArray.emplace_back(std::make_unique<RenderImage>(allocator));
-				bool imageInitialised = renderImage->Initialise(vk::ImageType::e2D, format, dimensions, vk::SampleCountFlagBits::e1, true, vk::ImageTiling::eOptimal,
+				bool imageInitialised = renderImage->Initialise(vk::ImageType::e2D, format, dimensions, vk::SampleCountFlagBits::e1, imageData.Header.MipLevels, vk::ImageTiling::eOptimal,
 					vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
 					VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 					0,
@@ -478,11 +484,17 @@ namespace Engine::Rendering::Vulkan
 
 				renderImage->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eTransferDstOptimal);
 
-				if (!CreateImageStagingBuffer(allocator, device, commandBuffer, renderImage.get(), imageData.Span.data(),
-					imageData.Span.size(), temporaryBuffers))
-					return false;
+				for (uint32_t i = 0; i < imageData.Header.MipLevels; ++i)
+				{
+					if (!CreateImageStagingBuffer(allocator, device, commandBuffer, renderImage.get(), i, imageData.Spans[i].data(),
+						imageData.Spans[i].size(), temporaryBuffers))
+						return false;
+				}
 
-				renderImage->GenerateMipmaps(device, commandBuffer);
+				renderImage->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+				if (asyncData != nullptr)
+					asyncData->AddSubProgress(subTicks);
 			}
 
 			return true;
@@ -492,23 +504,79 @@ namespace Engine::Rendering::Vulkan
 		m_imageArrayView.reserve(m_images.size());
 		imageCount = 0;
 
+		bool compress = false;
+		const vk::PhysicalDeviceFeatures& features = physicalDevice.GetFeatures();
+		if (features.textureCompressionBC && RenderImage::FormatSupported(physicalDevice, vk::Format::eBc7SrgbBlock))
+		{
+			compress = true;
+		}
+
+		if (asyncData != nullptr)
+			asyncData->InitSubProgress("Optimising Images", 400.0f);
+		float imageSubTicks = 400.0f / static_cast<float>(m_images.size());
+
+		uint32_t totalImageCount = static_cast<uint32_t>(m_images.size());
+		std::atomic_bool textureIssue = false;
+		std::atomic_int imageIndex = 0;
+		std::for_each(
+			std::execution::par,
+			m_images.begin(),
+			m_images.end(),
+			[&imageIndex, &textureIssue, &totalImageCount, asyncData, compress, imageSubTicks](std::shared_ptr<Image>& image)
+			{
+				int32_t idx = imageIndex++;
+
+				if (textureIssue || image.get() == nullptr)
+				{
+					return;
+				}
+
+				if (asyncData != nullptr && asyncData->State == AsyncState::Cancelled)
+				{
+					return;
+				}
+
+				if (!image->Optimise(compress, true, asyncData))
+				{
+					textureIssue = true;
+					return;
+				}
+
+				asyncData->AddSubProgress(imageSubTicks);
+			});
+
+		if (textureIssue)
+		{
+			if (asyncData == nullptr || asyncData->State != AsyncState::Cancelled)
+				Logger::Error("Issue occurred during texture generation.");
+			return false;
+		}
+
 		for (size_t i = 0; i < m_images.size(); ++i)
 		{
-			if (!m_active[i])
-				continue;
-
 			std::shared_ptr<Image>& image = m_images[i];
 			if (image.get() == nullptr)
 			{
 				continue;
 			}
 
-			bool srgb = image->IsSRGB();
 			uint32_t componentCount = image->GetComponentCount();
 			vk::Format format;
-			if (componentCount == 4)
+			if (image->IsNormalMap() || image->IsMetallicRoughnessMap())
 			{
-				format = srgb ? vk::Format::eR8G8B8A8Srgb : vk::Format::eR8G8B8A8Unorm;
+				format = image->IsCompressed() ? vk::Format::eBc5UnormBlock : vk::Format::eR8G8B8A8Unorm;
+			}
+			else if (componentCount == 4)
+			{
+				bool srgb = image->IsSRGB();
+				if (image->IsCompressed())
+				{
+					format = srgb ? vk::Format::eBc7SrgbBlock : vk::Format::eBc7UnormBlock;
+				}
+				else
+				{
+					format = srgb ? vk::Format::eR8G8B8A8Srgb : vk::Format::eR8G8B8A8Unorm;
+				}
 			}
 			else
 			{
@@ -516,11 +584,12 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
+			const std::vector<std::vector<uint8_t>>& pixels = image->GetPixels();
 			const glm::uvec2& size = image->GetSize();
 			vk::Extent3D dimensions(size.x, size.y, 1);
 
 			std::unique_ptr<RenderImage>& renderImage = m_imageArray.emplace_back(std::make_unique<RenderImage>(allocator));
-			bool imageInitialised = renderImage->Initialise(vk::ImageType::e2D, format, dimensions, vk::SampleCountFlagBits::e1, true, vk::ImageTiling::eOptimal,
+			bool imageInitialised = renderImage->Initialise(vk::ImageType::e2D, format, dimensions, vk::SampleCountFlagBits::e1, static_cast<uint32_t>(pixels.size()), vk::ImageTiling::eOptimal,
 				vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
 				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 				0,
@@ -538,25 +607,25 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
-			const std::vector<uint8_t>& pixels = image->GetPixels();
-
 			renderImage->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eTransferDstOptimal);
 
-			if (!CreateImageStagingBuffer(allocator, device, commandBuffer, renderImage.get(), pixels.data(),
-				pixels.size(), temporaryBuffers))
-				return false;
+			for (size_t i = 0; i < pixels.size(); ++i)
+			{
+				if (!CreateImageStagingBuffer(allocator, device, commandBuffer, renderImage.get(), static_cast<uint32_t>(i),
+					pixels[i].data(), pixels[i].size(), temporaryBuffers))
+					return false;
+			}
 
 			if (chunkData)
 			{
-				// TODO: Store images after mip maps are generated.
 				ImageHeader header;
 				header.Width = static_cast<uint32_t>(size.x);
 				header.Height = static_cast<uint32_t>(size.y);
-				header.Srgb = srgb;
+				header.Format = static_cast<uint32_t>(format);
 				chunkData->AddImageData(header, pixels);
 			}
 
-			renderImage->GenerateMipmaps(device, commandBuffer);
+			renderImage->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
 
 			++imageCount;
 
@@ -651,7 +720,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::Build(ChunkData* chunkData)
+	bool VulkanSceneManager::Build(ChunkData* chunkData, AsyncData& asyncData)
 	{
 		const std::lock_guard<std::mutex> lock(m_creationMutex);
 
@@ -659,12 +728,13 @@ namespace Engine::Rendering::Vulkan
 		if (m_indexBuffer.get() != nullptr)
 		{
 			Logger::Error("Rebuilding existing scene render data currently not supported.");
+			asyncData.State = AsyncState::Failed;
 			return false;
 		}
 
 		auto startTime = std::chrono::high_resolution_clock::now();
 
-		return m_renderer.SubmitResourceCommand([this, chunkData](const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers)
+		return m_renderer.SubmitResourceCommand([this, chunkData, &asyncData](const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers)
 			{
 				const Device& device = m_renderer.GetDevice();
 				const RenderPass& renderPass = m_renderer.GetRenderPass();
@@ -674,11 +744,30 @@ namespace Engine::Rendering::Vulkan
 				const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers = m_renderer.GetFrameInfoBuffers();
 
 				uint32_t imageCount;
-				if (!SetupVertexBuffers(device, commandBuffer, chunkData, temporaryBuffers, allocator)
-					|| !SetupIndexBuffer(device, commandBuffer, chunkData, temporaryBuffers, allocator)
-					|| !SetupRenderImage(device, commandBuffer, chunkData, temporaryBuffers, allocator, physicalDevice.GetLimits().maxSamplerAnisotropy, imageCount)
+				if (!SetupVertexBuffers(device, commandBuffer, chunkData, temporaryBuffers, allocator))
+				{
+					return false;
+				}
+
+				asyncData.AddSubProgress(50.0f);
+
+				if (!SetupIndexBuffer(device, commandBuffer, chunkData, temporaryBuffers, allocator))
+				{
+					return false;
+				}
+
+				asyncData.AddSubProgress(50.0f);
+
+				if (!SetupRenderImage(&asyncData, device, physicalDevice, commandBuffer, chunkData, temporaryBuffers, allocator, physicalDevice.GetLimits().maxSamplerAnisotropy, imageCount)
 					|| !SetupMeshInfoBuffer(device, commandBuffer, chunkData, temporaryBuffers, allocator)
 					|| !SetupIndirectDrawBuffer(device, commandBuffer, chunkData, temporaryBuffers, allocator))
+				{
+					if (asyncData.State != AsyncState::Cancelled)
+						asyncData.State = AsyncState::Failed;
+					return false;
+				}
+
+				if (asyncData.State == AsyncState::Cancelled)
 				{
 					return false;
 				}
@@ -686,6 +775,7 @@ namespace Engine::Rendering::Vulkan
 				PipelineLayout* pipelineLayout = static_cast<PipelineLayout*>(m_shader);
 				if (!pipelineLayout->Rebuild(device, renderPass, imageCount))
 				{
+					asyncData.State = AsyncState::Failed;
 					return false;
 				}
 
@@ -732,17 +822,17 @@ namespace Engine::Rendering::Vulkan
 				}
 
 				return true;
-			}, [startTime]() 
-			{
-				auto endTime = std::chrono::high_resolution_clock::now();
-				float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
-				Logger::Verbose("Scene manager build finished in {} seconds.", deltaTime);
-			});
+			}, [startTime]()
+				{
+					auto endTime = std::chrono::high_resolution_clock::now();
+					float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
+					Logger::Verbose("Scene manager build finished in {} seconds.", deltaTime);
+				});
 	}
 
 	void VulkanSceneManager::Draw(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex)
 	{
-		if (m_vertexBuffers.empty())
+		if (m_vertexBuffers.empty() || m_creating)
 			return;
 
 		const PipelineLayout* pipelineLayout = static_cast<const PipelineLayout*>(m_shader);

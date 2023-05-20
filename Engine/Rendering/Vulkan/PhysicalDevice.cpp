@@ -42,6 +42,12 @@ namespace Engine::Rendering::Vulkan
 		return m_deviceProperties.limits;
 	}
 
+
+	const vk::PhysicalDeviceFeatures& PhysicalDevice::GetFeatures() const
+	{
+		return m_deviceFeatures;
+	}
+
 	vk::SampleCountFlagBits PhysicalDevice::GetMaxMultiSampleCount() const
 	{
 		vk::SampleCountFlags counts = m_deviceProperties.limits.framebufferColorSampleCounts & m_deviceProperties.limits.framebufferDepthSampleCounts;

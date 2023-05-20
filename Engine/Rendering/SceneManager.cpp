@@ -3,6 +3,8 @@
 #include "Core/Logging/Logger.hpp"
 #include "Core/ChunkData.hpp"
 #include "Core/Utilities.hpp"
+#include "Core/MeshOptimiser.hpp"
+#include "Core/AsyncData.hpp"
 #include <filesystem>
 #include "GltfLoader.hpp"
 #include "TangentCalculator.hpp"
@@ -26,6 +28,7 @@ namespace Engine::Rendering
 		, m_images()
 		, m_vertexDataHashTable()
 		, m_imageHashTable()
+		, m_creating(false)
 	{
 	}
 
@@ -156,12 +159,12 @@ namespace Engine::Rendering
 		return id;
 	}
 
-	bool SceneManager::Build(ChunkData* chunkData)
+	bool SceneManager::Build(ChunkData* chunkData, AsyncData& asyncData)
 	{
 		return true;
 	}
 
-	bool SceneManager::LoadScene(const std::string& filePath, bool cache)
+	void SceneManager::LoadSceneImp(const std::string& filePath, bool cache, AsyncData& asyncData)
 	{
 		std::filesystem::path path(filePath);
 		std::filesystem::path chunkPath(path);
@@ -178,11 +181,20 @@ namespace Engine::Rendering
 				}
 				else
 				{
+					asyncData.InitSubProgress("Loading Cache", 1000.0f);
 					ChunkData chunkData{};
-					if (chunkData.Parse(chunkPath))
+					if (chunkData.Parse(chunkPath, &asyncData))
 					{
-						return Build(&chunkData);
+						asyncData.InitSubProgress("Uploading Cache Data", 500.0f);
+						if (Build(&chunkData, asyncData))
+						{
+							m_creating = false;
+							asyncData.State = AsyncState::Completed;
+							return;
+						}
 					}
+
+					asyncData.InitProgress("Loading Scene", 1500.0f);
 				}
 			}
 		}
@@ -190,35 +202,85 @@ namespace Engine::Rendering
 		if (!std::filesystem::exists(path))
 		{
 			Logger::Error("Scene file does not exist.");
-			return false;
+			asyncData.State = AsyncState::Failed;
+			m_creating = false;
+			return;
 		}
+
+		Image::CompressInit();
 
 		std::string pathExtension(path.extension().string());
 		if (Utilities::EqualsIgnoreCase(pathExtension, ".glb") || Utilities::EqualsIgnoreCase(pathExtension, ".gltf"))
 		{
+			asyncData.InitSubProgress("Loading GLTF Data", 400.0f);
 			GLTFLoader gltfLoader;
-			if (!gltfLoader.LoadGLTF(path, this))
+			if (!gltfLoader.LoadGLTF(path, this, &asyncData))
 			{
-				return false;
+				asyncData.State = AsyncState::Failed;
+				m_creating = false;
+				return;
 			}
 		}
 		else
 		{
 			Logger::Error("Scene file type not handled.");
-			return false;
+			asyncData.State = AsyncState::Failed;
+			m_creating = false;
+			return;
 		}
 
-		ChunkData chunkData{};
-		bool buildSuccess = Build(cache ? &chunkData : nullptr);
-		if (buildSuccess && cache)
+		if (asyncData.State == AsyncState::Cancelled)
 		{
-			if (!chunkData.WriteToFile(chunkPath))
+			m_creating = false;
+			return;
+		}
+
+		asyncData.InitSubProgress("Optimising Mesh", 100.0f);
+		std::vector<uint32_t>& indices = *m_indexArrays.back();
+		std::vector<std::unique_ptr<VertexData>>& vertexDataArray = m_vertexDataArrays.back();
+		if (!MeshOptimiser::Optimise(indices, vertexDataArray))
+		{
+			Logger::Error("Error occurred while optimising mesh.");
+			asyncData.State = AsyncState::Failed;
+			m_creating = false;
+			return;
+		}
+
+		if (asyncData.State == AsyncState::Cancelled)
+		{
+			m_creating = false;
+			return;
+		}
+
+		asyncData.InitSubProgress("Building Graphics Resources", 100.0f);
+		ChunkData chunkData{};
+		bool buildSuccess = Build(cache ? &chunkData : nullptr, asyncData);
+		if (buildSuccess && cache && asyncData.State == AsyncState::InProgress)
+		{
+			asyncData.InitSubProgress("Writing Cache", 500.0f);
+			if (!chunkData.WriteToFile(chunkPath, &asyncData))
 			{
 				Logger::Error("Failed to write imported scene data to file, data was not cached.");
 			}
 		}
 
-		return buildSuccess;
+		m_creating = false;
+		asyncData.State = AsyncState::Completed;
+	}
+
+	void SceneManager::LoadScene(const std::string& filePath, bool cache, AsyncData& asyncData)
+	{
+		if (m_creating)
+		{
+			Logger::Error("Cannot load more than one scene simultaneously.");
+			asyncData.State = AsyncState::Failed;
+			return;
+		}
+
+		m_creating = true;
+		asyncData.State = AsyncState::InProgress;
+		asyncData.InitProgress("Loading Scene", cache ? 1500.0f : 1000.0f);
+		asyncData.SetFuture(std::move(std::async(std::launch::async, [filePath, cache, &asyncData, this] { LoadSceneImp(filePath, cache, asyncData); })));
 	}
 
 	uint32_t SceneManager::CreateFromOBJ(const std::string& filePath,

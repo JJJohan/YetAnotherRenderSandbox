@@ -16,6 +16,7 @@
 namespace Engine
 {
 	class ChunkData;
+	class AsyncData;
 }
 
 namespace Engine::Rendering
@@ -36,8 +37,8 @@ namespace Engine::Rendering
 			std::shared_ptr<Image> normalImage = nullptr,
 			std::shared_ptr<Image> metallicRoughnessImage = nullptr);
 
-		virtual bool Build(ChunkData* chunkData);
-		EXPORT bool LoadScene(const std::string& filePath, bool cache);
+		virtual bool Build(ChunkData* chunkData, AsyncData& asyncState);
+		EXPORT void LoadScene(const std::string& filePath, bool cache, AsyncData& asyncData);
 
 		EXPORT uint32_t CreateFromOBJ(const std::string& filePath,
 			const glm::mat4& transform, const Colour& colour = {}, std::shared_ptr<Image> image = nullptr);
@@ -46,6 +47,7 @@ namespace Engine::Rendering
 		std::stack<uint32_t> m_recycledIds;
 		std::vector<bool> m_active;
 		std::mutex m_creationMutex;
+		std::atomic<bool> m_creating;
 		uint32_t m_meshCapacity;
 
 		Shader* m_shader;
@@ -57,6 +59,8 @@ namespace Engine::Rendering
 		std::vector<uint32_t> m_indexBufferOffsets;
 
 	private:
+		void LoadSceneImp(const std::string& filePath, bool cache, AsyncData& asyncData);
+
 		std::unordered_map<uint64_t, size_t> m_imageHashTable;
 		std::unordered_map<uint64_t, size_t> m_vertexDataHashTable;
 		std::unordered_map<uint64_t, size_t> m_indexDataHashTable;

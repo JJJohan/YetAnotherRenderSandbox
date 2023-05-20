@@ -62,10 +62,18 @@ namespace Engine::Rendering::Vulkan
 		commandBuffer.copyBuffer(m_buffer, destination.m_buffer, 1, &copyRegion);
 	}
 
-	void Buffer::CopyToImage(const Device& device, const vk::CommandBuffer& commandBuffer, const RenderImage& destination) const
+	void Buffer::CopyToImage(const Device& device, uint32_t mipLevel, const vk::CommandBuffer& commandBuffer, const RenderImage& destination) const
 	{
-		vk::ImageSubresourceLayers subresource(vk::ImageAspectFlagBits::eColor, 0, 0, 1);
-		vk::BufferImageCopy region(0, 0, 0, subresource, vk::Offset3D(0, 0, 0), destination.GetDimensions());
+		vk::Extent3D extents = destination.GetDimensions();
+		for (uint32_t i = 0; i < mipLevel; ++i)
+		{
+			extents.width /= 2;
+			extents.height /= 2;
+		}
+
+		vk::ImageSubresourceLayers subresource(vk::ImageAspectFlagBits::eColor, mipLevel, 0, 1);
+		vk::BufferImageCopy region(0, 0, 0, subresource, vk::Offset3D(0, 0, 0), extents);
+		region.bufferRowLength = extents.width;
 
 		commandBuffer.copyBufferToImage(m_buffer, destination.Get(), vk::ImageLayout::eTransferDstOptimal, { region });
 	}

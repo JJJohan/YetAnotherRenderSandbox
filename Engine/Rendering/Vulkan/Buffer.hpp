@@ -17,7 +17,7 @@ namespace Engine::Rendering::Vulkan
 			VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode);
 		bool UpdateContents(const void* data, vk::DeviceSize size);
 		void Copy(const Device& device, const vk::CommandBuffer& commandBuffer, const Buffer& destination, vk::DeviceSize size) const;
-		void CopyToImage(const Device& device, const vk::CommandBuffer& commandBuffer, const RenderImage& destination) const;
+		void CopyToImage(const Device& device, uint32_t mipLevel, const vk::CommandBuffer& commandBuffer, const RenderImage& destination) const;
 		const VkBuffer& Get() const;
 		bool GetMappedMemory(void** mappedMemory) const;
 

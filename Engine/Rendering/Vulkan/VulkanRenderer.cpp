@@ -162,6 +162,7 @@ namespace Engine::Rendering::Vulkan
 		frameInfo.viewPos = glm::vec4(m_camera.GetPosition(), 1.0f);
 		frameInfo.ambientColour = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
 		frameInfo.sunLightColour = m_sunColour.GetVec4();
+		frameInfo.sunLightColour.a = m_sunIntensity;
 		frameInfo.sunLightDir = glm::vec4(m_sunDirection, 1.0f);
 		memcpy(m_frameInfoBufferData[m_currentFrame], &frameInfo, sizeof(FrameInfoUniformBuffer));
 

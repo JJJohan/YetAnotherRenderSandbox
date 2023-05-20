@@ -31,6 +31,9 @@
     <Filter Include="UI\Vulkan">
       <UniqueIdentifier>{f05028ca-587a-4975-ae00-ce1c29f90011}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Dependencies">
+      <UniqueIdentifier>{654df920-27f9-47c2-840c-6e4196092904}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
@@ -165,6 +168,18 @@
     </ClCompile>
     <ClCompile Include="Core\ChunkData.cpp">
       <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\MeshOptimiser.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\AsyncData.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Dependencies\include\bc7enc.cpp">
+      <Filter>Dependencies</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Dependencies\include\rgbcx.cpp">
+      <Filter>Dependencies</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -325,6 +340,12 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="Core\ChunkData.hpp">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\MeshOptimiser.hpp">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\AsyncData.hpp">
       <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>

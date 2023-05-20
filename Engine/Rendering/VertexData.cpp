@@ -29,4 +29,11 @@ namespace Engine::Rendering
 	{
 		return m_hash;
 	}
+
+	void VertexData::ReplaceData(const std::vector<uint8_t>& data, uint32_t newCount)
+	{
+		m_data = data;
+		m_elementCount = newCount;
+		m_hash = Hash::CalculateHash(m_data);
+	}
 }

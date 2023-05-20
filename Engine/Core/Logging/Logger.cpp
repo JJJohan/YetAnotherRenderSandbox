@@ -1,5 +1,6 @@
 #include "Logger.hpp"
 #include <iostream>
+#include <mutex>
 
 #ifdef _MSC_VER
 #define DEBUG_BREAK __debugbreak()
@@ -10,12 +11,15 @@
 namespace Engine::Logging
 {
 	LogLevel Logger::m_logOutputLevel = LogLevel::DEBUG;
+	static std::mutex m_logMutex;
 
 	void Logger::LogMessage(LogLevel level, const std::string_view& message)
 	{
 		if (level < Logger::m_logOutputLevel)
 			return;
 
+
+		const std::lock_guard<std::mutex> guard(m_logMutex);
 		switch (level)
 		{
 		case LogLevel::VERBOSE:

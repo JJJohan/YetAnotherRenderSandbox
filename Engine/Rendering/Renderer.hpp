@@ -46,6 +46,7 @@ namespace Engine::Rendering
 
 		EXPORT void SetSunLightDirection(const glm::vec3& dir);
 		EXPORT void SetSunLightColour(const Colour& colour);
+		EXPORT void SetSunLightIntensity(float intensity);
 
 		EXPORT void SetCamera(const Camera& camera);
 		EXPORT Camera& GetCamera();
@@ -62,6 +63,7 @@ namespace Engine::Rendering
 
 		glm::vec3 m_sunDirection;
 		Colour m_sunColour;
+		float m_sunIntensity;
 		uint32_t m_multiSampleCount;
 		uint32_t m_maxMultiSampleCount;
 		const Engine::OS::Window& m_window;

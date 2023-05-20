@@ -11,6 +11,7 @@ namespace Engine
 {
 	class Image;
 	class ChunkData;
+	class AsyncData;
 }
 
 namespace Engine::Rendering
@@ -22,6 +23,7 @@ namespace Engine::Rendering::Vulkan
 {
 	class Buffer;
 	class Device;
+	class PhysicalDevice;
 	class CommandBuffer;
 	class DescriptorPool;
 	class RenderImage;
@@ -36,7 +38,7 @@ namespace Engine::Rendering::Vulkan
 
 		bool Initialise(Shader* shader);
 
-		virtual bool Build(ChunkData* chunkData) override;
+		virtual bool Build(ChunkData* chunkData, AsyncData& asyncData) override;
 
 		void Draw(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex);
 
@@ -50,7 +52,7 @@ namespace Engine::Rendering::Vulkan
 		bool SetupIndexBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator);
 
-		bool SetupRenderImage(const Device& device, const vk::CommandBuffer& commandBuffer, ChunkData* chunkData,
+		bool SetupRenderImage(AsyncData* asyncData, const Device& device, const PhysicalDevice& physicalDevice, const vk::CommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator, float maxAnisotropy, uint32_t& imageCount);
 
 		bool SetupMeshInfoBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, ChunkData* chunkData,
@@ -61,7 +63,7 @@ namespace Engine::Rendering::Vulkan
 			uint64_t size, std::vector<std::unique_ptr<Buffer>>& copyBufferCollection);
 
 		bool CreateImageStagingBuffer(VmaAllocator allocator, const Device& device,
-			const vk::CommandBuffer& commandBufferl, const RenderImage* destinationImage, const void* data, uint64_t size,
+			const vk::CommandBuffer& commandBufferl, const RenderImage* destinationImage, uint32_t mipLevel, const void* data, uint64_t size,
 			std::vector<std::unique_ptr<Buffer>>& copyBufferCollection);
 
 		VulkanRenderer& m_renderer;

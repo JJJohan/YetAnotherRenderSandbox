@@ -1,7 +1,7 @@
 #version 460
-#extension GL_EXT_nonuniform_qualifier : require 
+#extension GL_EXT_nonuniform_qualifier : require
 
-layout(binding = 0) uniform FrameInfo 
+layout(binding = 0) uniform FrameInfo
 {
     mat4 viewProj;
 	vec4 viewPos;
@@ -68,28 +68,33 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 // ----------------------------------------------------------------------------
+vec3 unpackNormal()
+{
+	vec2 N = texture(sampler2D(textures[fragNormalImageIndex], samp), fragUv).rg;
+	N = normalize(N) * 2.0 - 1.0;
+	float z = sqrt(1.0 - N.x * N.x - N.y * N.y);
+	return normalize(vec3(N, z));
+}
+// ----------------------------------------------------------------------------
 
-void main() 
+void main()
 {
     vec4 surfaceColor = texture(sampler2D(textures[fragDiffuseImageIndex], samp), fragUv) * fragColor;
 	if (surfaceColor.a <= 0.0) discard;
-	
+
     vec3 albedo     = pow(surfaceColor.rgb, vec3(2.2));
-    float metallic  = texture(sampler2D(textures[fragMetallicRoughnessImageIndex], samp), fragUv).r;
-    float roughness = texture(sampler2D(textures[fragMetallicRoughnessImageIndex], samp), fragUv).g;
+    vec2 metallicRoughness = texture(sampler2D(textures[fragMetallicRoughnessImageIndex], samp), fragUv).rg;
     float ao        = 1.0; //texture(aoMap, TexCoords).r;
 
+	vec3 N = unpackNormal();
 
-	vec3 N = texture(sampler2D(textures[fragNormalImageIndex], samp), fragUv).rgb;
-    N = normalize(N * 2.0 - 1.0);  
-	
-    vec3 V = normalize(fragTangentViewPos - fragTangentFragPos);
+	vec3 V = normalize(fragTangentViewPos - fragTangentFragPos);
 
-    // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 
-    // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)    
-    vec3 F0 = vec3(0.04); 
-    F0 = mix(F0, albedo, metallic);
-	
+    // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0
+    // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)
+    vec3 F0 = vec3(0.04);
+    F0 = mix(F0, albedo, metallicRoughness.x);
+
     // reflectance equation
     vec3 Lo = vec3(0.0);
 
@@ -99,41 +104,42 @@ void main()
         //float distance = length(fragTangentLightPos - fragTangentFragPos);
         //float attenuation = 1.0 / (distance * distance);
         float attenuation = 1.0;
-        vec3 radiance = frameInfo.sunLightColor.rgb * attenuation;
+        vec3 radiance = frameInfo.sunLightColor.rgb * attenuation * frameInfo.sunLightColor.a;
 
         // Cook-Torrance BRDF
-        float NDF = DistributionGGX(N, H, roughness);   
-        float G = GeometrySmith(N, V, L, roughness);      
+        float NDF = DistributionGGX(N, H, metallicRoughness.y);
+        float G = GeometrySmith(N, V, L, metallicRoughness.y);
         vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
-           
-        vec3 numerator = NDF * G * F; 
+
+        vec3 numerator = NDF * G * F;
         float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; // + 0.0001 to prevent divide by zero
-        vec3 specular = numerator / denominator;
-        
+        //vec3 specular = numerator / denominator;
+		vec3 specular = vec3(0.0); // Temporary disabled
+
         // kS is equal to Fresnel
         vec3 kS = F;
         // for energy conservation, the diffuse and specular light can't
         // be above 1.0 (unless the surface emits light); to preserve this
         // relationship the diffuse component (kD) should equal 1.0 - kS.
         vec3 kD = vec3(1.0) - kS;
-        // multiply kD by the inverse metalness such that only non-metals 
+        // multiply kD by the inverse metalness such that only non-metals
         // have diffuse lighting, or a linear blend if partly metal (pure metals
         // have no diffuse light).
-        kD *= 1.0 - metallic;	  
+        kD *= 1.0 - metallicRoughness.x;
 
         // scale light by NdotL
-        float NdotL = max(dot(N, L), 0.0);        
+        float NdotL = max(dot(N, L), 0.0);
 
         // add to outgoing radiance Lo
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
-    	
+
     vec3 ambient = vec3(0.03) * albedo;
     vec3 color = ambient + Lo;
 
 	// HDR tonemapping
     color = color / (color + vec3(1.0));
     // gamma correct
-    color = pow(color, vec3(1.0/2.2)); 
+    color = pow(color, vec3(1.0/2.2));
 
     outColor = vec4(color, surfaceColor.a);
 }

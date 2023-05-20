@@ -1,6 +1,7 @@
 #include <Core/Logging/Logger.hpp>
 #include <Core/Colour.hpp>
 #include <Core/Image.hpp>
+#include <Core/AsyncData.hpp>
 #include <OS/Window.hpp>
 #include <OS/Files.hpp>
 #include <Rendering/Renderer.hpp>
@@ -45,10 +46,12 @@ uint32_t CreateTestMesh(const Renderer& renderer, std::shared_ptr<Image>& image)
 
 Colour g_clearColour = Colour(0, 0, 0);
 Colour g_sunColour = Colour(1, 1, 0.9f);
-float g_sunIntensity;
+float g_sunIntensity = 15.0f;
 uint32_t g_multiSampleCount = 4;
 Renderer* g_renderer;
+Window* g_window;
 UIManager* g_uiManager;
+AsyncData g_sceneLoad;
 
 void DrawUI(const Drawer& drawer)
 {
@@ -66,9 +69,9 @@ void DrawUI(const Drawer& drawer)
 			g_renderer->SetSunLightColour(g_sunColour);
 		}
 		
-		if (drawer.SliderFloat("Sun Intensity", &g_sunIntensity, 0.0f, 10.0f))
+		if (drawer.SliderFloat("Sun Intensity", &g_sunIntensity, 0.0f, 20.0f))
 		{
-			//g_renderer->SetSunLightColour(g_sunColour);
+			g_renderer->SetSunLightIntensity(g_sunIntensity);
 		}
 
 		int32_t multiSampleCount = static_cast<int32_t>(g_multiSampleCount);
@@ -83,6 +86,19 @@ void DrawUI(const Drawer& drawer)
 	}
 }
 
+void DrawLoadProgress(const Drawer& drawer)
+{
+	if (g_sceneLoad.State == AsyncState::Completed)
+	{
+		g_uiManager->UnregisterDrawCallback(DrawLoadProgress);
+		g_window->SetCursorVisible(false);
+	}
+
+	const ProgressInfo& progress = g_sceneLoad.GetProgress();
+	drawer.Progress(progress);
+	
+}
+
 int main()
 {
 	Logger::SetLogOutputLevel(LogLevel::VERBOSE);
@@ -90,6 +106,7 @@ int main()
 	std::unique_ptr<Window> window = Window::Create("Test", glm::uvec2(1280, 720), false);
 	std::unique_ptr<Renderer> renderer = Renderer::Create(RendererType::VULKAN, *window, debug);
 	g_renderer = renderer.get();
+	g_window = window.get();
 
 	if (!renderer || !renderer->Initialise())
 	{
@@ -102,11 +119,10 @@ int main()
 	renderer->SetMultiSampleCount(g_multiSampleCount);
 	renderer->SetClearColour(g_clearColour);
 	renderer->SetSunLightColour(g_sunColour);
+	renderer->SetSunLightIntensity(g_sunIntensity);
 
-	if (!renderer->GetSceneManager()->LoadScene("C:/Users/Johan/Desktop/test/Bistro_small.glb", true))
-	{
-		return 1;
-	}
+	g_uiManager->RegisterDrawCallback(DrawLoadProgress);
+	renderer->GetSceneManager()->LoadScene("C:/Users/Johan/Desktop/test/Bistro_small.glb", true, g_sceneLoad);
 
 	Camera& camera = renderer->GetCamera();
 
@@ -114,11 +130,16 @@ int main()
 	static auto lastRenderTime = std::chrono::high_resolution_clock::now();
 	static auto prevTime = startTime;
 
-	window->SetCursorVisible(false);
+	//window->SetCursorVisible(false);
 
 	bool drawUI = false;
 	while (!window->IsClosed())
 	{
+		if (g_sceneLoad.State == AsyncState::Failed)
+		{
+			return 1;
+		}
+
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevTime).count();
 		float totalTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
@@ -135,7 +156,8 @@ int main()
 		}
 
 		// Rotate sunlight for testing
-		glm::vec3 sunDir = glm::vec3(cosf(totalTime), -5.0f, sinf(totalTime));
+		glm::vec3 sunDir = glm::vec3(cosf(totalTime), -1.0f, sinf(totalTime));
+		//glm::vec3 sunDir = glm::vec3(0, 1, 0) * glm::angleAxis(totalTime, glm::vec3(1, 0, 0));
 
 		renderer->SetSunLightDirection(sunDir);
 
@@ -186,6 +208,8 @@ int main()
 
 		prevTime = std::chrono::high_resolution_clock::now();
 	}
+
+	g_sceneLoad.Abort();
 
 	return 0;
 }

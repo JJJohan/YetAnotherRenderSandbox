@@ -2,6 +2,7 @@
 #include "Device.hpp"
 #include "CommandPool.hpp"
 #include "Core/Logging/Logger.hpp"
+#include "PhysicalDevice.hpp"
 
 using namespace Engine::Logging;
 
@@ -44,6 +45,13 @@ namespace Engine::Rendering::Vulkan
 
 		memcpy(m_imageAllocInfo.pMappedData, data, size);
 		return true;
+	}
+
+	bool RenderImage::FormatSupported(const PhysicalDevice& physicalDevice, vk::Format format)
+	{
+		vk::FormatProperties properties = physicalDevice.Get().getFormatProperties(format);
+		return (properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eTransferDst &&
+			properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImage);
 	}
 
 	void RenderImage::GenerateMipmaps(const Device& device, const vk::CommandBuffer& commandBuffer)
@@ -108,13 +116,13 @@ namespace Engine::Rendering::Vulkan
 			nullptr, nullptr, { barrier });
 	}
 
-	bool RenderImage::Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, vk::SampleCountFlagBits sampleCount, bool mipMapped, vk::ImageTiling tiling,
+	bool RenderImage::Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, vk::SampleCountFlagBits sampleCount, uint32_t mipLevels, vk::ImageTiling tiling,
 		vk::ImageUsageFlags imageUsage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode)
 	{
 		m_format = format;
 		m_dimensions = dimensions;
 
-		m_mipLevels = mipMapped ? static_cast<uint32_t>(std::floor(std::log2(std::max(dimensions.width, m_dimensions.height)))) + 1 : 1;
+		m_mipLevels = mipLevels;
 
 		vk::ImageCreateInfo RenderImageInfo(vk::ImageCreateFlags(), imageType, format, dimensions, m_mipLevels, 1, sampleCount, tiling, imageUsage, sharingMode);
 

@@ -7,13 +7,14 @@
 namespace Engine::Rendering::Vulkan
 {
 	class Device;
+	class PhysicalDevice;
 
 	class RenderImage
 	{
 	public:
 		RenderImage(VmaAllocator allocator);
 		~RenderImage();
-		bool Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, vk::SampleCountFlagBits sampleCount, bool mipMapped, vk::ImageTiling tiling,
+		bool Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, vk::SampleCountFlagBits sampleCount, uint32_t mipLevels, vk::ImageTiling tiling,
 			vk::ImageUsageFlags imageUsage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode);
 		bool UpdateContents(const void* data, vk::DeviceSize size);
 		void TransitionImageLayout(const Device& device, const vk::CommandBuffer& commandBuffer, vk::ImageLayout newLayout);
@@ -22,6 +23,8 @@ namespace Engine::Rendering::Vulkan
 		const vk::Extent3D& GetDimensions() const;
 		const vk::Format& GetFormat() const;
 		uint32_t GetMiplevels() const;
+
+		static bool FormatSupported(const PhysicalDevice& physicalDevice, vk::Format format);
 
 	private:
 		vk::Format m_format;

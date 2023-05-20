@@ -1,7 +1,7 @@
 #version 460
 #extension GL_EXT_nonuniform_qualifier : require
 
-layout(binding = 0) uniform FrameInfo 
+layout(binding = 0) uniform FrameInfo
 {
     mat4 viewProj;
 	vec4 viewPos;
@@ -40,27 +40,26 @@ layout(location = 5) out vec3 fragTangentLightPos;
 layout(location = 6) out vec3 fragTangentViewPos;
 layout(location = 7) out vec3 fragTangentFragPos;
 
-void main() 
+void main()
 {
 	vec4 transformedPos = infoBuffer.meshInfo[gl_DrawID].transform * vec4(position, 1.0);
-	
+
 	fragColor = infoBuffer.meshInfo[gl_DrawID].color;
 	fragUv = uv;
-	
+
 	mat3 normalMatrix = transpose(inverse(mat3(infoBuffer.meshInfo[gl_DrawID].transform)));
     vec3 T = normalize(normalMatrix * tangent);
     vec3 N = normalize(normalMatrix * normal);
-    T = normalize(T - dot(T, N) * N);
-    vec3 B = cross(N, T);
-    
-    mat3 TBN = transpose(mat3(T, B, N));    
+    vec3 B = normalize(normalMatrix * bitangent);
+
+    mat3 TBN = transpose(mat3(T, B, N));
     fragTangentLightPos = TBN * (transformedPos.xyz - frameInfo.sunLightDir.xyz);
     fragTangentViewPos = TBN * frameInfo.viewPos.xyz;
     fragTangentFragPos = TBN * transformedPos.xyz;
-	
+
 	fragDiffuseImageIndex = infoBuffer.meshInfo[gl_DrawID].diffuseImageIndex;
 	fragNormalImageIndex = infoBuffer.meshInfo[gl_DrawID].normalImageIndex;
 	fragMetallicRoughnessImageIndex = infoBuffer.meshInfo[gl_DrawID].metallicRoughnessImageIndex;
-	
+
     gl_Position = frameInfo.viewProj * transformedPos;
 }

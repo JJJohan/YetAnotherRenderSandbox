@@ -66,7 +66,7 @@ namespace Engine::Rendering::Vulkan
 	{
 		m_colorImage = std::make_unique<RenderImage>(allocator);
 		vk::Extent3D extent(m_swapChainExtent.width, m_swapChainExtent.height, 1);
-		if (!m_colorImage->Initialise(vk::ImageType::e2D, m_swapChainImageFormat, extent, samples, false, vk::ImageTiling::eOptimal,
+		if (!m_colorImage->Initialise(vk::ImageType::e2D, m_swapChainImageFormat, extent, samples, 1, vk::ImageTiling::eOptimal,
 			vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0, vk::SharingMode::eExclusive))
 		{
@@ -95,7 +95,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_depthImage = std::make_unique<RenderImage>(allocator);
 		vk::Extent3D extent(m_swapChainExtent.width, m_swapChainExtent.height, 1);
-		if (!m_depthImage->Initialise(vk::ImageType::e2D, depthFormat, extent, samples, false, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
+		if (!m_depthImage->Initialise(vk::ImageType::e2D, depthFormat, extent, samples, 1, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0, vk::SharingMode::eExclusive))
 		{
 			Logger::Error("Failed to create depth image.");

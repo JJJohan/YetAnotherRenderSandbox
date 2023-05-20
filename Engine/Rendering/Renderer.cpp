@@ -22,6 +22,7 @@ namespace Engine::Rendering
 		, m_maxMultiSampleCount(1)
 		, m_sunDirection(glm::normalize(glm::vec3(0.2f, -1.0f, 2.0f)))
 		, m_sunColour(Colour(1.0f, 1.0f, 1.0f))
+		, m_sunIntensity(1.0f)
 	{
 	}
 
@@ -49,6 +50,11 @@ namespace Engine::Rendering
 	void Renderer::SetSunLightColour(const Colour& colour)
 	{
 		m_sunColour = colour;
+	}
+
+	void Renderer::SetSunLightIntensity(float intensity)
+	{
+		m_sunIntensity = intensity;
 	}
 
 	void Renderer::SetCamera(const Camera& camera)

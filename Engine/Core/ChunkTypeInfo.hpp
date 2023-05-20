@@ -46,6 +46,8 @@ namespace Engine
 	{
 		uint32_t Width;
 		uint32_t Height;
-		bool Srgb;
+		uint32_t Format;
+		uint32_t MipLevels;
+		uint64_t FirstMipSize;
 	};
 }
