@@ -14,16 +14,19 @@ namespace Engine
 	{
 		uint64_t Offset;
 		uint64_t Size;
+		uint64_t UncompressedSize;
 
 		ChunkMemoryEntry()
 			: Offset(0)
 			, Size(0)
+			, UncompressedSize(0)
 		{
 		}
 
-		ChunkMemoryEntry(uint64_t offset, size_t size)
+		ChunkMemoryEntry(uint64_t offset, size_t size, size_t uncompressedSize = 0)
 			: Offset(offset)
 			, Size(size)
+			, UncompressedSize(uncompressedSize)
 		{
 		}
 	};
@@ -32,7 +35,6 @@ namespace Engine
 	{
 		ImageHeader Header;
 		ChunkMemoryEntry Entry;
-		std::vector<std::span<const uint8_t>> Spans;
 
 		ImageData(ImageHeader header)
 			: Header(header)
@@ -44,21 +46,6 @@ namespace Engine
 		{
 			Entry = entry;
 		}
-
-		ImageData(ImageHeader header, ChunkMemoryEntry entry, const std::vector<uint8_t>& memory)
-			: ImageData(header, entry)
-		{
-			Spans.resize(header.MipLevels);
-			uint64_t offset = entry.Offset;
-			uint64_t size = header.FirstMipSize;
-			for (uint32_t i = 0; i < header.MipLevels; ++i)
-			{
-				Spans[i] = std::span<const uint8_t>(memory.begin() + offset, size);
-				offset += size;
-				size /= 4;
-			}
-
-		}
 	};
 
 	class ChunkData
@@ -69,16 +56,23 @@ namespace Engine
 		bool WriteToFile(const std::filesystem::path& path, AsyncData* asyncData) const;
 		bool Parse(const std::filesystem::path& path, AsyncData* asyncData);
 
-		bool GetVertexData(VertexBufferType type, std::span<uint8_t>& data);
+		bool GetVertexData(VertexBufferType type, ChunkMemoryEntry& data);
 		void SetVertexData(VertexBufferType type, const std::vector<uint8_t>& data);
 
-		bool GetGenericData(uint32_t identifier, std::span<uint8_t>& data);
+		bool GetGenericData(uint32_t identifier, ChunkMemoryEntry& data);
 		void SetGenericData(uint32_t identifier, const std::vector<uint8_t>& data);
 
 		bool GetImageData(std::vector<ImageData>** imageData);
 		void AddImageData(const ImageHeader& image, const std::vector<std::vector<uint8_t>>& mipMaps);
 
 		bool LoadedFromDisk() const;
+
+		void Decompress(const ChunkMemoryEntry& entry, std::vector<uint8_t>& decompressBuffer) const;
+
+		inline const std::span<const uint8_t>& GetSpan(const ChunkMemoryEntry& data) const
+		{
+			return std::span<const uint8_t>(m_memory.begin() + data.Offset, data.Size);
+		}
 
 	private:
 		bool m_loadedFromDisk;

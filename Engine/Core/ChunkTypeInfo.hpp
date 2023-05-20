@@ -35,6 +35,7 @@ namespace Engine
 		ChunkResourceType ResourceType;
 		uint16_t Identifier;
 		uint64_t ResourceSize;
+		uint64_t UncompressedSize;
 	};
 
 	struct VertexBufferHeader

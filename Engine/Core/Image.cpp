@@ -148,6 +148,10 @@ namespace Engine
 
 	bool Image::Optimise(bool compress, bool generateMipMaps, const AsyncData* asyncData)
 	{
+		const uint32_t minMipSize = compress ? 4 : 1;
+		if (compress && (m_size.x < minMipSize || m_size.y < minMipSize))
+			compress = false;
+
 		m_compressed = compress;
 
 		// Generate the input mipmap chain(s). At every level, the input
@@ -157,7 +161,6 @@ namespace Engine
 		const uint32_t bytesPerBlock = m_compressed ? 16 : 4;
 		const uint32_t blockDimX = m_compressed ? 4 : 1;
 		const uint32_t blockDimY = m_compressed ? 4 : 1;
-		const uint32_t minMipSize = m_compressed ? 16 : 1;
 
 		uint32_t mipWidth = m_size.x;
 		uint32_t mipHeight = m_size.y;

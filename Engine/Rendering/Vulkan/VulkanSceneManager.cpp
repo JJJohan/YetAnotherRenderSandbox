@@ -112,16 +112,19 @@ namespace Engine::Rendering::Vulkan
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
 		{
-			std::span<uint8_t> cachedData;
-			if (!chunkData->GetGenericData(2, cachedData))
+			ChunkMemoryEntry entry;
+			if (!chunkData->GetGenericData(2, entry))
 			{
 				return false;
 			}
 
+			std::vector<uint8_t> decompressBuffer;
+			chunkData->Decompress(entry, decompressBuffer);
+
 			m_indirectDrawBuffer = std::make_unique<Buffer>(allocator);
 			Buffer* buffer = m_indirectDrawBuffer.get();
 
-			size_t totalSize = cachedData.size();
+			size_t totalSize = decompressBuffer.size();
 			bool initialised = buffer->Initialise(totalSize,
 				vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndirectBuffer,
 				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
@@ -133,7 +136,7 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
-			if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, cachedData.data(),
+			if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, decompressBuffer.data(),
 				totalSize, temporaryBuffers))
 				return false;
 
@@ -193,25 +196,30 @@ namespace Engine::Rendering::Vulkan
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
 		{
-			std::span<uint8_t> cachedBuffers[5];
-			if (!chunkData->GetVertexData(VertexBufferType::Positions, cachedBuffers[0]))
+			std::array<ChunkMemoryEntry, 3> cacheEntries;
+			if (!chunkData->GetVertexData(VertexBufferType::Positions, cacheEntries[0]))
 				return false;
-			if (!chunkData->GetVertexData(VertexBufferType::TextureCoordinates, cachedBuffers[1]))
+			if (!chunkData->GetVertexData(VertexBufferType::TextureCoordinates, cacheEntries[1]))
 				return false;
-			if (!chunkData->GetVertexData(VertexBufferType::Normals, cachedBuffers[2]))
+			if (!chunkData->GetVertexData(VertexBufferType::Normals, cacheEntries[2]))
 				return false;
-			if (!chunkData->GetVertexData(VertexBufferType::Tangents, cachedBuffers[3]))
-				return false;
-			if (!chunkData->GetVertexData(VertexBufferType::Bitangents, cachedBuffers[4]))
-				return false;
+			//if (!chunkData->GetVertexData(VertexBufferType::Tangents, cacheEntries[3]))
+			//	return false;
+			//if (!chunkData->GetVertexData(VertexBufferType::Bitangents, cacheEntries[4]))
+			//	return false;
 
-			m_vertexBuffers.resize(5);
-			for (uint32_t i = 0; i < 5; ++i)
+
+			std::vector<uint8_t> decompressBuffer;
+			m_vertexBuffers.resize(cacheEntries.size());
+			for (size_t i = 0; i < cacheEntries.size(); ++i)
 			{
 				m_vertexBuffers[i] = std::make_unique<Buffer>(allocator);
 				Buffer* buffer = m_vertexBuffers[i].get();
 
-				bool initialised = buffer->Initialise(cachedBuffers[i].size(),
+				chunkData->Decompress(cacheEntries[i], decompressBuffer);
+				const std::span<const uint8_t> span(decompressBuffer.begin(), cacheEntries[i].UncompressedSize);
+
+				bool initialised = buffer->Initialise(span.size(),
 					vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
 					VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 					0,
@@ -222,8 +230,8 @@ namespace Engine::Rendering::Vulkan
 					return false;
 				}
 
-				if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, cachedBuffers[i].data(),
-					cachedBuffers[i].size(), temporaryBuffers))
+				if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, span.data(),
+					span.size(), temporaryBuffers))
 					return false;
 			}
 
@@ -276,10 +284,10 @@ namespace Engine::Rendering::Vulkan
 					chunkData->SetVertexData(VertexBufferType::TextureCoordinates, vertexBufferData);
 				else if (vertexBit == 2)
 					chunkData->SetVertexData(VertexBufferType::Normals, vertexBufferData);
-				else if (vertexBit == 3)
-					chunkData->SetVertexData(VertexBufferType::Tangents, vertexBufferData);
-				else if (vertexBit == 4)
-					chunkData->SetVertexData(VertexBufferType::Bitangents, vertexBufferData);
+				//else if (vertexBit == 3)
+				//	chunkData->SetVertexData(VertexBufferType::Tangents, vertexBufferData);
+				//else if (vertexBit == 4)
+				//	chunkData->SetVertexData(VertexBufferType::Bitangents, vertexBufferData);
 				else
 					throw;
 			}
@@ -311,16 +319,19 @@ namespace Engine::Rendering::Vulkan
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
 		{
-			std::span<uint8_t> cachedData;
-			if (!chunkData->GetGenericData(0, cachedData))
+			ChunkMemoryEntry entry;
+			if (!chunkData->GetGenericData(0, entry))
 			{
 				return false;
 			}
 
+			std::vector<uint8_t> decompressBuffer;
+			chunkData->Decompress(entry, decompressBuffer);
+
 			m_indexBuffer = std::make_unique<Buffer>(allocator);
 			Buffer* buffer = m_indexBuffer.get();
 
-			bool initialised = buffer->Initialise(cachedData.size(),
+			bool initialised = buffer->Initialise(decompressBuffer.size(),
 				vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
 				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 				0,
@@ -331,8 +342,8 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
-			if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, cachedData.data(),
-				cachedData.size(), temporaryBuffers))
+			if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, decompressBuffer.data(),
+				decompressBuffer.size(), temporaryBuffers))
 				return false;
 
 			return true;
@@ -457,11 +468,24 @@ namespace Engine::Rendering::Vulkan
 
 			float subTicks = 400.0f / static_cast<float>(cachedImageData->size());
 
+			std::vector<uint8_t> decompressBuffer;
 			for (auto it = cachedImageData->begin(); it != cachedImageData->end(); ++it)
 			{
 				const ImageData& imageData = *it;
 				vk::Format format = static_cast<vk::Format>(imageData.Header.Format);
 				vk::Extent3D dimensions(imageData.Header.Width, imageData.Header.Height, 1);
+
+				chunkData->Decompress(imageData.Entry, decompressBuffer);
+
+				std::vector<std::span<const uint8_t>> spans(imageData.Header.MipLevels);
+				uint64_t offset = 0;
+				uint64_t size = imageData.Header.FirstMipSize;
+				for (uint32_t i = 0; i < imageData.Header.MipLevels; ++i)
+				{
+					spans[i] = std::span<const uint8_t>(decompressBuffer.begin() + offset, size);
+					offset += size;
+					size /= 4;
+				}
 
 				std::unique_ptr<RenderImage>& renderImage = m_imageArray.emplace_back(std::make_unique<RenderImage>(allocator));
 				bool imageInitialised = renderImage->Initialise(vk::ImageType::e2D, format, dimensions, vk::SampleCountFlagBits::e1, imageData.Header.MipLevels, vk::ImageTiling::eOptimal,
@@ -486,8 +510,8 @@ namespace Engine::Rendering::Vulkan
 
 				for (uint32_t i = 0; i < imageData.Header.MipLevels; ++i)
 				{
-					if (!CreateImageStagingBuffer(allocator, device, commandBuffer, renderImage.get(), i, imageData.Spans[i].data(),
-						imageData.Spans[i].size(), temporaryBuffers))
+					if (!CreateImageStagingBuffer(allocator, device, commandBuffer, renderImage.get(), i, spans[i].data(),
+						spans[i].size(), temporaryBuffers))
 						return false;
 				}
 
@@ -640,16 +664,19 @@ namespace Engine::Rendering::Vulkan
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
 		{
-			std::span<uint8_t> cachedData;
-			if (!chunkData->GetGenericData(1, cachedData))
+			ChunkMemoryEntry entry;
+			if (!chunkData->GetGenericData(1, entry))
 			{
 				return false;
 			}
 
+			std::vector<uint8_t> decompressBuffer;
+			chunkData->Decompress(entry, decompressBuffer);
+
 			m_meshInfoBuffer = std::make_unique<Buffer>(allocator);
 			Buffer* buffer = m_meshInfoBuffer.get();
 
-			bool initialised = buffer->Initialise(cachedData.size(),
+			bool initialised = buffer->Initialise(decompressBuffer.size(),
 				vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
 				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 				0,
@@ -660,8 +687,8 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
-			if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, cachedData.data(),
-				cachedData.size(), temporaryBuffers))
+			if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, decompressBuffer.data(),
+				decompressBuffer.size(), temporaryBuffers))
 				return false;
 
 			return true;
@@ -688,6 +715,7 @@ namespace Engine::Rendering::Vulkan
 			const MeshInfo& meshInfo = m_meshInfos[i];
 			RenderMeshInfo data = {};
 			data.transform = meshInfo.transform;
+			data.normalMatrix = glm::mat4(glm::transpose(glm::inverse(glm::mat3(meshInfo.transform))));
 			data.colour = meshInfo.colour.GetVec4();
 			data.diffuseImageIndex = static_cast<uint32_t>(meshInfo.diffuseImageIndex);
 			data.normalImageIndex = static_cast<uint32_t>(meshInfo.normalImageIndex);

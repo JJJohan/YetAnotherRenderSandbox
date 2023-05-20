@@ -3,6 +3,7 @@
 #include "Logging/Logger.hpp"
 #include <fstream>
 #include <chrono>
+#include <lz4.h>
 
 using namespace Engine::Logging;
 
@@ -15,6 +16,15 @@ namespace Engine
 		, m_loadedFromDisk(false)
 		, m_memory()
 	{
+	}
+
+	inline void CompressData(const char* source, size_t size, std::vector<char>& outputBuffer, int32_t& compressedSize)
+	{
+		const int32_t maxSize = LZ4_compressBound(static_cast<int32_t>(size));
+		if (outputBuffer.size() < maxSize)
+			outputBuffer.resize(maxSize);
+
+		compressedSize = LZ4_compress_default(source, outputBuffer.data(), static_cast<int32_t>(size), maxSize);
 	}
 
 	bool ChunkData::WriteToFile(const std::filesystem::path& path, AsyncData* asyncData) const
@@ -35,6 +45,9 @@ namespace Engine
 			return false;
 		}
 
+		std::vector<char> compressionBuffer;
+		int32_t compressedSize = 0;
+
 		ChunkHeader header{};
 		header.ResourceCount = static_cast<uint32_t>(resourceCount);
 		stream.write(reinterpret_cast<const char*>(&header), sizeof(ChunkHeader));
@@ -42,13 +55,16 @@ namespace Engine
 
 		float subTicks = 500.0f / static_cast<float>(m_genericDataMap.size()) / 3.0f;
 		for (const auto& data : m_genericDataMap)
-		{			
+		{
+			CompressData(memoryData + data.second.Offset, data.second.Size, compressionBuffer, compressedSize);
+
 			ChunkResourceHeader resourceHeader;
 			resourceHeader.Identifier = data.first;
 			resourceHeader.ResourceType = ChunkResourceType::Generic;
-			resourceHeader.ResourceSize = data.second.Size;
+			resourceHeader.ResourceSize = compressedSize;
+			resourceHeader.UncompressedSize = data.second.Size;
 			stream.write(reinterpret_cast<const char*>(&resourceHeader), sizeof(ChunkResourceHeader));
-			stream.write(memoryData + data.second.Offset, data.second.Size);
+			stream.write(compressionBuffer.data(), compressedSize);
 
 			if (asyncData != nullptr)
 				asyncData->AddSubProgress(subTicks);
@@ -57,14 +73,17 @@ namespace Engine
 		subTicks = 500.0f / static_cast<float>(m_vertexDataMap.size()) / 3.0f;
 		for (const auto& data : m_vertexDataMap)
 		{
+			CompressData(memoryData + data.second.Offset, data.second.Size, compressionBuffer, compressedSize);
+
 			ChunkResourceHeader resourceHeader;
 			resourceHeader.ResourceType = ChunkResourceType::VertexBuffer;
-			resourceHeader.ResourceSize = data.second.Size;
+			resourceHeader.ResourceSize = compressedSize;
+			resourceHeader.UncompressedSize = data.second.Size;
 			stream.write(reinterpret_cast<const char*>(&resourceHeader), sizeof(ChunkResourceHeader));
 			VertexBufferHeader vertexHeader;
 			vertexHeader.Type = data.first;
 			stream.write(reinterpret_cast<const char*>(&vertexHeader), sizeof(VertexBufferHeader));
-			stream.write(memoryData + data.second.Offset, data.second.Size);
+			stream.write(compressionBuffer.data(), compressedSize);
 
 			if (asyncData != nullptr)
 				asyncData->AddSubProgress(subTicks);
@@ -73,12 +92,15 @@ namespace Engine
 		subTicks = 500.0f / static_cast<float>(m_imageData.size()) / 3.0f;
 		for (const auto& data : m_imageData)
 		{
+			CompressData(memoryData + data.Entry.Offset, data.Entry.Size, compressionBuffer, compressedSize);
+
 			ChunkResourceHeader resourceHeader;
 			resourceHeader.ResourceType = ChunkResourceType::Image;
-			resourceHeader.ResourceSize = data.Entry.Size;
+			resourceHeader.ResourceSize = compressedSize;
+			resourceHeader.UncompressedSize = data.Entry.Size;
 			stream.write(reinterpret_cast<const char*>(&resourceHeader), sizeof(ChunkResourceHeader));
 			stream.write(reinterpret_cast<const char*>(&data.Header), sizeof(ImageHeader));
-			stream.write(memoryData + data.Entry.Offset, data.Entry.Size);
+			stream.write(compressionBuffer.data(), compressedSize);
 
 			if (asyncData != nullptr)
 				asyncData->AddSubProgress(subTicks);
@@ -93,6 +115,17 @@ namespace Engine
 		Logger::Verbose("Chunk saved to disk in {} seconds.", saveDeltaTime);
 
 		return success;
+	}
+
+	void ChunkData::Decompress(const ChunkMemoryEntry& entry, std::vector<uint8_t>& decompressBuffer) const
+	{
+		// Consider doing decompression on the GPU instead - worth it?
+		if (decompressBuffer.size() < entry.UncompressedSize)
+			decompressBuffer.resize(entry.UncompressedSize);
+
+		LZ4_decompress_safe(reinterpret_cast<const char*>(m_memory.data() + entry.Offset), 
+			reinterpret_cast<char*>(decompressBuffer.data()), static_cast<int32_t>(entry.Size),
+			static_cast<int32_t>(entry.UncompressedSize));
 	}
 
 	bool ChunkData::Parse(const std::filesystem::path& path, AsyncData* asyncData)
@@ -153,7 +186,7 @@ namespace Engine
 			switch (resource.ResourceType)
 			{
 			case ChunkResourceType::Generic:
-				m_genericDataMap[resource.Identifier] = ChunkMemoryEntry(dataIndex, resource.ResourceSize);
+				m_genericDataMap[resource.Identifier] = ChunkMemoryEntry(dataIndex, resource.ResourceSize, resource.UncompressedSize);
 				dataIndex += resource.ResourceSize;
 				break;
 
@@ -162,7 +195,7 @@ namespace Engine
 				memcpy(&vertexData, m_memory.data() + dataIndex, sizeof(VertexBufferHeader));
 				dataIndex += sizeof(VertexBufferHeader);
 
-				m_vertexDataMap[vertexData.Type] = ChunkMemoryEntry(dataIndex, resource.ResourceSize);
+				m_vertexDataMap[vertexData.Type] = ChunkMemoryEntry(dataIndex, resource.ResourceSize, resource.UncompressedSize);
 				dataIndex += resource.ResourceSize;
 				break;
 
@@ -172,7 +205,7 @@ namespace Engine
 				memcpy(&imageHeader, m_memory.data() + dataIndex, sizeof(ImageHeader));
 				dataIndex += sizeof(ImageHeader);
 
-				m_imageData.emplace_back(ImageData(imageHeader, ChunkMemoryEntry(dataIndex, resource.ResourceSize), m_memory));
+				m_imageData.emplace_back(ImageData(imageHeader, ChunkMemoryEntry(dataIndex, resource.ResourceSize, resource.UncompressedSize)));
 				dataIndex += resource.ResourceSize;
 			}
 			break;
@@ -200,12 +233,12 @@ namespace Engine
 		return m_loadedFromDisk;
 	}
 
-	bool ChunkData::GetVertexData(VertexBufferType type, std::span<uint8_t>& data)
+	bool ChunkData::GetVertexData(VertexBufferType type, ChunkMemoryEntry& data)
 	{
 		auto result = m_vertexDataMap.find(type);
 		if (result != m_vertexDataMap.end())
 		{
-			data = std::span<uint8_t>(m_memory.begin() + result->second.Offset, result->second.Size);
+			data = result->second;
 			return true;
 		}
 
@@ -224,12 +257,12 @@ namespace Engine
 		m_vertexDataMap[type] = ChunkMemoryEntry(offset, data.size());
 	}
 
-	bool ChunkData::GetGenericData(uint32_t identifier, std::span<uint8_t>& data)
+	bool ChunkData::GetGenericData(uint32_t identifier, ChunkMemoryEntry& data)
 	{
 		auto result = m_genericDataMap.find(identifier);
 		if (result != m_genericDataMap.end())
 		{
-			data = std::span<uint8_t>(m_memory.begin() + result->second.Offset, result->second.Size);
+			data = result->second;
 			return true;
 		}
 
