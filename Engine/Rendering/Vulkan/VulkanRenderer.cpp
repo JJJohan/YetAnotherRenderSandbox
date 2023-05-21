@@ -17,8 +17,6 @@
 #include "Instance.hpp"
 #include "Surface.hpp"
 #include "SwapChain.hpp"
-#include "RenderPass.hpp"
-#include "Framebuffer.hpp"
 #include "CommandPool.hpp"
 #include "ImageView.hpp"
 #include "RenderImage.hpp"
@@ -45,7 +43,6 @@ namespace Engine::Rendering::Vulkan
 		, m_device()
 		, m_surface()
 		, m_swapChain()
-		, m_renderPass()
 		, m_renderCommandPool()
 		, m_resourceCommandPool()
 		, m_pipelineLayouts()
@@ -92,8 +89,6 @@ namespace Engine::Rendering::Vulkan
 
 		m_renderCommandPool.reset();
 		m_resourceCommandPool.reset();
-		m_swapChain->DestroyFramebuffers(*m_device);
-		m_renderPass.reset();
 		m_swapChain.reset();
 
 		if (m_allocator != nullptr)
@@ -111,7 +106,7 @@ namespace Engine::Rendering::Vulkan
 	Shader* VulkanRenderer::CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs)
 	{
 		std::unique_ptr<PipelineLayout>& pipelineLayout = m_pipelineLayouts.emplace_back(std::make_unique<PipelineLayout>());
-		if (!pipelineLayout->Initialise(*m_device, name, programs, *m_renderPass))
+		if (!pipelineLayout->Initialise(*m_device, name, programs, *m_swapChain))
 		{
 			return nullptr;
 		}
@@ -128,32 +123,60 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		const std::vector<Framebuffer*> framebuffers = m_swapChain->GetFramebuffers();
-
 		std::array<vk::ClearValue, 2> clearValues =
 		{
 			vk::ClearValue(vk::ClearColorValue(m_clearColour.r, m_clearColour.g, m_clearColour.b, m_clearColour.a)),
 			vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0))
 		};
 
-		vk::RenderPassBeginInfo renderPassInfo{};
-		renderPassInfo.sType = vk::StructureType::eRenderPassBeginInfo;
-		renderPassInfo.renderPass = m_renderPass->Get();
-		renderPassInfo.framebuffer = framebuffers[imageIndex]->Get();
-		renderPassInfo.renderArea.offset = vk::Offset2D();
-		renderPassInfo.renderArea.extent = m_swapChain->GetExtent();
-		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-		renderPassInfo.pClearValues = clearValues.data();
+		bool multiSampled = m_multiSampleCount > 1 && (m_multiSampleCount & (m_multiSampleCount - 1)) == 0;
 
-		commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+		RenderImage& colorImage = multiSampled ? m_swapChain->GetColorImage() : m_swapChain->GetSwapChainImages()[imageIndex];
+		RenderImage& resolveImage = multiSampled ? m_swapChain->GetSwapChainImages()[imageIndex] : m_swapChain->GetColorImage();
+		RenderImage& depthImage = m_swapChain->GetDepthImage();
 
+		colorImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eColorAttachmentOptimal);
+		if (multiSampled)
+			resolveImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eColorAttachmentOptimal);
+		depthImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-		float width = static_cast<float>(renderPassInfo.renderArea.extent.width);
-		float height = static_cast<float>(renderPassInfo.renderArea.extent.height);
+		vk::RenderingAttachmentInfo colorAttachmentInfo{};
+		colorAttachmentInfo.imageView = multiSampled ? m_swapChain->GetColorView().Get() : m_swapChain->GetSwapChainImageViews()[imageIndex]->Get();
+		colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+		colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
+		colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
+		colorAttachmentInfo.clearValue = vk::ClearValue(vk::ClearColorValue(m_clearColour.r, m_clearColour.g, m_clearColour.b, m_clearColour.a));
+
+		if (multiSampled)
+		{
+			colorAttachmentInfo.resolveImageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+			colorAttachmentInfo.resolveImageView = m_swapChain->GetSwapChainImageViews()[imageIndex]->Get();
+			colorAttachmentInfo.resolveMode = vk::ResolveModeFlagBits::eAverage;
+		}
+
+		vk::RenderingAttachmentInfo depthAttachmentInfo{};
+		depthAttachmentInfo.imageView = m_swapChain->GetDepthView().Get();
+		depthAttachmentInfo.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+		depthAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
+		depthAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
+		depthAttachmentInfo.clearValue = vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0));
+
+		vk::RenderingInfo renderingInfo{};
+		renderingInfo.renderArea.offset = vk::Offset2D();
+		renderingInfo.renderArea.extent = m_swapChain->GetExtent();
+		renderingInfo.layerCount = 1;
+		renderingInfo.colorAttachmentCount = 1;
+		renderingInfo.pColorAttachments = &colorAttachmentInfo;
+		renderingInfo.pDepthAttachment = &depthAttachmentInfo;
+
+		commandBuffer.beginRendering(renderingInfo);
+
+		float width = static_cast<float>(renderingInfo.renderArea.extent.width);
+		float height = static_cast<float>(renderingInfo.renderArea.extent.height);
 		vk::Viewport viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
 		commandBuffer.setViewport(0, 1, &viewport);
 
-		vk::Rect2D scissor(renderPassInfo.renderArea.offset, renderPassInfo.renderArea.extent);
+		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
 		commandBuffer.setScissor(0, 1, &scissor);
 
 		// Update uniform buffer
@@ -170,7 +193,13 @@ namespace Engine::Rendering::Vulkan
 
 		m_uiManager->Draw(commandBuffer, width, height);
 
-		commandBuffer.endRenderPass();
+		commandBuffer.endRendering();
+
+		if (multiSampled)
+			resolveImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::ePresentSrcKHR);
+		else
+			colorImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::ePresentSrcKHR);
+
 		commandBuffer.end();
 
 		return true;
@@ -217,10 +246,7 @@ namespace Engine::Rendering::Vulkan
 	{
 		return *m_physicalDevice;
 	}
-	const RenderPass& VulkanRenderer::GetRenderPass() const
-	{
-		return *m_renderPass;
-	}
+
 	const SwapChain& VulkanRenderer::GetSwapChain() const
 	{
 		return *m_swapChain;
@@ -369,28 +395,16 @@ namespace Engine::Rendering::Vulkan
 					return false;
 				}
 
-				if (!this->m_renderPass->Initialise(*this->m_physicalDevice, *this->m_device, *this->m_swapChain, this->m_swapChain->GetSampleCount()))
-				{
-					Logger::Error("Failed to recreate render pass.");
-					return false;
-				}
-
-				if (!this->m_swapChain->CreateFramebuffers(*this->m_device, *this->m_renderPass))
-				{
-					Logger::Error("Failed to recreate framebuffer.");
-					return false;
-				}
-
 				for (auto& layout : this->m_pipelineLayouts)
 				{
-					if (!layout->Rebuild(*this->m_device, *this->m_renderPass, UINT32_MAX))
+					if (!layout->Rebuild(*this->m_device, *this->m_swapChain, UINT32_MAX))
 					{
 						Logger::Error("Failed to rebuild pipeline layout '{}'.", layout->GetName());
 						return false;
 					}
 				}
 
-				if (!m_uiManager->Rebuild(this->m_device->Get(), this->m_renderPass->Get(), multiSampleCount))
+				if (!m_uiManager->Rebuild(this->m_device->Get(), multiSampleCount))
 				{
 					Logger::Error("Failed to recreate UI render backend.");
 					return false;
@@ -420,7 +434,6 @@ namespace Engine::Rendering::Vulkan
 		m_physicalDevice = std::make_unique<PhysicalDevice>();
 		m_device = std::make_unique<Device>();
 		m_swapChain = std::make_unique<SwapChain>();
-		m_renderPass = std::make_unique<RenderPass>();
 		m_resourceCommandPool = std::make_unique<CommandPool>();
 		m_renderCommandPool = std::make_unique<CommandPool>();
 		m_Debug = std::make_unique<Debug>();
@@ -432,8 +445,6 @@ namespace Engine::Rendering::Vulkan
 			|| !m_device->Initialise(*m_physicalDevice)
 			|| !CreateAllocator()
 			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size, GetMultiSampleCount(m_multiSampleCount))
-			|| !m_renderPass->Initialise(*m_physicalDevice, *m_device, *m_swapChain, m_swapChain->GetSampleCount())
-			|| !m_swapChain->CreateFramebuffers(*m_device, *m_renderPass)
 			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eTransient)
 			|| !m_renderCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
 			|| !CreateSyncObjects()
@@ -534,8 +545,7 @@ namespace Engine::Rendering::Vulkan
 		m_lastWindowSize = size;
 		m_swapChainOutOfDate = false;
 
-		return m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size, multiSampleCount)
-			&& m_swapChain->CreateFramebuffers(*m_device, *m_renderPass);
+		return m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size, multiSampleCount);
 	}
 
 	bool VulkanRenderer::Render()

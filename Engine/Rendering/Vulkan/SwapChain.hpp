@@ -12,8 +12,6 @@ namespace Engine::Rendering::Vulkan
 	class Device;
 	class PhysicalDevice;
 	class Surface;
-	class RenderPass;
-	class Framebuffer;
 	class ImageView;
 	class RenderImage;
 
@@ -21,17 +19,22 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		SwapChain();
-		void DestroyFramebuffers(const Device& device);
 
 		const vk::Format& GetFormat() const;
+		const vk::Format& GetDepthFormat() const;
 		const vk::Extent2D& GetExtent() const;
-		std::vector<Framebuffer*> GetFramebuffers() const;
 		const vk::SwapchainKHR& Get() const;
 		vk::SampleCountFlagBits GetSampleCount() const;
 
+		RenderImage& GetColorImage() const;
+		RenderImage& GetDepthImage() const;
+		std::vector<RenderImage>& GetSwapChainImages();
+		const std::vector<std::unique_ptr<ImageView>>& GetSwapChainImageViews() const;
+		const ImageView& GetColorView() const;
+		const ImageView& GetDepthView() const;
+
 		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, const Surface& surface,
 			VmaAllocator allocator, const glm::uvec2& size, vk::SampleCountFlagBits sampleCount);
-		bool CreateFramebuffers(const Device& device, const RenderPass& renderPass);
 
 		static SwapChainSupportDetails QuerySwapChainSupport(const vk::PhysicalDevice& physicalDevice, const Surface& surface);
 
@@ -42,9 +45,10 @@ namespace Engine::Rendering::Vulkan
 		vk::SampleCountFlagBits m_sampleCount;
 		vk::UniqueSwapchainKHR m_swapChain;
 		vk::Format m_swapChainImageFormat;
+		vk::Format m_depthImageFormat;
 		vk::Extent2D m_swapChainExtent;
+		std::vector<RenderImage> m_swapChainImages;
 		std::vector<std::unique_ptr<ImageView>> m_swapChainImageViews;
-		std::vector<std::unique_ptr<Framebuffer>> m_framebuffers;
 		std::unique_ptr<RenderImage> m_depthImage;
 		std::unique_ptr<ImageView> m_depthImageView;
 		std::unique_ptr<RenderImage> m_colorImage;

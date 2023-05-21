@@ -13,6 +13,7 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		RenderImage(VmaAllocator allocator);
+		RenderImage(vk::Image image, vk::Format format);
 		~RenderImage();
 		bool Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, vk::SampleCountFlagBits sampleCount, uint32_t mipLevels, vk::ImageTiling tiling,
 			vk::ImageUsageFlags imageUsage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode);
@@ -23,6 +24,7 @@ namespace Engine::Rendering::Vulkan
 		const vk::Extent3D& GetDimensions() const;
 		const vk::Format& GetFormat() const;
 		uint32_t GetMiplevels() const;
+		const vk::ImageLayout& GetLayout() const;
 
 		static bool FormatSupported(const PhysicalDevice& physicalDevice, vk::Format format);
 

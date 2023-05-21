@@ -20,6 +20,18 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
+	RenderImage::RenderImage(vk::Image image, vk::Format format)
+		: m_image(image)
+		, m_imageAlloc(nullptr)
+		, m_imageAllocInfo()
+		, m_allocator(nullptr)
+		, m_format(format)
+		, m_layout(vk::ImageLayout::eUndefined)
+		, m_dimensions()
+		, m_mipLevels(1)
+	{
+	}
+
 	RenderImage::~RenderImage()
 	{
 		if (m_imageAlloc != nullptr)
@@ -148,6 +160,9 @@ namespace Engine::Rendering::Vulkan
 
 	void RenderImage::TransitionImageLayout(const Device& device, const vk::CommandBuffer& commandBuffer, vk::ImageLayout newLayout)
 	{
+		if (m_layout == newLayout) 
+			return;
+
 		vk::AccessFlags srcAccessMask;
 		vk::AccessFlags dstAccessMask;
 		vk::PipelineStageFlags srcStage;
@@ -167,12 +182,33 @@ namespace Engine::Rendering::Vulkan
 			srcStage = vk::PipelineStageFlagBits::eTransfer;
 			dstStage = vk::PipelineStageFlagBits::eFragmentShader;
 		}
+		else if (m_layout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eColorAttachmentOptimal)
+		{
+			srcAccessMask = vk::AccessFlagBits::eNone;
+			dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+			srcStage = vk::PipelineStageFlagBits::eTopOfPipe;
+			dstStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		}
+		else if (m_layout == vk::ImageLayout::ePresentSrcKHR && newLayout == vk::ImageLayout::eColorAttachmentOptimal)
+		{
+			srcAccessMask = vk::AccessFlagBits::eNone;
+			dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+			srcStage = vk::PipelineStageFlagBits::eBottomOfPipe;
+			dstStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		}
 		else if (m_layout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
 		{
-			srcAccessMask = vk::AccessFlagBits::eNone;;
-			dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-			srcStage = vk::PipelineStageFlagBits::eTopOfPipe;
-			dstStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+			srcAccessMask = vk::AccessFlagBits::eNone;
+			dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+			srcStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+			dstStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+		}
+		else if (m_layout == vk::ImageLayout::eColorAttachmentOptimal && newLayout == vk::ImageLayout::ePresentSrcKHR)
+		{
+			srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+			dstAccessMask = vk::AccessFlagBits::eNone;
+			srcStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+			dstStage = vk::PipelineStageFlagBits::eBottomOfPipe;
 		}
 		else
 		{
@@ -183,30 +219,27 @@ namespace Engine::Rendering::Vulkan
 			Logger::Error("Transition layout not supported.");
 		}
 
-		if (dstAccessMask != vk::AccessFlagBits::eNone)
+		vk::ImageAspectFlags aspectFlags;
+		if (newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
 		{
-			vk::ImageAspectFlags aspectFlags;
-			if (newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+			aspectFlags = vk::ImageAspectFlagBits::eDepth;
+
+			if (HasStencilComponent(m_format))
 			{
-				aspectFlags = vk::ImageAspectFlagBits::eDepth;
-
-				if (HasStencilComponent(m_format))
-				{
-					aspectFlags |= vk::ImageAspectFlagBits::eStencil;
-				}
+				aspectFlags |= vk::ImageAspectFlagBits::eStencil;
 			}
-			else
-			{
-				aspectFlags = vk::ImageAspectFlagBits::eColor;
-			}
-
-			vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, 1);
-
-			vk::ImageMemoryBarrier barrier(srcAccessMask, dstAccessMask, m_layout, newLayout,
-				VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
-
-			commandBuffer.pipelineBarrier(srcStage, dstStage, vk::DependencyFlagBits::eByRegion, nullptr, nullptr, { barrier });
 		}
+		else
+		{
+			aspectFlags = vk::ImageAspectFlagBits::eColor;
+		}
+
+		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, 1);
+
+		vk::ImageMemoryBarrier barrier(srcAccessMask, dstAccessMask, m_layout, newLayout,
+			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
+
+		commandBuffer.pipelineBarrier(srcStage, dstStage, vk::DependencyFlagBits::eByRegion, nullptr, nullptr, { barrier });
 
 		m_layout = newLayout;
 	}
@@ -229,5 +262,10 @@ namespace Engine::Rendering::Vulkan
 	uint32_t RenderImage::GetMiplevels() const
 	{
 		return m_mipLevels;
+	}
+
+	const vk::ImageLayout& RenderImage::GetLayout() const
+	{
+		return m_layout;
 	}
 }

@@ -9,7 +9,7 @@
 namespace Engine::Rendering::Vulkan
 {
 	class Device;
-	class RenderPass;
+	class SwapChain;
 
 	class PipelineLayout : public Shader
 	{
@@ -22,9 +22,9 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::DescriptorSetLayout> GetDescriptorSetLayouts() const;
 
 		bool Initialise(const Device& device, const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs, 
-			const RenderPass& renderPass);
+			const SwapChain& swapChain);
 
-		bool Rebuild(const Device& device, const RenderPass& renderPass, uint32_t imageCount);
+		bool Rebuild(const Device& device, const SwapChain& swapChain, uint32_t imageCount);
 
 	private:
 		bool SetupDescriptorSetLayout(const Device& device);

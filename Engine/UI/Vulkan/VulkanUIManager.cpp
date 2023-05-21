@@ -2,8 +2,8 @@
 #include "Rendering/Renderer.hpp"
 #include "Rendering/Vulkan/VulkanRenderer.hpp"
 #include "Rendering/Vulkan/Device.hpp"
+#include "Rendering/Vulkan/SwapChain.hpp"
 #include "Rendering/Vulkan/PhysicalDevice.hpp"
-#include "Rendering/Vulkan/RenderPass.hpp"
 #include "Rendering/Vulkan/Buffer.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "OS/Window.hpp"
@@ -57,7 +57,6 @@ namespace Engine::UI::Vulkan
 		uint32_t concurrentFrames = renderer.GetConcurrentFrameCount();
 		const Device& device = renderer.GetDevice();
 		const PhysicalDevice& physicalDevice = renderer.GetPhysicalDevice();
-		const RenderPass& renderPass = renderer.GetRenderPass();
 
 		m_descriptorPool = std::make_unique<DescriptorPool>();
 		if (!m_descriptorPool->Initialise(device, concurrentFrames, {}))
@@ -93,7 +92,9 @@ namespace Engine::UI::Vulkan
 		initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 		initInfo.Allocator = nullptr;
 		initInfo.CheckVkResultFn = check_vk_result;
-		if (!ImGui_ImplVulkan_Init(&initInfo, renderPass.Get()))
+		initInfo.UseDynamicRendering = true;
+		initInfo.ColorAttachmentFormat = static_cast<VkFormat>(renderer.GetSwapChain().GetFormat());
+		if (!ImGui_ImplVulkan_Init(&initInfo, nullptr))
 		{
 			return false;
 		}
@@ -117,7 +118,7 @@ namespace Engine::UI::Vulkan
 			});
 	}
 
-	bool VulkanUIManager::Rebuild(const vk::Device& device, const vk::RenderPass& renderPass, vk::SampleCountFlagBits multiSampleCount) const
+	bool VulkanUIManager::Rebuild(const vk::Device& device, vk::SampleCountFlagBits multiSampleCount) const
 	{
 		// This code block is partially taken from ImGui's Vulkan backend code to perform minimal rebuilds.
 
@@ -145,7 +146,7 @@ namespace Engine::UI::Vulkan
 			return false;
 		}
 
-		ImGui_ImplVulkan_CreatePipeline(device, nullptr, nullptr, renderPass, static_cast<VkSampleCountFlagBits>(multiSampleCount), &bd->Pipeline, 0);
+		ImGui_ImplVulkan_CreatePipeline(device, nullptr, nullptr, nullptr, static_cast<VkSampleCountFlagBits>(multiSampleCount), &bd->Pipeline, 0);
 
 		return true;
 	}

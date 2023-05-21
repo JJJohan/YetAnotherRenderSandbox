@@ -1,6 +1,6 @@
 #include "PipelineLayout.hpp"
 #include "Device.hpp"
-#include "RenderPass.hpp"
+#include "SwapChain.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "OS/Files.hpp"
 #include <filesystem>
@@ -79,7 +79,7 @@ namespace Engine::Rendering::Vulkan
 		return { m_descriptorSetLayout.get() }; // hard-coded to 1 for now.
 	}
 
-	bool PipelineLayout::Rebuild(const Device& device, const RenderPass& renderPass, uint32_t imageCount)
+	bool PipelineLayout::Rebuild(const Device& device, const SwapChain& swapChain, uint32_t imageCount)
 	{
 		if (imageCount != UINT32_MAX)
 			m_imageCount = imageCount;
@@ -156,7 +156,7 @@ namespace Engine::Rendering::Vulkan
 		// Multisampling state
 		vk::PipelineMultisampleStateCreateInfo multisampling{};
 		multisampling.sampleShadingEnable = VK_FALSE;
-		multisampling.rasterizationSamples = renderPass.GetSampleCount();
+		multisampling.rasterizationSamples = swapChain.GetSampleCount();
 		multisampling.minSampleShading = 1.0f; // Optional
 		multisampling.pSampleMask = nullptr; // Optional
 		multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
@@ -200,6 +200,11 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
+		vk::PipelineRenderingCreateInfo pipelineRenderingCreateInfo{};
+		pipelineRenderingCreateInfo.colorAttachmentCount = 1;
+		pipelineRenderingCreateInfo.pColorAttachmentFormats = &swapChain.GetFormat();
+		pipelineRenderingCreateInfo.depthAttachmentFormat = swapChain.GetDepthFormat();
+
 		vk::GraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.stageCount = static_cast<uint32_t>(shaderStageInfos.size());
 		pipelineInfo.pStages = shaderStageInfos.data();
@@ -212,10 +217,10 @@ namespace Engine::Rendering::Vulkan
 		pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = &dynamicState;
 		pipelineInfo.layout = m_pipelineLayout.get();
-		pipelineInfo.renderPass = renderPass.Get();
 		pipelineInfo.subpass = 0;
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 		pipelineInfo.basePipelineIndex = -1; // Optional
+		pipelineInfo.pNext = &pipelineRenderingCreateInfo;
 
 		vk::ResultValue<vk::UniquePipeline> result = deviceImp.createGraphicsPipelineUnique(nullptr, pipelineInfo);
 		if (result.result != vk::Result::eSuccess)
@@ -230,7 +235,7 @@ namespace Engine::Rendering::Vulkan
 
 	bool PipelineLayout::Initialise(const Device& device, const std::string& name,
 		const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs,
-		const RenderPass& renderPass)
+		const SwapChain& swapChain)
 	{
 		m_name = name;
 
@@ -252,6 +257,6 @@ namespace Engine::Rendering::Vulkan
 			m_shaderModules.push_back(std::make_pair(stage, std::move(shaderModule)));
 		}
 
-		return Rebuild(device, renderPass, 1);
+		return Rebuild(device, swapChain, 1);
 	}
 }

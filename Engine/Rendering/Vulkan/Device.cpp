@@ -45,12 +45,16 @@ namespace Engine::Rendering::Vulkan
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
+		vk::PhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures;
+		dynamicRenderingFeatures.dynamicRendering = true;
+
 		vk::PhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures;
 		descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = true;
 		descriptorIndexingFeatures.shaderUniformBufferArrayNonUniformIndexing = true;
 		descriptorIndexingFeatures.shaderStorageBufferArrayNonUniformIndexing = true;
 		descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = true;
 		descriptorIndexingFeatures.runtimeDescriptorArray = true;
+		descriptorIndexingFeatures.pNext = &dynamicRenderingFeatures;
 
 		vk::PhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures;
 		bufferDeviceAddressFeatures.bufferDeviceAddress = true;

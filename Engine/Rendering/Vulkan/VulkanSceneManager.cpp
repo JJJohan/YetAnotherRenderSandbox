@@ -764,7 +764,7 @@ namespace Engine::Rendering::Vulkan
 		return m_renderer.SubmitResourceCommand([this, chunkData, &asyncData](const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers)
 			{
 				const Device& device = m_renderer.GetDevice();
-				const RenderPass& renderPass = m_renderer.GetRenderPass();
+				const SwapChain& swapChain = m_renderer.GetSwapChain();
 				uint32_t concurrentFrames = m_renderer.GetConcurrentFrameCount();
 				VmaAllocator allocator = m_renderer.GetAllocator();
 				PhysicalDevice physicalDevice = m_renderer.GetPhysicalDevice();
@@ -800,7 +800,7 @@ namespace Engine::Rendering::Vulkan
 				}
 
 				PipelineLayout* pipelineLayout = static_cast<PipelineLayout*>(m_shader);
-				if (!pipelineLayout->Rebuild(device, renderPass, imageCount))
+				if (!pipelineLayout->Rebuild(device, swapChain, imageCount))
 				{
 					asyncData.State = AsyncState::Failed;
 					return false;

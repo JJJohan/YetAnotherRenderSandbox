@@ -6,7 +6,6 @@
 namespace vk
 {
 	class Instance;
-	class RenderPass;
 	class CommandBuffer;
 }
 
@@ -39,7 +38,7 @@ namespace Engine::UI::Vulkan
 
 		void Draw(const vk::CommandBuffer& commandBuffer, float width, float height);
 
-		bool Rebuild(const vk::Device& device, const vk::RenderPass& renderPass, vk::SampleCountFlagBits multiSampleCount) const;
+		bool Rebuild(const vk::Device& device, vk::SampleCountFlagBits multiSampleCount) const;
 
 	private:
 		std::unique_ptr<Engine::Rendering::Vulkan::DescriptorPool> m_descriptorPool;

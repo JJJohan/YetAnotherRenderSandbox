@@ -32,8 +32,6 @@ namespace Engine::Rendering::Vulkan
 	class Surface;
 	class PipelineLayout;
 	class SwapChain;
-	class RenderPass;
-	class Framebuffer;
 	class CommandPool;
 	class VulkanSceneManager;
 	class Buffer;
@@ -57,7 +55,6 @@ namespace Engine::Rendering::Vulkan
 
 		const Device& GetDevice() const;
 		const PhysicalDevice& GetPhysicalDevice() const;
-		const RenderPass& GetRenderPass() const;
 		const SwapChain& GetSwapChain() const;
 		VmaAllocator GetAllocator() const;
 		uint32_t GetConcurrentFrameCount() const;
@@ -91,7 +88,6 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<Instance> m_instance;
 		std::unique_ptr<Surface> m_surface;
 		std::unique_ptr<SwapChain> m_swapChain;
-		std::unique_ptr<RenderPass> m_renderPass;
 		std::unique_ptr<Engine::UI::Vulkan::VulkanUIManager> m_uiManager;
 		VmaAllocator m_allocator;
 
