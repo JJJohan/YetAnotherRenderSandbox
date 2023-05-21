@@ -95,13 +95,13 @@ namespace Engine::Rendering
 			for (auto& vertices : vertexData)
 				localVertexData.emplace_back(std::make_unique<VertexData>(vertices));
 
-			/*// TODO: Clean up so this isn't done if not necessary, and buffer order isn't assumed.
+			// TODO: Clean up so this isn't done if not necessary, and buffer order isn't assumed.			
 			std::unique_ptr<VertexData> tangents;
 			std::unique_ptr<VertexData> bitangents;
 			TangentCalculator::CalculateTangents(vertexData[0], vertexData[2], vertexData[1], indices, tangents, bitangents);
 
 			localVertexData.emplace_back(std::move(tangents));
-			localVertexData.emplace_back(std::move(bitangents));*/
+			localVertexData.emplace_back(std::move(bitangents));
 
 			m_vertexDataArrays.push_back(std::move(localVertexData));
 		}

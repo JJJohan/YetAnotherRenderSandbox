@@ -196,18 +196,17 @@ namespace Engine::Rendering::Vulkan
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
 		{
-			std::array<ChunkMemoryEntry, 3> cacheEntries;
+			std::array<ChunkMemoryEntry, 5> cacheEntries;
 			if (!chunkData->GetVertexData(VertexBufferType::Positions, cacheEntries[0]))
 				return false;
 			if (!chunkData->GetVertexData(VertexBufferType::TextureCoordinates, cacheEntries[1]))
 				return false;
 			if (!chunkData->GetVertexData(VertexBufferType::Normals, cacheEntries[2]))
 				return false;
-			//if (!chunkData->GetVertexData(VertexBufferType::Tangents, cacheEntries[3]))
-			//	return false;
-			//if (!chunkData->GetVertexData(VertexBufferType::Bitangents, cacheEntries[4]))
-			//	return false;
-
+			if (!chunkData->GetVertexData(VertexBufferType::Tangents, cacheEntries[3]))
+				return false;
+			if (!chunkData->GetVertexData(VertexBufferType::Bitangents, cacheEntries[4]))
+				return false;
 
 			std::vector<uint8_t> decompressBuffer;
 			m_vertexBuffers.resize(cacheEntries.size());
@@ -284,10 +283,10 @@ namespace Engine::Rendering::Vulkan
 					chunkData->SetVertexData(VertexBufferType::TextureCoordinates, vertexBufferData);
 				else if (vertexBit == 2)
 					chunkData->SetVertexData(VertexBufferType::Normals, vertexBufferData);
-				//else if (vertexBit == 3)
-				//	chunkData->SetVertexData(VertexBufferType::Tangents, vertexBufferData);
-				//else if (vertexBit == 4)
-				//	chunkData->SetVertexData(VertexBufferType::Bitangents, vertexBufferData);
+				else if (vertexBit == 3)
+					chunkData->SetVertexData(VertexBufferType::Tangents, vertexBufferData);
+				else if (vertexBit == 4)
+					chunkData->SetVertexData(VertexBufferType::Bitangents, vertexBufferData);
 				else
 					throw;
 			}

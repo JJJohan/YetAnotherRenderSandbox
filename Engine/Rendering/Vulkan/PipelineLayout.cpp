@@ -115,22 +115,22 @@ namespace Engine::Rendering::Vulkan
 
 		// Vertex input state
 
-		std::array<vk::VertexInputBindingDescription, 3> bindingDescriptions =
+		std::array<vk::VertexInputBindingDescription, 5> bindingDescriptions =
 		{ {
 			vk::VertexInputBindingDescription(0, sizeof(glm::vec3), vk::VertexInputRate::eVertex),
 			vk::VertexInputBindingDescription(1, sizeof(glm::vec2), vk::VertexInputRate::eVertex),
 			vk::VertexInputBindingDescription(2, sizeof(glm::vec3), vk::VertexInputRate::eVertex),
-			//vk::VertexInputBindingDescription(3, sizeof(glm::vec3), vk::VertexInputRate::eVertex),
-			//vk::VertexInputBindingDescription(4, sizeof(glm::vec3), vk::VertexInputRate::eVertex)
+			vk::VertexInputBindingDescription(3, sizeof(glm::vec3), vk::VertexInputRate::eVertex),
+			vk::VertexInputBindingDescription(4, sizeof(glm::vec3), vk::VertexInputRate::eVertex)
 		} };
 
-		std::array<vk::VertexInputAttributeDescription, 3> attributeDescriptions =
+		std::array<vk::VertexInputAttributeDescription, 5> attributeDescriptions =
 		{ {
 			vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, 0),
 			vk::VertexInputAttributeDescription(1, 1, vk::Format::eR32G32Sfloat, 0),
 			vk::VertexInputAttributeDescription(2, 2, vk::Format::eR32G32B32Sfloat, 0),
-			//vk::VertexInputAttributeDescription(3, 3, vk::Format::eR32G32B32Sfloat, 0),
-			//vk::VertexInputAttributeDescription(4, 4, vk::Format::eR32G32B32Sfloat, 0)
+			vk::VertexInputAttributeDescription(3, 3, vk::Format::eR32G32B32Sfloat, 0),
+			vk::VertexInputAttributeDescription(4, 4, vk::Format::eR32G32B32Sfloat, 0)
 		} };
 
 		vk::PipelineVertexInputStateCreateInfo vertexInputInfo(vk::PipelineVertexInputStateCreateFlags(), bindingDescriptions, attributeDescriptions);
