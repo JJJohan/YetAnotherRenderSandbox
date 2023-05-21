@@ -1,5 +1,16 @@
 # YetAnotherRenderSandbox
 
-Don't get too excited, this is just a personal project to familiarise myself with some modern C++ constructs as well as the Vulkan library as well as the modern concept of mesh shaders.
+This codebase serves as an on-going hobby project to familiarise myself with some modern C++ paradigms as well as some low-level Vulkan concepts.
 
-This is a bit of a learning experience with no real practical end-goal of a publicly viable rendering engine, but nevertheless available for perusing for anyone with a bit of spare time, if they so wish.
+The project consists of a Windows-specific solution file with dependencies pre-compiled with AVX2 as a pre-requisite which may render some hardware configurations unable to compile this codebase.
+
+The current focus is on building up a fairly solid foundation, with graphical fidelity not being the immediate goal which will result in some sub-par output. Currently a hard-coded directional light spins around an arbitrary GLTF file (with the assumption it contains PBR data).
+
+The short-term focus as of writing:
+* Cascaded shadow maps.
+* Compute-based culling.
+* Experimenting with some different lighting setups.
+* Experimenting with basic animation.
+* Code cleanup before pursuing more intricate topics.
+
+![preview](preview.png)
