@@ -183,10 +183,10 @@ namespace Engine::Rendering::Vulkan
 		FrameInfoUniformBuffer frameInfo{};
 		frameInfo.viewProj = m_camera.GetViewProjection();
 		frameInfo.viewPos = glm::vec4(m_camera.GetPosition(), 1.0f);
-		frameInfo.ambientColour = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
 		frameInfo.sunLightColour = m_sunColour.GetVec4();
-		frameInfo.sunLightColour.a = m_sunIntensity;
-		frameInfo.sunLightDir = glm::vec4(m_sunDirection, 1.0f);
+		frameInfo.sunLightIntensity = m_sunIntensity;
+		frameInfo.sunLightDir = m_sunDirection;
+		frameInfo.debugMode = m_debugMode;
 		memcpy(m_frameInfoBufferData[m_currentFrame], &frameInfo, sizeof(FrameInfoUniformBuffer));
 
 		m_sceneManager->Draw(commandBuffer, m_currentFrame);
@@ -373,6 +373,34 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
+
+	void VulkanRenderer::SetHDRState(bool enable)
+	{
+		bool prevHDRState = m_hdr;
+		Renderer::SetHDRState(enable);
+		if (prevHDRState == m_hdr)
+		{
+			return;
+		}
+
+		m_actionQueue.push([this]()
+			{
+				const glm::uvec2 size = m_window.GetSize();
+				if (!RecreateSwapChain(size, true))
+				{
+					Logger::Error("Failed to recreate swapchain.");
+					return false;
+				}
+
+				return true;
+			});
+	 }
+
+	bool VulkanRenderer::IsHDRSupported() const
+	{
+		return m_swapChain->IsHDRCapable();
+	}
+
 	void VulkanRenderer::SetMultiSampleCount(uint32_t multiSampleCount)
 	{
 		uint32_t prevMultiSampleCount = m_multiSampleCount;
@@ -384,29 +412,10 @@ namespace Engine::Rendering::Vulkan
 
 		m_actionQueue.push([this]()
 			{
-				const glm::uvec2 size = this->m_window.GetSize();
-				vk::SampleCountFlagBits multiSampleCount = GetMultiSampleCount(m_multiSampleCount);
-
-				this->m_device->Get().waitIdle(); // Fence for present?
-
-				if (!this->m_swapChain->Initialise(*this->m_physicalDevice, *this->m_device, *this->m_surface, this->m_allocator, size, multiSampleCount))
+				const glm::uvec2 size = m_window.GetSize();
+				if (!RecreateSwapChain(size, true))
 				{
 					Logger::Error("Failed to recreate swapchain.");
-					return false;
-				}
-
-				for (auto& layout : this->m_pipelineLayouts)
-				{
-					if (!layout->Rebuild(*this->m_device, *this->m_swapChain, UINT32_MAX))
-					{
-						Logger::Error("Failed to rebuild pipeline layout '{}'.", layout->GetName());
-						return false;
-					}
-				}
-
-				if (!m_uiManager->Rebuild(this->m_device->Get(), multiSampleCount))
-				{
-					Logger::Error("Failed to recreate UI render backend.");
 					return false;
 				}
 
@@ -444,7 +453,7 @@ namespace Engine::Rendering::Vulkan
 			|| !m_physicalDevice->Initialise(*m_instance, *m_surface)
 			|| !m_device->Initialise(*m_physicalDevice)
 			|| !CreateAllocator()
-			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size, GetMultiSampleCount(m_multiSampleCount))
+			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, GetMultiSampleCount(m_multiSampleCount), m_hdr)
 			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eTransient)
 			|| !m_renderCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
 			|| !CreateSyncObjects()
@@ -537,7 +546,7 @@ namespace Engine::Rendering::Vulkan
 		}
 	}
 
-	bool VulkanRenderer::RecreateSwapChain(const glm::uvec2& size)
+	bool VulkanRenderer::RecreateSwapChain(const glm::uvec2& size, bool rebuildPipelines)
 	{
 		vk::SampleCountFlagBits multiSampleCount = GetMultiSampleCount(m_multiSampleCount);
 		m_device->Get().waitIdle(); // Recreating swapchain warrants stalling GPU pipeline.
@@ -545,7 +554,30 @@ namespace Engine::Rendering::Vulkan
 		m_lastWindowSize = size;
 		m_swapChainOutOfDate = false;
 
-		return m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_allocator, size, multiSampleCount);
+		if (!m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, multiSampleCount, m_hdr))
+		{
+			return false;
+		}
+
+		if (rebuildPipelines)
+		{
+			for (auto& layout : m_pipelineLayouts)
+			{
+				if (!layout->Rebuild(*m_device, *m_swapChain, UINT32_MAX))
+				{
+					Logger::Error("Failed to rebuild pipeline layout '{}'.", layout->GetName());
+					return false;
+				}
+			}
+
+			if (!m_uiManager->Rebuild(m_instance->Get(), *this, multiSampleCount))
+			{
+				Logger::Error("Failed to recreate UI render backend.");
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	bool VulkanRenderer::Render()
@@ -594,7 +626,7 @@ namespace Engine::Rendering::Vulkan
 
 		if (m_swapChainOutOfDate || windowSize != m_lastWindowSize)
 		{
-			RecreateSwapChain(windowSize);
+			RecreateSwapChain(windowSize, false);
 			return true;
 		}
 

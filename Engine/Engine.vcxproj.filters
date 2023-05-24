@@ -181,6 +181,9 @@
     <ClCompile Include="..\Dependencies\include\rgbcx.cpp">
       <Filter>Dependencies</Filter>
     </ClCompile>
+    <ClCompile Include="UI\imgui\backends\imgui_impl_vulkan.cpp">
+      <Filter>UI\imgui\backends</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Macros.hpp">

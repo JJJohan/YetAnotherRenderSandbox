@@ -33,6 +33,11 @@ namespace Engine::OS
 #endif
 	}
 
+	bool Window::QueryMonitorInfo(MonitorInfo& info) const
+	{
+		return false;
+	}
+
 	void Window::Poll()
 	{
 		InputState.Update();

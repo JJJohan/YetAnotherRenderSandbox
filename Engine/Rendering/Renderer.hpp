@@ -41,12 +41,18 @@ namespace Engine::Rendering
 		EXPORT void SetClearColour(const Colour& colour);
 		EXPORT const Colour GetClearColor() const;
 
+		EXPORT void SetDebugMode(uint32_t mode);
+		EXPORT uint32_t GetDebugMode() const;
+
 		EXPORT virtual void SetMultiSampleCount(uint32_t multiSampleCount);
 		EXPORT uint32_t GetMaxMultiSampleCount() const;
 
 		EXPORT void SetSunLightDirection(const glm::vec3& dir);
 		EXPORT void SetSunLightColour(const Colour& colour);
 		EXPORT void SetSunLightIntensity(float intensity);
+		EXPORT virtual void SetHDRState(bool enable);
+		EXPORT bool GetHDRState() const;
+		EXPORT virtual bool IsHDRSupported() const;
 
 		EXPORT void SetCamera(const Camera& camera);
 		EXPORT Camera& GetCamera();
@@ -64,10 +70,12 @@ namespace Engine::Rendering
 		glm::vec3 m_sunDirection;
 		Colour m_sunColour;
 		float m_sunIntensity;
+		uint32_t m_debugMode;
 		uint32_t m_multiSampleCount;
 		uint32_t m_maxMultiSampleCount;
 		const Engine::OS::Window& m_window;
 		bool m_debug;
+		bool m_hdr;
 		Camera m_camera;
 		glm::vec4 m_clearColour;
 	};

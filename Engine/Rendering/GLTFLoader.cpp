@@ -428,6 +428,7 @@ namespace Engine::Rendering
 							if (!importState.loadedImages[imageIndex]->LoadFromMemory(imageData->bytes.data() + imageBufferView.byteOffset, imageBufferView.byteLength, m_imageFlags[imageIndex]))
 							{
 								importState.loadedImages[imageIndex].reset();
+								Logger::Error("Failed to load image at index {}.", imageIndex);
 							}
 						}
 					}

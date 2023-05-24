@@ -23,6 +23,8 @@ namespace Engine::Rendering
 		, m_sunDirection(glm::normalize(glm::vec3(0.2f, -1.0f, 2.0f)))
 		, m_sunColour(Colour(1.0f, 1.0f, 1.0f))
 		, m_sunIntensity(1.0f)
+		, m_debugMode(0)
+		, m_hdr(false)
 	{
 	}
 
@@ -101,6 +103,31 @@ namespace Engine::Rendering
 	const Colour Renderer::GetClearColor() const
 	{
 		return Colour(m_clearColour);
+	}
+
+	void Renderer::SetHDRState(bool enable)
+	{
+		m_hdr = enable;
+	}
+
+	bool Renderer::GetHDRState() const
+	{
+		return m_hdr;
+	}
+
+	bool Renderer::IsHDRSupported() const
+	{
+		return false;
+	}
+
+	void Renderer::SetDebugMode(uint32_t mode)
+	{
+		m_debugMode = mode;
+	}
+
+	uint32_t Renderer::GetDebugMode() const
+	{
+		return m_debugMode;
 	}
 
 	Shader* Renderer::CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs)

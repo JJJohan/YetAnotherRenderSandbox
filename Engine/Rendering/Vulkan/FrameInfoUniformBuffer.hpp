@@ -9,8 +9,9 @@ namespace Engine::Rendering::Vulkan
 	{
 		glm::mat4 viewProj;
 		glm::vec4 viewPos;
-		glm::vec4 ambientColour;
-		glm::vec4 sunLightDir;
-		glm::vec4 sunLightColour;
+		glm::vec3 sunLightDir;
+		uint32_t debugMode;
+		glm::vec3 sunLightColour;
+		float sunLightIntensity;
 	};
 }

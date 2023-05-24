@@ -48,7 +48,9 @@ namespace Engine::Rendering::Vulkan
 		virtual Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs);
 		virtual void DestroyShader(Shader* shader);
 
-		virtual void SetMultiSampleCount(uint32_t sampleCount);
+		virtual void SetMultiSampleCount(uint32_t sampleCount) override;
+		virtual void SetHDRState(bool enable) override;
+		virtual bool IsHDRSupported() const override;
 
 		virtual SceneManager* GetSceneManager() const;
 		virtual Engine::UI::UIManager* GetUIManager() const;
@@ -66,7 +68,7 @@ namespace Engine::Rendering::Vulkan
 		bool RecordCommandBuffer(const vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
 		bool CreateSyncObjects();
 		bool CreateAllocator();
-		bool RecreateSwapChain(const glm::uvec2& size);
+		bool RecreateSwapChain(const glm::uvec2& size, bool rebuildPipelines);
 		bool CreateFrameInfoUniformBuffer();
 
 		void OnResize(const glm::uvec2& size);

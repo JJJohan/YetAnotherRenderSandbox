@@ -4,6 +4,7 @@
 #include "Surface.hpp"
 #include "ImageView.hpp"
 #include "RenderImage.hpp"
+#include "OS/Window.hpp"
 #include "Core/Logging/Logger.hpp"
 
 using namespace Engine::Logging;
@@ -23,6 +24,7 @@ namespace Engine::Rendering::Vulkan
 		, m_colorImage(nullptr)
 		, m_colorImageView(nullptr)
 		, m_sampleCount(vk::SampleCountFlagBits::e1)
+		, m_hdrSupport()
 	{
 	}
 
@@ -36,11 +38,32 @@ namespace Engine::Rendering::Vulkan
 		return m_sampleCount;
 	}
 
-	vk::SurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats)
+	bool SwapChain::IsHDRCapable() const
 	{
+		return m_hdrSupport.has_value() && m_hdrSupport.value();
+	}
+
+	vk::SurfaceFormatKHR SwapChain::ChooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats, bool hdr)
+	{
+		if (!m_hdrSupport.has_value() || hdr)
+		{
+			auto hdrMatch = std::find_if(availableFormats.begin(), availableFormats.end(), [](const auto& availableFormat)
+				{
+					return availableFormat.format == vk::Format::eA2B10G10R10UnormPack32 && availableFormat.colorSpace != vk::ColorSpaceKHR::eSrgbNonlinear
+						&& availableFormat.colorSpace != vk::ColorSpaceKHR::eExtendedSrgbNonlinearEXT;
+				});
+
+			if (hdrMatch != availableFormats.end())
+			{
+				m_hdrSupport = true;
+				if (hdr)
+					return *hdrMatch;
+			}
+		}
+
 		auto match = std::find_if(availableFormats.begin(), availableFormats.end(), [](const auto& availableFormat)
 			{
-				return availableFormat.format == vk::Format::eR8G8B8Srgb && availableFormat.colorSpace == vk::ColorSpaceKHR::eExtendedSrgbNonlinearEXT;
+				return availableFormat.format == vk::Format::eR8G8B8Srgb && availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear;
 			});
 
 		if (match != availableFormats.end())
@@ -169,17 +192,11 @@ namespace Engine::Rendering::Vulkan
 	}
 
 	bool SwapChain::Initialise(const PhysicalDevice& physicalDevice, const Device& device, const Surface& surface,
-		VmaAllocator allocator, const glm::uvec2& size, vk::SampleCountFlagBits sampleCount)
+		const Window& window, VmaAllocator allocator, const glm::uvec2& size, vk::SampleCountFlagBits sampleCount, bool hdr)
 	{
-		std::optional<SwapChainSupportDetails> supportResult = QuerySwapChainSupport(physicalDevice.Get(), surface);
-		if (!supportResult.has_value())
-		{
-			return false;
-		}
+		SwapChainSupportDetails swapChainSupportDetails = QuerySwapChainSupport(physicalDevice.Get(), surface);
 
-		SwapChainSupportDetails swapChainSupportDetails = supportResult.value();
-
-		vk::SurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupportDetails.Formats);
+		vk::SurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupportDetails.Formats, hdr);
 		vk::PresentModeKHR presentMode = ChooseSwapPresentMode(swapChainSupportDetails.PresentModes);
 		m_swapChainExtent = ChooseSwapExtent(swapChainSupportDetails.Capabilities, size);
 		m_swapChainImageFormat = surfaceFormat.format;
@@ -210,13 +227,13 @@ namespace Engine::Rendering::Vulkan
 		QueueFamilyIndices indices = physicalDevice.GetQueueFamilyIndices();
 		uint32_t queueFamilyIndices[] = { indices.GraphicsFamily.value(), indices.PresentFamily.value() };
 
-		if (indices.GraphicsFamily != indices.PresentFamily) 
+		if (indices.GraphicsFamily != indices.PresentFamily)
 		{
 			createInfo.imageSharingMode = vk::SharingMode::eConcurrent;
 			createInfo.queueFamilyIndexCount = 2;
 			createInfo.pQueueFamilyIndices = queueFamilyIndices;
 		}
-		else 
+		else
 		{
 			createInfo.imageSharingMode = vk::SharingMode::eExclusive;
 			createInfo.queueFamilyIndexCount = 0; // Optional
@@ -271,6 +288,26 @@ namespace Engine::Rendering::Vulkan
 		if (!CreateDepthImage(physicalDevice, device, allocator, sampleCount))
 		{
 			return false;
+		}
+
+		if (hdr)
+		{
+			// Not sure if helpful, doesn't appear to affect output.
+			MonitorInfo monitorInfo;
+			if (window.QueryMonitorInfo(monitorInfo))
+			{
+				vk::HdrMetadataEXT metadata{};
+				metadata.displayPrimaryRed = vk::XYColorEXT(monitorInfo.RedPrimary[0], monitorInfo.RedPrimary[1]);
+				metadata.displayPrimaryGreen = vk::XYColorEXT(monitorInfo.GreenPrimary[0], monitorInfo.GreenPrimary[1]);
+				metadata.displayPrimaryBlue = vk::XYColorEXT(monitorInfo.BluePrimary[0], monitorInfo.BluePrimary[1]);
+				metadata.whitePoint = vk::XYColorEXT(monitorInfo.WhitePoint[0], monitorInfo.WhitePoint[1]);
+				metadata.maxContentLightLevel = 0;
+				metadata.maxFrameAverageLightLevel = 0;
+				metadata.minLuminance = monitorInfo.MinLuminance;
+				metadata.maxLuminance = monitorInfo.MaxLuminance;
+
+				deviceImp.setHdrMetadataEXT(1, &m_swapChain.get(), &metadata);
+			}
 		}
 
 		return true;

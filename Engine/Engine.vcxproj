@@ -196,6 +196,7 @@
     <ClCompile Include="Rendering\Vulkan\Surface.cpp" />
     <ClCompile Include="Rendering\Vulkan\SwapChain.cpp" />
     <ClCompile Include="UI\Drawer.cpp" />
+    <ClCompile Include="UI\imgui\backends\imgui_impl_vulkan.cpp" />
     <ClCompile Include="UI\imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="UI\imgui\imgui.cpp" />
     <ClCompile Include="UI\imgui\imgui_demo.cpp" />

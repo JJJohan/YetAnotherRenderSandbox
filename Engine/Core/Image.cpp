@@ -1,5 +1,6 @@
 #include "Image.hpp"
 #include "Logging/Logger.hpp"
+#include "Utilities.hpp"
 #include "AsyncData.hpp"
 #include "Hash.hpp"
 #include <filesystem>
@@ -74,66 +75,31 @@ namespace Engine
 	{
 		m_imageFlags = imageFlags;
 
-		wuffs_png__decoder* dec = wuffs_png__decoder__alloc();
+		wuffs_aux::DecodeImageCallbacks callbacks{};
+		wuffs_aux::sync_io::MemoryInput input(memory, size);
+		wuffs_aux::DecodeImageResult res = wuffs_aux::DecodeImage(callbacks, input);
 
-		wuffs_png__decoder__set_quirk(dec, WUFFS_BASE__QUIRK_IGNORE_CHECKSUM, true);
-
-		wuffs_base__image_config ic;
-		wuffs_base__io_buffer src = wuffs_base__ptr_u8__reader(const_cast<uint8_t*>(memory), size, true);
-		wuffs_base__status status = wuffs_png__decoder__decode_image_config(dec, &ic, &src);
-
-		if (status.repr)
+		if (!res.error_message.empty())
 		{
-			free(dec);
+			Logger::Error("Failed to parse image file: {}", res.error_message);
 			return false;
 		}
 
-		m_size.x = wuffs_base__pixel_config__width(&ic.pixcfg);
-		m_size.y = wuffs_base__pixel_config__height(&ic.pixcfg);
+		m_size.x = res.pixbuf.pixcfg.width();
+		m_size.y = res.pixbuf.pixcfg.height();
 		m_components = 4; // Source data will always be forced to 4 components, compression may reduce component count.
 
-		wuffs_base__pixel_config__set(&ic.pixcfg, WUFFS_BASE__PIXEL_FORMAT__RGBA_NONPREMUL, WUFFS_BASE__PIXEL_SUBSAMPLING__NONE, m_size.x, m_size.y);
+		std::vector<uint8_t>& pixels = m_mipMaps.emplace_back(std::vector<uint8_t>(res.pixbuf.pixcfg.pixbuf_len()));
+		memcpy(pixels.data(), res.pixbuf_mem_owner.get(), res.pixbuf.pixcfg.pixbuf_len());
 
-		uint64_t workbuf_len = wuffs_png__decoder__workbuf_len(dec).max_incl;
-		if (workbuf_len > SIZE_MAX)
+		// ARGB -> RGBA
+		uint32_t pixelCount = static_cast<uint32_t>(pixels.size()) / sizeof(uint32_t);
+		uint32_t* pixelsRgba = reinterpret_cast<uint32_t*>(pixels.data());
+		for (uint32_t i = 0; i < pixelCount; ++i)
 		{
-			free(dec);
-			return false;
+			uint32_t p = pixelsRgba[i];
+			pixelsRgba[i] = ((p & 0x00FF0000) >> 16) | ((p & 0x0000FF00)) | ((p & 0x000000FF) << 16) | ((p & 0xFF000000));
 		}
-
-		wuffs_base__slice_u8 workbuf_slice = wuffs_base__make_slice_u8((uint8_t*)malloc((size_t)workbuf_len), (size_t)workbuf_len);
-		if (!workbuf_slice.ptr)
-		{
-			free(dec);
-			return false;
-		}
-
-		std::vector<uint8_t>& pixels = m_mipMaps.emplace_back(std::vector<uint8_t>(m_size.x * m_size.y * m_components));
-		wuffs_base__slice_u8 pixbuf_slice = wuffs_base__make_slice_u8(pixels.data(), pixels.size());
-
-		wuffs_base__pixel_buffer pb;
-		status = wuffs_base__pixel_buffer__set_from_slice(&pb, &ic.pixcfg, pixbuf_slice);
-
-		if (status.repr)
-		{
-			free(workbuf_slice.ptr);
-			free(dec);
-			m_mipMaps.clear();
-			return false;
-		}
-
-		status = wuffs_png__decoder__decode_frame(dec, &pb, &src, WUFFS_BASE__PIXEL_BLEND__SRC, workbuf_slice, NULL);
-
-		if (status.repr)
-		{
-			free(workbuf_slice.ptr);
-			free(dec);
-			m_mipMaps.clear();
-			return false;
-		}
-
-		free(workbuf_slice.ptr);
-		free(dec);
 
 		m_hash = Hash::CalculateHash(m_mipMaps.front());
 
@@ -214,12 +180,22 @@ namespace Engine
 
 		bc7enc_compress_block_params params;
 		bool bc5Compress = false;
+		uint8_t bc5_c1 = 0;
+		uint8_t bc5_c2 = 1;
 		if (m_compressed)
 		{
 			bc5Compress = IsNormalMap() || IsMetallicRoughnessMap();
 			if (!bc5Compress)
 			{
 				bc7enc_compress_block_params_init(&params);
+			}
+			else
+			{
+				if (IsMetallicRoughnessMap())
+				{
+					bc5_c1 = 2;
+					bc5_c2 = 1;
+				}
 			}
 		}
 
@@ -253,7 +229,7 @@ namespace Engine
 						GetBlock(blockData, inputData, mipWidth, srcOffset + strideOffset);
 
 						if (bc5Compress)
-							rgbcx::encode_bc5(outputData + dstOffset, blockData, 0U, 1U, m_components);
+							rgbcx::encode_bc5(outputData + dstOffset, blockData, bc5_c1, bc5_c2, m_components);
 						else
 							bc7enc_compress_block(outputData + dstOffset, blockData, &params);
 						dstOffset += bytesPerBlock;

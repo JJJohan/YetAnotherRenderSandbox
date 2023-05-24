@@ -13,17 +13,19 @@ namespace Engine::OS
 		Win32Window(const std::string& title, const glm::uvec2& size, bool fullscreen);
 		~Win32Window();
 
-		virtual void* GetHandle() const;
-		virtual void* GetInstance() const;
+		virtual void* GetHandle() const override;
+		virtual void* GetInstance() const override;
 
 		void OnSizeEvent(uint64_t sizeEventFlag);
 		void OnFocusChanged(bool focused);
-		virtual void SetCursorVisible(bool visible);
-		virtual void SetTitle(const std::string& title);
-		virtual void SetFullscreen(bool fullscreen);
-		virtual void Resize(const glm::uvec2& size);
-		virtual void Poll();
-		virtual void Close();
+		virtual void SetCursorVisible(bool visible) override;
+		virtual void SetTitle(const std::string& title) override;
+		virtual void SetFullscreen(bool fullscreen) override;
+		virtual void Resize(const glm::uvec2& size) override;
+		virtual void Poll() override;
+		virtual void Close() override;
+		virtual bool QueryMonitorInfo(MonitorInfo& info) const override;
+
 		void SignalClosed();
 
 	private:

@@ -2,7 +2,7 @@ function Compile-Shader($shader)
 {
 	$baseName = $shader.BaseName
 	$ext = $shader.Extension.substring(1)
-	& "C:/Development/VulkanSDK/1.3.246.0/Bin/glslc.exe" $shader.Name -o "${baseName}_${ext}.spv"
+	& "C:/Development/VulkanSDK/1.3.246.0/Bin/glslc.exe" $shader.Name --target-env=vulkan1.3 -O -o "${baseName}_${ext}.spv"
 }
 
 $vertexShaders = dir *.vert | Select Name,BaseName,Extension

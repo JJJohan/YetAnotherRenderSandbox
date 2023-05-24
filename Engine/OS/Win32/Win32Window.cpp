@@ -2,11 +2,55 @@
 #include "Win32Window.hpp"
 #include <vector>
 #include "WindowProc.hpp"
+#include <dxgi1_6.h>
+#include <strsafe.h>
+
+#pragma comment(lib, "Dxgi")
 
 using namespace Engine::Logging;
 
 namespace Engine::OS
 {
+	std::string WStringToString(LPCWSTR wideString)
+	{
+		std::wstring wstr(wideString);
+		int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+		std::string str(size_needed, 0);
+		WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &str[0], size_needed, NULL, NULL);
+		return str;
+	}
+
+	void LogWin32Error()
+	{
+		// Retrieve the system error message for the last-error code
+		LPVOID lpMsgBuf;
+		LPVOID lpDisplayBuf;
+		DWORD dw = GetLastError();
+
+		FormatMessage(
+			FORMAT_MESSAGE_ALLOCATE_BUFFER |
+			FORMAT_MESSAGE_FROM_SYSTEM |
+			FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL,
+			dw,
+			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+			(LPTSTR)&lpMsgBuf,
+			0, NULL);
+
+		// Display the error message and exit the process
+		lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT,
+			(lstrlen((LPCTSTR)lpMsgBuf) + 40) * sizeof(TCHAR));
+		StringCchPrintf((LPTSTR)lpDisplayBuf,
+			LocalSize(lpDisplayBuf) / sizeof(TCHAR),
+			TEXT("Win32 error %d: %s"), dw, lpMsgBuf);
+
+		std::string str = WStringToString((LPCTSTR)lpDisplayBuf);
+		Logger::Error(str);
+
+		LocalFree(lpMsgBuf);
+		LocalFree(lpDisplayBuf);
+	}
+
 	Win32Window::Win32Window(const std::string& title, const glm::uvec2& size, bool fullscreen)
 		: Window(title, size, fullscreen)
 		, m_hWnd(nullptr)
@@ -224,6 +268,74 @@ namespace Engine::OS
 		Window::Close();
 
 		m_hWnd = nullptr;
+	}
+
+	bool Win32Window::QueryMonitorInfo(MonitorInfo& info) const
+	{
+		if (m_hWnd == nullptr)
+		{
+			Logger::Error("Window needs to be created to query monitor info.");
+			return false;
+		}
+
+		HMONITOR monitor = MonitorFromWindow(m_hWnd, MONITOR_DEFAULTTOPRIMARY);
+		if (monitor == nullptr)
+		{
+			Logger::Error("No monitor found.");
+			return false;
+		}
+
+		IDXGIFactory4* dxgiFactory = nullptr;
+		if (CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory)) != S_OK)
+		{
+			Logger::Error("Could not create DXGI factory.");
+			return false;
+		}
+
+		bool infoAcquired = false;
+		IDXGIAdapter1* dxgiAdapter = nullptr;
+		uint32_t adapterIndex = 0;
+		while (dxgiFactory->EnumAdapters1(adapterIndex, &dxgiAdapter) != DXGI_ERROR_NOT_FOUND)
+		{
+			// TODO: Match correct adapter to output that window is on?
+			uint32_t outputIndex = 0;
+			IDXGIOutput* tmpDxgiOutput = nullptr;
+			while (dxgiAdapter->EnumOutputs(outputIndex, &tmpDxgiOutput) != DXGI_ERROR_NOT_FOUND)
+			{
+				IDXGIOutput6* dxgiOutput = nullptr;
+				if (tmpDxgiOutput->QueryInterface(IID_PPV_ARGS(&dxgiOutput)) == S_OK)
+				{
+					DXGI_OUTPUT_DESC1 desc;
+					if (dxgiOutput->GetDesc1(&desc) == S_OK)
+					{
+						infoAcquired = true;
+						info.DeviceName = WStringToString(desc.DeviceName);
+						info.BitsPerColor = desc.BitsPerColor;
+						info.RedPrimary[0] = desc.RedPrimary[0];
+						info.RedPrimary[1] = desc.RedPrimary[1];
+						info.GreenPrimary[0] = desc.GreenPrimary[0];
+						info.GreenPrimary[1] = desc.GreenPrimary[1];
+						info.BluePrimary[0] = desc.BluePrimary[0];
+						info.BluePrimary[1] = desc.BluePrimary[1];
+						info.WhitePoint[0] = desc.WhitePoint[0];
+						info.WhitePoint[1] = desc.WhitePoint[1];
+						info.MinLuminance = desc.MinLuminance;
+						info.MaxLuminance = desc.MaxLuminance;
+						info.MaxFullFrameLuminance = desc.MaxFullFrameLuminance;
+					}
+				}
+				//++outputIndex;
+				break;
+			}
+
+			dxgiAdapter->Release();
+			//++adapterIndex;
+			break;
+		}
+
+		dxgiFactory->Release();
+
+		return infoAcquired;
 	}
 
 	void Win32Window::SetTitle(const std::string& title)

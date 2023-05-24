@@ -66,9 +66,24 @@ namespace Engine::UI
 		return ImGui::Checkbox(label, value);
 	}
 
+	bool Drawer::ComboBox(const char* label, const std::vector<const char*>& entries, int32_t* index) const
+	{
+		return ImGui::Combo(label, index, entries.data(), static_cast<int32_t>(entries.size()));
+	}
+
 	void Drawer::End() const
 	{
 		ImGui::End();
+	}
+
+	void Drawer::BeginDisabled(bool disabled) const
+	{
+		ImGui::BeginDisabled(disabled);
+	}
+
+	void Drawer::EndDisabled() const
+	{
+		ImGui::EndDisabled();
 	}
 
 	void Drawer::Progress(const ProgressInfo& progress) const

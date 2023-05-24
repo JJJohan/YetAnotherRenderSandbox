@@ -8,6 +8,19 @@
 
 namespace Engine::OS
 {
+	struct MonitorInfo
+	{
+		std::string DeviceName;
+		uint32_t BitsPerColor;
+		float RedPrimary[2];
+		float GreenPrimary[2];
+		float BluePrimary[2];
+		float WhitePoint[2];
+		float MinLuminance;
+		float MaxLuminance;
+		float MaxFullFrameLuminance;
+	};
+
 	class Window
 	{
 	public:
@@ -28,6 +41,7 @@ namespace Engine::OS
 		EXPORT virtual void Resize(const glm::uvec2& size);
 		EXPORT virtual void Close();
 		EXPORT virtual void Poll();
+		EXPORT virtual bool QueryMonitorInfo(MonitorInfo& info) const;
 
 		EXPORT void RegisterResizeCallback(std::function<void(const glm::uvec2&)> callback);
 		EXPORT void UnregisterResizeCallback(std::function<void(const glm::uvec2&)> callback);

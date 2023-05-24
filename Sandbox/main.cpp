@@ -46,18 +46,35 @@ uint32_t CreateTestMesh(const Renderer& renderer, std::shared_ptr<Image>& image)
 
 Colour g_clearColour = Colour(0, 0, 0);
 Colour g_sunColour = Colour(1, 1, 0.9f);
-float g_sunIntensity = 15.0f;
+float g_sunIntensity = 5.0f;
 uint32_t g_multiSampleCount = 4;
 Renderer* g_renderer;
 Window* g_window;
+bool g_useHDR = false;
 UIManager* g_uiManager;
 AsyncData g_sceneLoad;
+
+std::vector<const char*> g_debugModes = {"None", "Albedo", "Metalness", "Roughness"};
 
 void DrawUI(const Drawer& drawer)
 {
 	if (drawer.Begin("Test"))
 	{
 		drawer.Text("FPS: %.2f", g_uiManager->GetFPS());
+
+		int32_t debugMode = static_cast<int32_t>(g_renderer->GetDebugMode());
+		if (drawer.ComboBox("Debug Mode", g_debugModes, &debugMode))
+		{
+			g_renderer->SetDebugMode(debugMode);
+		}
+
+		bool hdrSupported = g_renderer->IsHDRSupported();
+		drawer.BeginDisabled(!hdrSupported);
+		if (drawer.Checkbox("Use HDR", &g_useHDR))
+		{
+			g_renderer->SetHDRState(g_useHDR);
+		}
+		drawer.EndDisabled();
 
 		if (drawer.Colour3("Clear Colour", g_clearColour))
 		{
@@ -122,7 +139,7 @@ int main()
 	renderer->SetSunLightIntensity(g_sunIntensity);
 
 	g_uiManager->RegisterDrawCallback(DrawLoadProgress);
-	renderer->GetSceneManager()->LoadScene("C:/Users/Johan/Desktop/test/Bistro_small.glb", true, g_sceneLoad);
+	renderer->GetSceneManager()->LoadScene("C:/Users/Johan/Desktop/test/Sponza.glb", true, g_sceneLoad);
 
 	Camera& camera = renderer->GetCamera();
 

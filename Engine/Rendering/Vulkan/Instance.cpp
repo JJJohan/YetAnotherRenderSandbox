@@ -54,6 +54,7 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<const char*> extensionNames;
 		extensionNames.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+		extensionNames.push_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
 #ifdef _WIN32    
 		extensionNames.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #else    

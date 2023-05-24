@@ -2,12 +2,7 @@
 
 #include "Rendering/Vulkan/DescriptorPool.hpp"
 #include "UI/UIManager.hpp"
-
-namespace vk
-{
-	class Instance;
-	class CommandBuffer;
-}
+#include <vulkan/vulkan.hpp>
 
 namespace Engine::Rendering::Vulkan
 {
@@ -32,15 +27,19 @@ namespace Engine::UI::Vulkan
 	{
 	public:
 		VulkanUIManager(const Engine::OS::Window& window, Engine::Rendering::Renderer& renderer);
-		virtual ~VulkanUIManager();
+		virtual ~VulkanUIManager() override;
 
-		bool Initialise(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer& renderer);
+		bool Initialise(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer & renderer);
 
 		void Draw(const vk::CommandBuffer& commandBuffer, float width, float height);
 
-		bool Rebuild(const vk::Device& device, vk::SampleCountFlagBits multiSampleCount) const;
+		bool Rebuild(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer& renderer, vk::SampleCountFlagBits multiSampleCount);
 
 	private:
+		bool SetupRenderBackend(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer& renderer, vk::SampleCountFlagBits multiSampleCount);
+		bool SubmitRenderResourceSetup(Engine::Rendering::Vulkan::VulkanRenderer& renderer);
+
 		std::unique_ptr<Engine::Rendering::Vulkan::DescriptorPool> m_descriptorPool;
+		uint8_t m_initVersion;
 	};
 }
