@@ -85,12 +85,6 @@
     <ClCompile Include="OS\Files.cpp">
       <Filter>OS</Filter>
     </ClCompile>
-    <ClCompile Include="Rendering\Vulkan\RenderPass.cpp">
-      <Filter>Rendering\Vulkan</Filter>
-    </ClCompile>
-    <ClCompile Include="Rendering\Vulkan\Framebuffer.cpp">
-      <Filter>Rendering\Vulkan</Filter>
-    </ClCompile>
     <ClCompile Include="Rendering\Vulkan\CommandPool.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
@@ -239,12 +233,6 @@
     </ClInclude>
     <ClInclude Include="OS\Files.hpp">
       <Filter>OS</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\Vulkan\RenderPass.hpp">
-      <Filter>Rendering\Vulkan</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\Vulkan\Framebuffer.hpp">
-      <Filter>Rendering\Vulkan</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\Vulkan\CommandPool.hpp">
       <Filter>Rendering\Vulkan</Filter>

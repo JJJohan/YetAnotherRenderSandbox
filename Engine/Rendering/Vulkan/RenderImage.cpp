@@ -128,7 +128,7 @@ namespace Engine::Rendering::Vulkan
 			nullptr, nullptr, { barrier });
 	}
 
-	bool RenderImage::Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, vk::SampleCountFlagBits sampleCount, uint32_t mipLevels, vk::ImageTiling tiling,
+	bool RenderImage::Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, uint32_t mipLevels, vk::ImageTiling tiling,
 		vk::ImageUsageFlags imageUsage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode)
 	{
 		m_format = format;
@@ -136,7 +136,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_mipLevels = mipLevels;
 
-		vk::ImageCreateInfo RenderImageInfo(vk::ImageCreateFlags(), imageType, format, dimensions, m_mipLevels, 1, sampleCount, tiling, imageUsage, sharingMode);
+		vk::ImageCreateInfo RenderImageInfo(vk::ImageCreateFlags(), imageType, format, dimensions, m_mipLevels, 1, vk::SampleCountFlagBits::e1, tiling, imageUsage, sharingMode);
 
 		VmaAllocationCreateInfo allocCreateInfo = {};
 		allocCreateInfo.usage = memoryUsage;

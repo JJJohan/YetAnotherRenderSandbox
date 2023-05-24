@@ -50,7 +50,7 @@ namespace Engine::UI::Vulkan
 #endif
 	}
 
-	bool VulkanUIManager::SetupRenderBackend(const vk::Instance& instance, VulkanRenderer& renderer, vk::SampleCountFlagBits multiSampleCount)
+	bool VulkanUIManager::SetupRenderBackend(const vk::Instance& instance, VulkanRenderer& renderer)
 	{
 		uint32_t concurrentFrames = renderer.GetConcurrentFrameCount();
 		const Device& device = renderer.GetDevice();
@@ -77,7 +77,7 @@ namespace Engine::UI::Vulkan
 		initInfo.Subpass = 0;
 		initInfo.MinImageCount = concurrentFrames;
 		initInfo.ImageCount = concurrentFrames;
-		initInfo.MSAASamples = static_cast<VkSampleCountFlagBits>(multiSampleCount);
+		initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 		initInfo.Allocator = nullptr;
 		initInfo.CheckVkResultFn = check_vk_result;
 		initInfo.UseDynamicRendering = true;
@@ -116,7 +116,7 @@ namespace Engine::UI::Vulkan
 		// Setup Dear ImGui style
 		ImGui::StyleColorsDark();
 
-		if (!SetupRenderBackend(instance, renderer, vk::SampleCountFlagBits::e1))
+		if (!SetupRenderBackend(instance, renderer))
 		{
 			return false;
 		}
@@ -138,12 +138,12 @@ namespace Engine::UI::Vulkan
 		return true;
 	}
 
-	bool VulkanUIManager::Rebuild(const vk::Instance& instance, VulkanRenderer& renderer, vk::SampleCountFlagBits multiSampleCount)
+	bool VulkanUIManager::Rebuild(const vk::Instance& instance, VulkanRenderer& renderer)
 	{
 		++m_initVersion;
 		ImGui_ImplVulkan_Shutdown();
 
-		if (!SetupRenderBackend(instance, renderer, multiSampleCount))
+		if (!SetupRenderBackend(instance, renderer))
 		{
 			return false;
 		}

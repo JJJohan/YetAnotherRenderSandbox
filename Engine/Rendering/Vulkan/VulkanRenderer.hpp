@@ -73,9 +73,6 @@ namespace Engine::Rendering::Vulkan
 
 		void OnResize(const glm::uvec2& size);
 
-		vk::SampleCountFlagBits GetMultiSampleCount(uint32_t sampleCount) const;
-		uint32_t MultiSampleCountToInteger(vk::SampleCountFlagBits sampleCount) const;
-
 		struct ResourceCommandData
 		{
 			vk::UniqueFence fence;

@@ -30,27 +30,22 @@ namespace Engine::Rendering::Vulkan
 		const vk::Format& GetDepthFormat() const;
 		const vk::Extent2D& GetExtent() const;
 		const vk::SwapchainKHR& Get() const;
-		vk::SampleCountFlagBits GetSampleCount() const;
 
-		RenderImage& GetColorImage() const;
 		RenderImage& GetDepthImage() const;
 		std::vector<RenderImage>& GetSwapChainImages();
 		const std::vector<std::unique_ptr<ImageView>>& GetSwapChainImageViews() const;
-		const ImageView& GetColorView() const;
 		const ImageView& GetDepthView() const;
 		bool IsHDRCapable() const;
 
 		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, const Surface& surface, 
-			const Engine::OS::Window& window, VmaAllocator allocator, const glm::uvec2& size, vk::SampleCountFlagBits sampleCount, bool hdr);
+			const Engine::OS::Window& window, VmaAllocator allocator, const glm::uvec2& size, bool hdr);
 
 		static SwapChainSupportDetails QuerySwapChainSupport(const vk::PhysicalDevice& physicalDevice, const Surface& surface);
 
 	private:
-		bool CreateColorImage(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator, vk::SampleCountFlagBits samples);
-		bool CreateDepthImage(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator, vk::SampleCountFlagBits samples);
+		bool CreateDepthImage(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator);
 		vk::SurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats, bool hdr);
 
-		vk::SampleCountFlagBits m_sampleCount;
 		vk::UniqueSwapchainKHR m_swapChain;
 		vk::Format m_swapChainImageFormat;
 		vk::Format m_depthImageFormat;
@@ -59,8 +54,6 @@ namespace Engine::Rendering::Vulkan
 		std::vector<std::unique_ptr<ImageView>> m_swapChainImageViews;
 		std::unique_ptr<RenderImage> m_depthImage;
 		std::unique_ptr<ImageView> m_depthImageView;
-		std::unique_ptr<RenderImage> m_colorImage;
-		std::unique_ptr<ImageView> m_colorImageView;
 		std::optional<bool> m_hdrSupport;
 	};
 }

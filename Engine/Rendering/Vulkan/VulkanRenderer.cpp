@@ -129,30 +129,18 @@ namespace Engine::Rendering::Vulkan
 			vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0))
 		};
 
-		bool multiSampled = m_multiSampleCount > 1 && (m_multiSampleCount & (m_multiSampleCount - 1)) == 0;
-
-		RenderImage& colorImage = multiSampled ? m_swapChain->GetColorImage() : m_swapChain->GetSwapChainImages()[imageIndex];
-		RenderImage& resolveImage = multiSampled ? m_swapChain->GetSwapChainImages()[imageIndex] : m_swapChain->GetColorImage();
+		RenderImage& colorImage = m_swapChain->GetSwapChainImages()[imageIndex];
 		RenderImage& depthImage = m_swapChain->GetDepthImage();
 
 		colorImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eColorAttachmentOptimal);
-		if (multiSampled)
-			resolveImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eColorAttachmentOptimal);
 		depthImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
 		vk::RenderingAttachmentInfo colorAttachmentInfo{};
-		colorAttachmentInfo.imageView = multiSampled ? m_swapChain->GetColorView().Get() : m_swapChain->GetSwapChainImageViews()[imageIndex]->Get();
+		colorAttachmentInfo.imageView = m_swapChain->GetSwapChainImageViews()[imageIndex]->Get();
 		colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
 		colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
 		colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
 		colorAttachmentInfo.clearValue = vk::ClearValue(vk::ClearColorValue(m_clearColour.r, m_clearColour.g, m_clearColour.b, m_clearColour.a));
-
-		if (multiSampled)
-		{
-			colorAttachmentInfo.resolveImageLayout = vk::ImageLayout::eColorAttachmentOptimal;
-			colorAttachmentInfo.resolveImageView = m_swapChain->GetSwapChainImageViews()[imageIndex]->Get();
-			colorAttachmentInfo.resolveMode = vk::ResolveModeFlagBits::eAverage;
-		}
 
 		vk::RenderingAttachmentInfo depthAttachmentInfo{};
 		depthAttachmentInfo.imageView = m_swapChain->GetDepthView().Get();
@@ -195,10 +183,7 @@ namespace Engine::Rendering::Vulkan
 
 		commandBuffer.endRendering();
 
-		if (multiSampled)
-			resolveImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::ePresentSrcKHR);
-		else
-			colorImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::ePresentSrcKHR);
+		colorImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::ePresentSrcKHR);
 
 		commandBuffer.end();
 
@@ -403,24 +388,7 @@ namespace Engine::Rendering::Vulkan
 
 	void VulkanRenderer::SetMultiSampleCount(uint32_t multiSampleCount)
 	{
-		uint32_t prevMultiSampleCount = m_multiSampleCount;
-		Renderer::SetMultiSampleCount(multiSampleCount);
-		if (m_multiSampleCount == prevMultiSampleCount)
-		{
-			return;
-		}
-
-		m_actionQueue.push([this]()
-			{
-				const glm::uvec2 size = m_window.GetSize();
-				if (!RecreateSwapChain(size, true))
-				{
-					Logger::Error("Failed to recreate swapchain.");
-					return false;
-				}
-
-				return true;
-			});
+		Logger::Warning("Multisampling not supported in Vulkan backend.");
 	}
 
 	bool VulkanRenderer::Initialise()
@@ -453,7 +421,7 @@ namespace Engine::Rendering::Vulkan
 			|| !m_physicalDevice->Initialise(*m_instance, *m_surface)
 			|| !m_device->Initialise(*m_physicalDevice)
 			|| !CreateAllocator()
-			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, GetMultiSampleCount(m_multiSampleCount), m_hdr)
+			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, m_hdr)
 			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eTransient)
 			|| !m_renderCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
 			|| !CreateSyncObjects()
@@ -469,8 +437,6 @@ namespace Engine::Rendering::Vulkan
 			Logger::Error("Failed to initialise UI.");
 			return false;
 		}
-
-		m_maxMultiSampleCount = MultiSampleCountToInteger(m_physicalDevice->GetMaxMultiSampleCount());
 
 		m_renderCommandBuffers = m_renderCommandPool->CreateCommandBuffers(*m_device, m_maxConcurrentFrames);
 		if (m_renderCommandBuffers.empty())
@@ -504,57 +470,14 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	vk::SampleCountFlagBits VulkanRenderer::GetMultiSampleCount(uint32_t multiSampleCount) const
-	{
-		switch (multiSampleCount)
-		{
-		case 64:
-			return vk::SampleCountFlagBits::e64;
-		case 32:
-			return vk::SampleCountFlagBits::e32;
-		case 16:
-			return vk::SampleCountFlagBits::e16;
-		case 8:
-			return vk::SampleCountFlagBits::e8;
-		case 4:
-			return vk::SampleCountFlagBits::e4;
-		case 2:
-			return vk::SampleCountFlagBits::e2;
-		default:
-			return vk::SampleCountFlagBits::e1;
-		}
-	}
-
-	uint32_t VulkanRenderer::MultiSampleCountToInteger(vk::SampleCountFlagBits multiSampleCount) const
-	{
-		switch (multiSampleCount)
-		{
-		case vk::SampleCountFlagBits::e64:
-			return 64;
-		case vk::SampleCountFlagBits::e32:
-			return 32;
-		case vk::SampleCountFlagBits::e16:
-			return 16;
-		case vk::SampleCountFlagBits::e8:
-			return 8;
-		case vk::SampleCountFlagBits::e4:
-			return 4;
-		case vk::SampleCountFlagBits::e2:
-			return 2;
-		default:
-			return 1;
-		}
-	}
-
 	bool VulkanRenderer::RecreateSwapChain(const glm::uvec2& size, bool rebuildPipelines)
 	{
-		vk::SampleCountFlagBits multiSampleCount = GetMultiSampleCount(m_multiSampleCount);
 		m_device->Get().waitIdle(); // Recreating swapchain warrants stalling GPU pipeline.
 
 		m_lastWindowSize = size;
 		m_swapChainOutOfDate = false;
 
-		if (!m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, multiSampleCount, m_hdr))
+		if (!m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, m_hdr))
 		{
 			return false;
 		}
@@ -570,7 +493,7 @@ namespace Engine::Rendering::Vulkan
 				}
 			}
 
-			if (!m_uiManager->Rebuild(m_instance->Get(), *this, multiSampleCount))
+			if (!m_uiManager->Rebuild(m_instance->Get(), *this))
 			{
 				Logger::Error("Failed to recreate UI render backend.");
 				return false;

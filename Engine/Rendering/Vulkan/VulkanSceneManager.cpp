@@ -7,7 +7,6 @@
 #include "RenderImage.hpp"
 #include "ImageView.hpp"
 #include "ImageSampler.hpp"
-#include "RenderPass.hpp"
 #include "VulkanRenderer.hpp"
 #include "CommandPool.hpp"
 #include "FrameInfoUniformBuffer.hpp"
@@ -63,7 +62,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		m_blankImage = std::make_shared<RenderImage>(allocator);
-		bool imageInitialised = m_blankImage->Initialise(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, vk::Extent3D(1, 1, 1), vk::SampleCountFlagBits::e1, 1, vk::ImageTiling::eOptimal,
+		bool imageInitialised = m_blankImage->Initialise(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, vk::Extent3D(1, 1, 1), 1, vk::ImageTiling::eOptimal,
 			vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 			0,
@@ -479,7 +478,7 @@ namespace Engine::Rendering::Vulkan
 				}
 
 				std::unique_ptr<RenderImage>& renderImage = m_imageArray.emplace_back(std::make_unique<RenderImage>(allocator));
-				bool imageInitialised = renderImage->Initialise(vk::ImageType::e2D, format, dimensions, vk::SampleCountFlagBits::e1, imageData.Header.MipLevels, vk::ImageTiling::eOptimal,
+				bool imageInitialised = renderImage->Initialise(vk::ImageType::e2D, format, dimensions, imageData.Header.MipLevels, vk::ImageTiling::eOptimal,
 					vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
 					VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 					0,
@@ -604,7 +603,7 @@ namespace Engine::Rendering::Vulkan
 			vk::Extent3D dimensions(size.x, size.y, 1);
 
 			std::unique_ptr<RenderImage>& renderImage = m_imageArray.emplace_back(std::make_unique<RenderImage>(allocator));
-			bool imageInitialised = renderImage->Initialise(vk::ImageType::e2D, format, dimensions, vk::SampleCountFlagBits::e1, static_cast<uint32_t>(pixels.size()), vk::ImageTiling::eOptimal,
+			bool imageInitialised = renderImage->Initialise(vk::ImageType::e2D, format, dimensions, static_cast<uint32_t>(pixels.size()), vk::ImageTiling::eOptimal,
 				vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
 				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 				0,

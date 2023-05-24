@@ -21,9 +21,6 @@ namespace Engine::Rendering::Vulkan
 		, m_swapChainImageViews()
 		, m_depthImage(nullptr)
 		, m_depthImageView(nullptr)
-		, m_colorImage(nullptr)
-		, m_colorImageView(nullptr)
-		, m_sampleCount(vk::SampleCountFlagBits::e1)
 		, m_hdrSupport()
 	{
 	}
@@ -31,11 +28,6 @@ namespace Engine::Rendering::Vulkan
 	const vk::SwapchainKHR& SwapChain::Get() const
 	{
 		return m_swapChain.get();
-	}
-
-	vk::SampleCountFlagBits SwapChain::GetSampleCount() const
-	{
-		return m_sampleCount;
 	}
 
 	bool SwapChain::IsHDRCapable() const
@@ -79,29 +71,7 @@ namespace Engine::Rendering::Vulkan
 		return vk::PresentModeKHR::eFifo;
 	}
 
-	bool SwapChain::CreateColorImage(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator, vk::SampleCountFlagBits samples)
-	{
-		m_colorImage = std::make_unique<RenderImage>(allocator);
-		vk::Extent3D extent(m_swapChainExtent.width, m_swapChainExtent.height, 1);
-		if (!m_colorImage->Initialise(vk::ImageType::e2D, m_swapChainImageFormat, extent, samples, 1, vk::ImageTiling::eOptimal,
-			vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment,
-			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0, vk::SharingMode::eExclusive))
-		{
-			Logger::Error("Failed to create color image.");
-			return false;
-		}
-
-		m_colorImageView = std::make_unique<ImageView>();
-		if (!m_colorImageView->Initialise(device, m_colorImage->Get(), 1, m_swapChainImageFormat, vk::ImageAspectFlagBits::eColor))
-		{
-			Logger::Error("Failed to create color image view.");
-			return false;
-		}
-
-		return true;
-	}
-
-	bool SwapChain::CreateDepthImage(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator, vk::SampleCountFlagBits samples)
+	bool SwapChain::CreateDepthImage(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator)
 	{
 		m_depthImageFormat = physicalDevice.FindDepthFormat();
 		if (m_depthImageFormat == vk::Format::eUndefined)
@@ -112,7 +82,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_depthImage = std::make_unique<RenderImage>(allocator);
 		vk::Extent3D extent(m_swapChainExtent.width, m_swapChainExtent.height, 1);
-		if (!m_depthImage->Initialise(vk::ImageType::e2D, m_depthImageFormat, extent, samples, 1, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
+		if (!m_depthImage->Initialise(vk::ImageType::e2D, m_depthImageFormat, extent, 1, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0, vk::SharingMode::eExclusive))
 		{
 			Logger::Error("Failed to create depth image.");
@@ -129,11 +99,6 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	RenderImage& SwapChain::GetColorImage() const
-	{
-		return *m_colorImage;
-	}
-
 	RenderImage& SwapChain::GetDepthImage() const
 	{
 		return *m_depthImage;
@@ -147,11 +112,6 @@ namespace Engine::Rendering::Vulkan
 	const std::vector<std::unique_ptr<ImageView>>& SwapChain::GetSwapChainImageViews() const
 	{
 		return m_swapChainImageViews;
-	}
-
-	const ImageView& SwapChain::GetColorView() const
-	{
-		return *m_colorImageView;
 	}
 
 	const ImageView& SwapChain::GetDepthView() const
@@ -192,7 +152,7 @@ namespace Engine::Rendering::Vulkan
 	}
 
 	bool SwapChain::Initialise(const PhysicalDevice& physicalDevice, const Device& device, const Surface& surface,
-		const Window& window, VmaAllocator allocator, const glm::uvec2& size, vk::SampleCountFlagBits sampleCount, bool hdr)
+		const Window& window, VmaAllocator allocator, const glm::uvec2& size, bool hdr)
 	{
 		SwapChainSupportDetails swapChainSupportDetails = QuerySwapChainSupport(physicalDevice.Get(), surface);
 
@@ -200,7 +160,6 @@ namespace Engine::Rendering::Vulkan
 		vk::PresentModeKHR presentMode = ChooseSwapPresentMode(swapChainSupportDetails.PresentModes);
 		m_swapChainExtent = ChooseSwapExtent(swapChainSupportDetails.Capabilities, size);
 		m_swapChainImageFormat = surfaceFormat.format;
-		m_sampleCount = sampleCount;
 
 		uint32_t imageCount = swapChainSupportDetails.Capabilities.minImageCount + 1;
 		if (swapChainSupportDetails.Capabilities.maxImageCount > 0 && imageCount > swapChainSupportDetails.Capabilities.maxImageCount)
@@ -255,8 +214,6 @@ namespace Engine::Rendering::Vulkan
 		m_swapChainImageViews.clear();
 		m_depthImageView.reset();
 		m_depthImage.reset();
-		m_colorImageView.reset();
-		m_colorImage.reset();
 
 		std::vector<vk::Image> images = deviceImp.getSwapchainImagesKHR(m_swapChain.get());
 		if (images.empty())
@@ -280,12 +237,7 @@ namespace Engine::Rendering::Vulkan
 			m_swapChainImageViews.push_back(std::move(imageView));
 		}
 
-		if (sampleCount != vk::SampleCountFlagBits::e1 && !CreateColorImage(physicalDevice, device, allocator, sampleCount))
-		{
-			return false;
-		}
-
-		if (!CreateDepthImage(physicalDevice, device, allocator, sampleCount))
+		if (!CreateDepthImage(physicalDevice, device, allocator))
 		{
 			return false;
 		}

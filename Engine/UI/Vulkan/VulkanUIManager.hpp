@@ -33,10 +33,10 @@ namespace Engine::UI::Vulkan
 
 		void Draw(const vk::CommandBuffer& commandBuffer, float width, float height);
 
-		bool Rebuild(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer& renderer, vk::SampleCountFlagBits multiSampleCount);
+		bool Rebuild(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer& renderer);
 
 	private:
-		bool SetupRenderBackend(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer& renderer, vk::SampleCountFlagBits multiSampleCount);
+		bool SetupRenderBackend(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer& renderer);
 		bool SubmitRenderResourceSetup(Engine::Rendering::Vulkan::VulkanRenderer& renderer);
 
 		std::unique_ptr<Engine::Rendering::Vulkan::DescriptorPool> m_descriptorPool;

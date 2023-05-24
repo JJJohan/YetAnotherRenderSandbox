@@ -47,7 +47,6 @@ uint32_t CreateTestMesh(const Renderer& renderer, std::shared_ptr<Image>& image)
 Colour g_clearColour = Colour(0, 0, 0);
 Colour g_sunColour = Colour(1, 1, 0.9f);
 float g_sunIntensity = 5.0f;
-uint32_t g_multiSampleCount = 4;
 Renderer* g_renderer;
 Window* g_window;
 bool g_useHDR = false;
@@ -91,14 +90,6 @@ void DrawUI(const Drawer& drawer)
 			g_renderer->SetSunLightIntensity(g_sunIntensity);
 		}
 
-		int32_t multiSampleCount = static_cast<int32_t>(g_multiSampleCount);
-		int32_t multiSampleMax = static_cast<int32_t>(g_renderer->GetMaxMultiSampleCount());
-		if (drawer.SliderInt("Multisampling", &multiSampleCount, 1, multiSampleMax))
-		{
-			g_multiSampleCount = static_cast<uint32_t>(multiSampleCount);
-			g_renderer->SetMultiSampleCount(g_multiSampleCount);
-		}
-
 		drawer.End();
 	}
 }
@@ -133,7 +124,6 @@ int main()
 
 	g_uiManager = renderer->GetUIManager();
 
-	renderer->SetMultiSampleCount(g_multiSampleCount);
 	renderer->SetClearColour(g_clearColour);
 	renderer->SetSunLightColour(g_sunColour);
 	renderer->SetSunLightIntensity(g_sunIntensity);

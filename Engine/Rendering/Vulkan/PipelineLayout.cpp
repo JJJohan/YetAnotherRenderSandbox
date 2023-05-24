@@ -152,7 +152,7 @@ namespace Engine::Rendering::Vulkan
 		// Multisampling state
 		vk::PipelineMultisampleStateCreateInfo multisampling{};
 		multisampling.sampleShadingEnable = VK_FALSE;
-		multisampling.rasterizationSamples = swapChain.GetSampleCount();
+		multisampling.rasterizationSamples = vk::SampleCountFlagBits::e1;
 		multisampling.minSampleShading = 1.0f; // Optional
 		multisampling.pSampleMask = nullptr; // Optional
 		multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
