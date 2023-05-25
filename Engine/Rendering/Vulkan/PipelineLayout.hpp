@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../Shader.hpp"
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -9,30 +8,31 @@
 namespace Engine::Rendering::Vulkan
 {
 	class Device;
-	class SwapChain;
 
-	class PipelineLayout : public Shader
+	class PipelineLayout
 	{
 	public:
 		PipelineLayout();
 
-		virtual bool IsValid() const;
 		const vk::PipelineLayout& Get() const;
 		const vk::Pipeline& GetGraphicsPipeline() const;
-		std::vector<vk::DescriptorSetLayout> GetDescriptorSetLayouts() const;
 
-		bool Initialise(const Device& device, const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs, 
-			const SwapChain& swapChain);
+		bool Initialise(const Device& device, const std::string& name,
+			const std::unordered_map<vk::ShaderStageFlagBits, std::vector<uint8_t>>& programs,
+			const std::vector<vk::VertexInputBindingDescription>& bindingDescriptions,
+			const std::vector<vk::VertexInputAttributeDescription>& attributeDescriptions,
+			const std::vector<vk::Format>& attachmentFormats, vk::Format depthFormat,
+			const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts);
 
-		bool Rebuild(const Device& device, const SwapChain& swapChain, uint32_t imageCount);
+		bool Rebuild(const Device& device, const std::vector<vk::Format>& attachmentFormats, vk::Format depthFormat,
+			const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts);
 
 	private:
-		bool SetupDescriptorSetLayout(const Device& device);
-
-		uint32_t m_imageCount;
+		std::string m_name;
 		vk::UniquePipelineLayout m_pipelineLayout;
 		vk::UniquePipeline m_graphicsPipeline;
-		vk::UniqueDescriptorSetLayout m_descriptorSetLayout;
 		std::vector<std::pair<vk::ShaderStageFlagBits, vk::UniqueShaderModule>> m_shaderModules;
+		std::vector<vk::VertexInputBindingDescription> m_bindingDescriptions;
+		std::vector<vk::VertexInputAttributeDescription> m_attributeDescriptions;
 	};
 }

@@ -7,8 +7,8 @@ namespace Engine::Rendering
 {
 	enum class ShaderProgramType
 	{
-		VERTEX,
-		FRAGMENT
+		Vertex,
+		Fragment
 	};
 
 	class Shader

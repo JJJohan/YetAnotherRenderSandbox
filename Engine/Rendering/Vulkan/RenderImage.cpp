@@ -160,7 +160,7 @@ namespace Engine::Rendering::Vulkan
 
 	void RenderImage::TransitionImageLayout(const Device& device, const vk::CommandBuffer& commandBuffer, vk::ImageLayout newLayout)
 	{
-		if (m_layout == newLayout) 
+		if (m_layout == newLayout)
 			return;
 
 		vk::AccessFlags srcAccessMask;
@@ -203,6 +203,34 @@ namespace Engine::Rendering::Vulkan
 			srcStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
 			dstStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
 		}
+		else if (m_layout == vk::ImageLayout::eColorAttachmentOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
+		{
+			srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+			dstAccessMask = vk::AccessFlagBits::eShaderRead;
+			srcStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+			dstStage = vk::PipelineStageFlagBits::eFragmentShader;
+		}
+		else if (m_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
+		{
+			srcAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+			dstAccessMask = vk::AccessFlagBits::eShaderRead;
+			srcStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+			dstStage = vk::PipelineStageFlagBits::eFragmentShader;
+		}
+		else if (m_layout == vk::ImageLayout::eShaderReadOnlyOptimal && newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+		{
+			srcAccessMask = vk::AccessFlagBits::eShaderRead;
+			dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+			srcStage = vk::PipelineStageFlagBits::eFragmentShader;
+			dstStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+		}
+		else if (m_layout == vk::ImageLayout::eShaderReadOnlyOptimal && newLayout == vk::ImageLayout::eColorAttachmentOptimal)
+		{
+			srcAccessMask = vk::AccessFlagBits::eShaderRead;
+			dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+			srcStage = vk::PipelineStageFlagBits::eFragmentShader;
+			dstStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		}
 		else if (m_layout == vk::ImageLayout::eColorAttachmentOptimal && newLayout == vk::ImageLayout::ePresentSrcKHR)
 		{
 			srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
@@ -220,7 +248,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		vk::ImageAspectFlags aspectFlags;
-		if (newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+		if (m_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal || newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
 		{
 			aspectFlags = vk::ImageAspectFlagBits::eDepth;
 

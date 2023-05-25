@@ -4,6 +4,7 @@
 layout(binding = 0) uniform FrameInfo
 {
     mat4 viewProj;
+	mat4 lightViewProj;
 	vec4 viewPos;
 	vec3 sunLightDir;
 	uint debugMode;

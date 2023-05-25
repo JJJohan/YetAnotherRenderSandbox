@@ -15,12 +15,9 @@ namespace Engine::Rendering::Vulkan
 	SwapChain::SwapChain()
 		: m_swapChain(nullptr)
 		, m_swapChainImageFormat(vk::Format::eUndefined)
-		, m_depthImageFormat(vk::Format::eUndefined)
 		, m_swapChainExtent()
 		, m_swapChainImages()
 		, m_swapChainImageViews()
-		, m_depthImage(nullptr)
-		, m_depthImageView(nullptr)
 		, m_hdrSupport()
 	{
 	}
@@ -71,39 +68,6 @@ namespace Engine::Rendering::Vulkan
 		return vk::PresentModeKHR::eFifo;
 	}
 
-	bool SwapChain::CreateDepthImage(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator)
-	{
-		m_depthImageFormat = physicalDevice.FindDepthFormat();
-		if (m_depthImageFormat == vk::Format::eUndefined)
-		{
-			Logger::Error("Failed to find suitable format for depth texture.");
-			return false;
-		}
-
-		m_depthImage = std::make_unique<RenderImage>(allocator);
-		vk::Extent3D extent(m_swapChainExtent.width, m_swapChainExtent.height, 1);
-		if (!m_depthImage->Initialise(vk::ImageType::e2D, m_depthImageFormat, extent, 1, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
-			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0, vk::SharingMode::eExclusive))
-		{
-			Logger::Error("Failed to create depth image.");
-			return false;
-		}
-
-		m_depthImageView = std::make_unique<ImageView>();
-		if (!m_depthImageView->Initialise(device, m_depthImage->Get(), 1, m_depthImageFormat, vk::ImageAspectFlagBits::eDepth))
-		{
-			Logger::Error("Failed to create depth image view.");
-			return false;
-		}
-
-		return true;
-	}
-
-	RenderImage& SwapChain::GetDepthImage() const
-	{
-		return *m_depthImage;
-	}
-
 	std::vector<RenderImage>& SwapChain::GetSwapChainImages()
 	{
 		return m_swapChainImages;
@@ -112,11 +76,6 @@ namespace Engine::Rendering::Vulkan
 	const std::vector<std::unique_ptr<ImageView>>& SwapChain::GetSwapChainImageViews() const
 	{
 		return m_swapChainImageViews;
-	}
-
-	const ImageView& SwapChain::GetDepthView() const
-	{
-		return *m_depthImageView;
 	}
 
 	vk::Extent2D ChooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities, const glm::uvec2& size)
@@ -139,11 +98,6 @@ namespace Engine::Rendering::Vulkan
 	const vk::Format& SwapChain::GetFormat() const
 	{
 		return m_swapChainImageFormat;
-	}
-
-	const vk::Format& SwapChain::GetDepthFormat() const
-	{
-		return m_depthImageFormat;
 	}
 
 	const vk::Extent2D& SwapChain::GetExtent() const
@@ -212,8 +166,6 @@ namespace Engine::Rendering::Vulkan
 		oldSwapChain.reset();
 		m_swapChainImages.clear();
 		m_swapChainImageViews.clear();
-		m_depthImageView.reset();
-		m_depthImage.reset();
 
 		std::vector<vk::Image> images = deviceImp.getSwapchainImagesKHR(m_swapChain.get());
 		if (images.empty())
@@ -235,11 +187,6 @@ namespace Engine::Rendering::Vulkan
 
 			m_swapChainImages.push_back(RenderImage(image, surfaceFormat.format));
 			m_swapChainImageViews.push_back(std::move(imageView));
-		}
-
-		if (!CreateDepthImage(physicalDevice, device, allocator))
-		{
-			return false;
 		}
 
 		if (hdr)

@@ -21,10 +21,10 @@ namespace Engine::Rendering
 	{
 		switch (type)
 		{
-			case ShaderProgramType::VERTEX:
-				return "VERTEX";
-			case ShaderProgramType::FRAGMENT:
-				return "FRAGMENT";
+		case ShaderProgramType::Vertex:
+			return "Vertex";
+		case ShaderProgramType::Fragment:
+			return "Fragment";
 		default:
 			return "Unknown";
 		}

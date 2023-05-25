@@ -53,7 +53,7 @@ bool g_useHDR = false;
 UIManager* g_uiManager;
 AsyncData g_sceneLoad;
 
-std::vector<const char*> g_debugModes = {"None", "Albedo", "Metalness", "Roughness"};
+std::vector<const char*> g_debugModes = { "None", "Albedo", "Normal", "WorldPos", "MetalRoughness" };
 
 void DrawUI(const Drawer& drawer)
 {
@@ -84,7 +84,7 @@ void DrawUI(const Drawer& drawer)
 		{
 			g_renderer->SetSunLightColour(g_sunColour);
 		}
-		
+
 		if (drawer.SliderFloat("Sun Intensity", &g_sunIntensity, 0.0f, 20.0f))
 		{
 			g_renderer->SetSunLightIntensity(g_sunIntensity);
@@ -104,7 +104,7 @@ void DrawLoadProgress(const Drawer& drawer)
 
 	const ProgressInfo& progress = g_sceneLoad.GetProgress();
 	drawer.Progress(progress);
-	
+
 }
 
 int main()
@@ -129,7 +129,7 @@ int main()
 	renderer->SetSunLightIntensity(g_sunIntensity);
 
 	g_uiManager->RegisterDrawCallback(DrawLoadProgress);
-	renderer->GetSceneManager()->LoadScene("C:/Users/Johan/Desktop/test/Sponza.glb", true, g_sceneLoad);
+	renderer->GetSceneManager()->LoadScene("C:/Users/Johan/Desktop/test/Bistro_small.glb", true, g_sceneLoad);
 
 	Camera& camera = renderer->GetCamera();
 

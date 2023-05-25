@@ -11,10 +11,12 @@
 #include "CommandPool.hpp"
 #include "FrameInfoUniformBuffer.hpp"
 #include "RenderMeshInfo.hpp"
+#include "GBuffer.hpp"
 #include "PipelineLayout.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "Core/ChunkData.hpp"
 #include "Core/AsyncData.hpp"
+#include "OS/Files.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <vma/vk_mem_alloc.h>
@@ -22,13 +24,20 @@
 #include <execution>
 
 using namespace Engine::Logging;
+using namespace Engine::OS;
 
 namespace Engine::Rendering::Vulkan
 {
 	VulkanSceneManager::VulkanSceneManager(VulkanRenderer& renderer)
 		: m_renderer(renderer)
-		, m_descriptorPool()
-		, m_descriptorSets()
+		, m_pbrDescriptorPool()
+		, m_pbrDescriptorSets()
+		, m_pbrDescriptorSetLayout()
+		, m_pbrShader()
+		, m_shadowDescriptorPool()
+		, m_shadowDescriptorSets()
+		, m_shadowDescriptorSetLayout()
+		, m_shadowShader()
 		, m_blankImage()
 		, m_blankImageView()
 		, m_sampler()
@@ -42,25 +51,13 @@ namespace Engine::Rendering::Vulkan
 		, m_vertexOffsets()
 		, m_indexOffsets()
 		, m_indexCounts()
+		, m_lastKnownColorFormats()
+		, m_lastKnownDepthFormat()
 	{
 	}
 
-	bool VulkanSceneManager::Initialise(Shader* shader)
+	bool VulkanSceneManager::InitPBRShaderResources(const Device& device, uint32_t concurrentFrames, const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat, VmaAllocator allocator)
 	{
-		m_shader = shader;
-
-		const Device& device = m_renderer.GetDevice();
-		const PhysicalDevice& physicalDevice = m_renderer.GetPhysicalDevice();
-		VmaAllocator allocator = m_renderer.GetAllocator();
-		uint32_t concurrentFrames = m_renderer.GetConcurrentFrameCount();
-
-		m_sampler = std::make_unique<ImageSampler>();
-		bool samplerInitialised = m_sampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear, vk::SamplerAddressMode::eRepeat, physicalDevice.GetLimits().maxSamplerAnisotropy);
-		if (!samplerInitialised)
-		{
-			return false;
-		}
-
 		m_blankImage = std::make_shared<RenderImage>(allocator);
 		bool imageInitialised = m_blankImage->Initialise(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, vk::Extent3D(1, 1, 1), 1, vk::ImageTiling::eOptimal,
 			vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
@@ -81,13 +78,164 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<vk::DescriptorPoolSize> poolSizes =
 		{
-			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, concurrentFrames),
-			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, concurrentFrames),
-			vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, concurrentFrames),
+			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
+			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 1),
+			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 1),
+			vk::DescriptorPoolSize(vk::DescriptorType::eSampler, 1),
 		};
 
-		m_descriptorPool = std::make_unique<DescriptorPool>();
-		if (!m_descriptorPool->Initialise(device, concurrentFrames, poolSizes))
+		m_pbrDescriptorPool = std::make_unique<DescriptorPool>();
+		if (!m_pbrDescriptorPool->Initialise(device, concurrentFrames, poolSizes))
+		{
+			return false;
+		}
+
+		if (!SetupPBRDescriptorSetLayout(device, 1))
+		{
+			return false;
+		}
+
+		std::string vertFilePath = "Shaders/PBR_vert.spv";
+		std::vector<uint8_t> vertData;
+		if (!Files::TryReadFile(vertFilePath, vertData))
+		{
+			Logger::Error("Failed to read shader program at path '{}'.", vertFilePath);
+			return false;
+		}
+
+		std::string fragFilePath = "Shaders/PBR_frag.spv";
+		std::vector<uint8_t> fragData;
+		if (!Files::TryReadFile(fragFilePath, fragData))
+		{
+			Logger::Error("Failed to read shader program at path '{}'.", fragFilePath);
+			return false;
+		}
+
+		auto programs = std::unordered_map<vk::ShaderStageFlagBits, std::vector<uint8_t>>{
+			{ vk::ShaderStageFlagBits::eVertex, vertData },
+			{ vk::ShaderStageFlagBits::eFragment, fragData }
+		};
+
+		std::vector<vk::VertexInputBindingDescription> bindingDescriptions =
+		{ {
+			vk::VertexInputBindingDescription(0, sizeof(glm::vec3), vk::VertexInputRate::eVertex),
+			vk::VertexInputBindingDescription(1, sizeof(glm::vec2), vk::VertexInputRate::eVertex),
+			vk::VertexInputBindingDescription(2, sizeof(glm::vec3), vk::VertexInputRate::eVertex)
+		} };
+
+		std::vector<vk::VertexInputAttributeDescription> attributeDescriptions =
+		{ {
+			vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, 0),
+			vk::VertexInputAttributeDescription(1, 1, vk::Format::eR32G32Sfloat, 0),
+			vk::VertexInputAttributeDescription(2, 2, vk::Format::eR32G32B32Sfloat, 0)
+		} };
+
+		std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = { m_pbrDescriptorSetLayout.get() };
+
+		m_pbrShader = std::make_unique<PipelineLayout>();
+		if (!m_pbrShader->Initialise(device, "PBR Shader", programs, bindingDescriptions, attributeDescriptions, gBufferFormats, depthFormat, descriptorSetLayouts))
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	bool VulkanSceneManager::InitShadowShaderResources(const Device& device, uint32_t concurrentFrames, vk::Format depthFormat, VmaAllocator allocator)
+	{
+		std::vector<vk::DescriptorPoolSize> poolSizes =
+		{
+			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
+			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 1)
+		};
+
+		m_shadowDescriptorPool = std::make_unique<DescriptorPool>();
+		if (!m_shadowDescriptorPool->Initialise(device, concurrentFrames, poolSizes))
+		{
+			return false;
+		}
+
+		std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings =
+		{
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex),
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex)
+		};
+
+		vk::DescriptorSetLayoutCreateInfo layoutInfo(vk::DescriptorSetLayoutCreateFlags(), layoutBindings);
+
+		const vk::Device& deviceImp = device.Get();
+		m_shadowDescriptorSetLayout = deviceImp.createDescriptorSetLayoutUnique(layoutInfo);
+		if (!m_shadowDescriptorSetLayout.get())
+		{
+			Logger::Error("Failed to create descriptor set layout.");
+			return false;
+		}
+
+		std::string vertFilePath = "Shaders/Shadow_vert.spv";
+		std::vector<uint8_t> vertData;
+		if (!Files::TryReadFile(vertFilePath, vertData))
+		{
+			Logger::Error("Failed to read shader program at path '{}'.", vertFilePath);
+			return false;
+		}
+
+		std::string fragFilePath = "Shaders/Shadow_frag.spv";
+		std::vector<uint8_t> fragData;
+		if (!Files::TryReadFile(fragFilePath, fragData))
+		{
+			Logger::Error("Failed to read shader program at path '{}'.", fragFilePath);
+			return false;
+		}
+
+		auto programs = std::unordered_map<vk::ShaderStageFlagBits, std::vector<uint8_t>>{
+			{ vk::ShaderStageFlagBits::eVertex, vertData },
+			{ vk::ShaderStageFlagBits::eFragment, fragData }
+		};
+
+		std::vector<vk::VertexInputBindingDescription> bindingDescriptions =
+		{ {
+			vk::VertexInputBindingDescription(0, sizeof(glm::vec3), vk::VertexInputRate::eVertex)
+		} };
+
+		std::vector<vk::VertexInputAttributeDescription> attributeDescriptions =
+		{ {
+			vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, 0)
+		} };
+
+		std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = { m_shadowDescriptorSetLayout.get() };
+
+		std::vector<vk::Format> attachmentFormats; // No colour attachments.
+		m_shadowShader = std::make_unique<PipelineLayout>();
+		if (!m_shadowShader->Initialise(device, "Shadow Shader", programs, bindingDescriptions, attributeDescriptions, attachmentFormats, depthFormat, descriptorSetLayouts))
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	bool VulkanSceneManager::Initialise(const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat)
+	{
+		const Device& device = m_renderer.GetDevice();
+		const PhysicalDevice& physicalDevice = m_renderer.GetPhysicalDevice();
+		VmaAllocator allocator = m_renderer.GetAllocator();
+		uint32_t concurrentFrames = m_renderer.GetConcurrentFrameCount();
+		m_lastKnownColorFormats = gBufferFormats;
+		m_lastKnownDepthFormat = depthFormat;
+
+		m_sampler = std::make_unique<ImageSampler>();
+		bool samplerInitialised = m_sampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear, vk::SamplerAddressMode::eRepeat, physicalDevice.GetLimits().maxSamplerAnisotropy);
+		if (!samplerInitialised)
+		{
+			return false;
+		}
+
+		if (!InitPBRShaderResources(device, concurrentFrames, gBufferFormats, depthFormat, allocator))
+		{
+			return false;
+		}
+
+		if (!InitShadowShaderResources(device, concurrentFrames, depthFormat, allocator))
 		{
 			return false;
 		}
@@ -755,7 +903,7 @@ namespace Engine::Rendering::Vulkan
 		return m_renderer.SubmitResourceCommand([this, chunkData, &asyncData](const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers)
 			{
 				const Device& device = m_renderer.GetDevice();
-				const SwapChain& swapChain = m_renderer.GetSwapChain();
+				const GBuffer& gBuffer = m_renderer.GetGBuffer();
 				uint32_t concurrentFrames = m_renderer.GetConcurrentFrameCount();
 				VmaAllocator allocator = m_renderer.GetAllocator();
 				PhysicalDevice physicalDevice = m_renderer.GetPhysicalDevice();
@@ -790,19 +938,25 @@ namespace Engine::Rendering::Vulkan
 					return false;
 				}
 
-				PipelineLayout* pipelineLayout = static_cast<PipelineLayout*>(m_shader);
-				if (!pipelineLayout->Rebuild(device, swapChain, imageCount))
+				if (!SetupPBRDescriptorSetLayout(device, imageCount))
 				{
 					asyncData.State = AsyncState::Failed;
 					return false;
 				}
 
-				std::vector<vk::DescriptorSetLayout> layouts;
+				std::vector<vk::DescriptorSetLayout> pbrLayouts;
 				for (uint32_t i = 0; i < concurrentFrames; ++i)
 				{
-					layouts.append_range(pipelineLayout->GetDescriptorSetLayouts());
+					pbrLayouts.push_back(m_pbrDescriptorSetLayout.get());
 				}
-				m_descriptorSets = m_descriptorPool->CreateDescriptorSets(device, layouts);
+				m_pbrDescriptorSets = m_pbrDescriptorPool->CreateDescriptorSets(device, pbrLayouts);
+
+				std::vector<vk::DescriptorSetLayout> shadowLayouts;
+				for (uint32_t i = 0; i < concurrentFrames; ++i)
+				{
+					shadowLayouts.push_back(m_shadowDescriptorSetLayout.get());
+				}
+				m_shadowDescriptorSets = m_shadowDescriptorPool->CreateDescriptorSets(device, shadowLayouts);
 
 				std::array<vk::DescriptorImageInfo, 1> samplerInfos =
 				{
@@ -828,15 +982,28 @@ namespace Engine::Rendering::Vulkan
 						vk::DescriptorBufferInfo(frameInfoBuffers[i]->Get(), 0, sizeof(FrameInfoUniformBuffer))
 					};
 
-					std::array<vk::WriteDescriptorSet, 4> writeDescriptorSets =
+					std::array<vk::WriteDescriptorSet, 4> pbrWriteDescriptorSets =
 					{
-						vk::WriteDescriptorSet(m_descriptorSets[i], 0, 0, vk::DescriptorType::eUniformBuffer, nullptr, frameBufferInfos),
-						vk::WriteDescriptorSet(m_descriptorSets[i], 1, 0, vk::DescriptorType::eStorageBuffer, nullptr, instanceBufferInfos),
-						vk::WriteDescriptorSet(m_descriptorSets[i], 2, 0, vk::DescriptorType::eSampler, samplerInfos),
-						vk::WriteDescriptorSet(m_descriptorSets[i], 3, 0, vk::DescriptorType::eSampledImage, imageInfos)
+						vk::WriteDescriptorSet(m_pbrDescriptorSets[i], 0, 0, vk::DescriptorType::eUniformBuffer, nullptr, frameBufferInfos),
+						vk::WriteDescriptorSet(m_pbrDescriptorSets[i], 1, 0, vk::DescriptorType::eStorageBuffer, nullptr, instanceBufferInfos),
+						vk::WriteDescriptorSet(m_pbrDescriptorSets[i], 2, 0, vk::DescriptorType::eSampler, samplerInfos),
+						vk::WriteDescriptorSet(m_pbrDescriptorSets[i], 3, 0, vk::DescriptorType::eSampledImage, imageInfos)
 					};
 
-					device.Get().updateDescriptorSets(writeDescriptorSets, nullptr);
+					device.Get().updateDescriptorSets(pbrWriteDescriptorSets, nullptr);
+
+					std::array<vk::WriteDescriptorSet, 2> shadowWriteDescriptorSets =
+					{
+						vk::WriteDescriptorSet(m_shadowDescriptorSets[i], 0, 0, vk::DescriptorType::eUniformBuffer, nullptr, frameBufferInfos),
+						vk::WriteDescriptorSet(m_shadowDescriptorSets[i], 1, 0, vk::DescriptorType::eStorageBuffer, nullptr, instanceBufferInfos)
+					};
+
+					device.Get().updateDescriptorSets(shadowWriteDescriptorSets, nullptr);
+				}
+
+				if (!RebuildShader(device, m_lastKnownColorFormats, m_lastKnownDepthFormat))
+				{
+					return false;
 				}
 
 				return true;
@@ -848,13 +1015,45 @@ namespace Engine::Rendering::Vulkan
 				});
 	}
 
+	bool VulkanSceneManager::RebuildShader(const Device& device, const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat)
+	{
+		m_lastKnownColorFormats = gBufferFormats;
+		m_lastKnownDepthFormat = depthFormat;
+
+		std::vector<vk::DescriptorSetLayout> pbrDescriptorSetLayouts = { m_pbrDescriptorSetLayout.get() };
+
+		return m_pbrShader->Rebuild(device, gBufferFormats, depthFormat, pbrDescriptorSetLayouts);
+	}
+
+	bool VulkanSceneManager::SetupPBRDescriptorSetLayout(const Device& device, uint32_t imageCount)
+	{
+		std::array<vk::DescriptorSetLayoutBinding, 4> layoutBindings =
+		{
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment),
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex),
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampledImage, imageCount, vk::ShaderStageFlagBits::eFragment)
+		};
+
+		vk::DescriptorSetLayoutCreateInfo layoutInfo(vk::DescriptorSetLayoutCreateFlags(), layoutBindings);
+
+		const vk::Device& deviceImp = device.Get();
+		m_pbrDescriptorSetLayout = deviceImp.createDescriptorSetLayoutUnique(layoutInfo);
+		if (!m_pbrDescriptorSetLayout.get())
+		{
+			Logger::Error("Failed to create descriptor set layout.");
+			return false;
+		}
+
+		return true;
+	}
+
 	void VulkanSceneManager::Draw(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex)
 	{
 		if (m_vertexBuffers.empty() || m_creating)
 			return;
 
-		const PipelineLayout* pipelineLayout = static_cast<const PipelineLayout*>(m_shader);
-		const vk::Pipeline& graphicsPipeline = pipelineLayout->GetGraphicsPipeline();
+		const vk::Pipeline& graphicsPipeline = m_pbrShader->GetGraphicsPipeline();
 		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
 		uint32_t vertexBufferCount = static_cast<uint32_t>(m_vertexBuffers.size());
@@ -870,7 +1069,27 @@ namespace Engine::Rendering::Vulkan
 
 		commandBuffer.bindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
 		commandBuffer.bindIndexBuffer(m_indexBuffer->Get(), 0, vk::IndexType::eUint32);
-		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout->Get(), 0, m_descriptorSets[currentFrameIndex], nullptr);
+		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pbrShader->Get(), 0, m_pbrDescriptorSets[currentFrameIndex], nullptr);
+
+		uint32_t drawCount = m_meshCapacity; // TODO: Compute counted, after culling, etc.
+		commandBuffer.drawIndexedIndirect(m_indirectDrawBuffer->Get(), 0, drawCount, sizeof(vk::DrawIndexedIndirectCommand));
+	}
+
+	void VulkanSceneManager::DrawShadows(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex)
+	{
+		if (m_vertexBuffers.empty() || m_creating)
+			return;
+
+		const vk::Pipeline& graphicsPipeline = m_shadowShader->GetGraphicsPipeline();
+		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
+
+		std::vector<vk::DeviceSize> vertexBufferOffsets;
+		vertexBufferOffsets.resize(1);
+		std::vector<vk::Buffer> vertexBufferViews = { m_vertexBuffers.front()->Get() };
+
+		commandBuffer.bindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
+		commandBuffer.bindIndexBuffer(m_indexBuffer->Get(), 0, vk::IndexType::eUint32);
+		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_shadowShader->Get(), 0, m_shadowDescriptorSets[currentFrameIndex], nullptr);
 
 		uint32_t drawCount = m_meshCapacity; // TODO: Compute counted, after culling, etc.
 		commandBuffer.drawIndexedIndirect(m_indirectDrawBuffer->Get(), 0, drawCount, sizeof(vk::DrawIndexedIndirectCommand));

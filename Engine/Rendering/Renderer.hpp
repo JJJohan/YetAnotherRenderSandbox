@@ -5,7 +5,6 @@
 #include <unordered_map>
 #include "Core/Colour.hpp"
 #include "Core/Macros.hpp"
-#include "Shader.hpp"
 #include <glm/glm.hpp>
 #include "Camera.hpp"
 
@@ -56,10 +55,6 @@ namespace Engine::Rendering
 
 		EXPORT void SetCamera(const Camera& camera);
 		EXPORT Camera& GetCamera();
-
-		EXPORT virtual Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs);
-		EXPORT Shader* CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::string>& programs);
-		EXPORT virtual void DestroyShader(Shader* shader);
 
 		EXPORT virtual SceneManager* GetSceneManager() const;
 		EXPORT virtual Engine::UI::UIManager* GetUIManager() const;

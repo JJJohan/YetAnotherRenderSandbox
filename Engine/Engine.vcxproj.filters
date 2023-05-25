@@ -76,9 +76,6 @@
     <ClCompile Include="Rendering\Vulkan\ImageView.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="Rendering\Shader.cpp">
-      <Filter>Rendering</Filter>
-    </ClCompile>
     <ClCompile Include="Rendering\Vulkan\PipelineLayout.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
@@ -178,6 +175,12 @@
     <ClCompile Include="UI\imgui\backends\imgui_impl_vulkan.cpp">
       <Filter>UI\imgui\backends</Filter>
     </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\GBuffer.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Shader.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Macros.hpp">
@@ -224,9 +227,6 @@
     </ClInclude>
     <ClInclude Include="Rendering\Vulkan\ImageView.hpp">
       <Filter>Rendering\Vulkan</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\Shader.hpp">
-      <Filter>Rendering</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\Vulkan\PipelineLayout.hpp">
       <Filter>Rendering\Vulkan</Filter>
@@ -338,6 +338,12 @@
     </ClInclude>
     <ClInclude Include="Core\AsyncData.hpp">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\GBuffer.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Shader.hpp">
+      <Filter>Rendering</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -4,7 +4,7 @@ This codebase serves as an on-going hobby project to familiarise myself with som
 
 The project consists of a Windows-specific solution file with dependencies pre-compiled with AVX2 as a pre-requisite which may render some hardware configurations unable to compile this codebase.
 
-The current focus is on building up a fairly solid foundation, with graphical fidelity not being the immediate goal which will result in some sub-par output. Currently a hard-coded directional light spins around an arbitrary GLTF file (with the assumption it contains PBR data).
+The current focus is on building up a fairly solid foundation, with graphical fidelity not being the immediate goal which will result in some sub-par output. Currently a hard-coded directional light spins around an arbitrary GLTF file (with the assumption it contains PBR data.)
 
 The short-term focus as of writing:
 * Cascaded shadow maps.
@@ -13,4 +13,4 @@ The short-term focus as of writing:
 * Experimenting with basic animation.
 * Code cleanup before pursuing more intricate topics.
 
-![preview](preview.png)
+![preview](ReadmeAssets/preview_v2.png)

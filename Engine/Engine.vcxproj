@@ -183,6 +183,7 @@
     <ClCompile Include="Rendering\Vulkan\Debug.cpp" />
     <ClCompile Include="Rendering\Vulkan\DescriptorPool.cpp" />
     <ClCompile Include="Rendering\Vulkan\Device.cpp" />
+    <ClCompile Include="Rendering\Vulkan\GBuffer.cpp" />
     <ClCompile Include="Rendering\Vulkan\ImageSampler.cpp" />
     <ClCompile Include="Rendering\Vulkan\RenderImage.cpp" />
     <ClCompile Include="Rendering\Vulkan\ImageView.cpp" />
@@ -234,6 +235,7 @@
     <ClInclude Include="Rendering\Vulkan\DescriptorPool.hpp" />
     <ClInclude Include="Rendering\Vulkan\Device.hpp" />
     <ClInclude Include="Rendering\Vulkan\FrameInfoUniformBuffer.hpp" />
+    <ClInclude Include="Rendering\Vulkan\GBuffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\ImageSampler.hpp" />
     <ClInclude Include="Rendering\Vulkan\RenderImage.hpp" />
     <ClInclude Include="Rendering\Vulkan\ImageView.hpp" />

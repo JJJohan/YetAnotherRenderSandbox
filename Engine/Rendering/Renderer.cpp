@@ -130,34 +130,6 @@ namespace Engine::Rendering
 		return m_debugMode;
 	}
 
-	Shader* Renderer::CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::vector<uint8_t>>& programs)
-	{
-		return nullptr;
-	}
-
-	Shader* Renderer::CreateShader(const std::string& name, const std::unordered_map<ShaderProgramType, std::string>& programInfos)
-	{
-		std::unordered_map<ShaderProgramType, std::vector<uint8_t>> programs{};
-		programs.reserve(programInfos.size());
-		for (const auto& programInfo : programInfos)
-		{
-			std::vector<uint8_t> data;
-			if (!Files::TryReadFile(programInfo.second, data))
-			{
-				Logger::Error("Failed to read shader program at path '{}'.", programInfo.second);
-				return nullptr;
-			}
-
-			programs.emplace(programInfo.first, std::move(data));
-		}
-
-		return CreateShader(name, programs);
-	}
-
-	void Renderer::DestroyShader(Shader* shader)
-	{
-	}
-
 	bool Renderer::Initialise()
 	{
 		return true;

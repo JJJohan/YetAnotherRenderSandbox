@@ -16,11 +16,12 @@ namespace Engine::Rendering::Vulkan
 		return m_sampler.get();
 	}
 
-	bool ImageSampler::Initialise(const Device& device, vk::Filter magFilter, vk::Filter minFilter, vk::SamplerMipmapMode mipMapMode, 
+	bool ImageSampler::Initialise(const Device& device, vk::Filter magFilter, vk::Filter minFilter, vk::SamplerMipmapMode mipMapMode,
 		vk::SamplerAddressMode addressMode, float maxAnisotropy)
 	{
 		vk::SamplerCreateInfo createInfo(vk::SamplerCreateFlags(), magFilter, minFilter, mipMapMode, addressMode,
 			addressMode, addressMode, 0.0f, maxAnisotropy > 0.0f, maxAnisotropy);
+		createInfo.borderColor = vk::BorderColor::eFloatOpaqueWhite;
 		createInfo.maxLod = VK_LOD_CLAMP_NONE;
 
 		m_sampler = device.Get().createSamplerUnique(createInfo);

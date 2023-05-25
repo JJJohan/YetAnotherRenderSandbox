@@ -30,19 +30,27 @@ namespace Engine::Rendering::Vulkan
 	class ImageView;
 	class ImageSampler;
 	class VulkanRenderer;
+	class PipelineLayout;
 
 	class VulkanSceneManager : public SceneManager
 	{
 	public:
 		VulkanSceneManager(VulkanRenderer& renderer);
 
-		bool Initialise(Shader* shader);
+		bool Initialise(const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat);
 
 		virtual bool Build(ChunkData* chunkData, AsyncData& asyncData) override;
 
 		void Draw(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex);
+		void DrawShadows(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex);
+
+		bool RebuildShader(const Device& device, const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat);
 
 	private:
+		bool SetupPBRDescriptorSetLayout(const Device& device, uint32_t imageCount);
+		bool InitPBRShaderResources(const Device& device, uint32_t concurrentFrames, const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat, VmaAllocator allocator);
+		bool InitShadowShaderResources(const Device& device, uint32_t concurrentFrames, vk::Format depthFormat, VmaAllocator allocator);
+
 		bool SetupIndirectDrawBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator);
 
@@ -68,6 +76,9 @@ namespace Engine::Rendering::Vulkan
 
 		VulkanRenderer& m_renderer;
 
+		std::vector<vk::Format> m_lastKnownColorFormats;
+		vk::Format m_lastKnownDepthFormat;
+
 		std::shared_ptr<RenderImage> m_blankImage;
 		std::shared_ptr<ImageView> m_blankImageView;
 		std::unique_ptr<ImageSampler> m_sampler;
@@ -85,7 +96,14 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<vk::DrawIndexedIndirectCommand> m_indirectDrawCommands;
 
-		std::unique_ptr<DescriptorPool> m_descriptorPool;
-		std::vector<vk::DescriptorSet> m_descriptorSets;
+		vk::UniqueDescriptorSetLayout m_pbrDescriptorSetLayout;
+		std::unique_ptr<DescriptorPool> m_pbrDescriptorPool;
+		std::vector<vk::DescriptorSet> m_pbrDescriptorSets;
+		std::unique_ptr<PipelineLayout> m_pbrShader;
+
+		vk::UniqueDescriptorSetLayout m_shadowDescriptorSetLayout;
+		std::unique_ptr<DescriptorPool> m_shadowDescriptorPool;
+		std::vector<vk::DescriptorSet> m_shadowDescriptorSets;
+		std::unique_ptr<PipelineLayout> m_shadowShader;
 	};
 }

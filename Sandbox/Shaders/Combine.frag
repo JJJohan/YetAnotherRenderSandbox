@@ -1,9 +1,11 @@
 #version 460
 #extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_samplerless_texture_functions : require
 
 layout(binding = 0) uniform FrameInfo
 {
     mat4 viewProj;
+	mat4 lightViewProj;
 	vec4 viewPos;
 	vec3 sunLightDir;
 	uint debugMode;
@@ -11,49 +13,71 @@ layout(binding = 0) uniform FrameInfo
 	float sunLightIntensity;
 } frameInfo;
 
-layout(location = 0) flat in uint fragDiffuseImageIndex;
-layout(location = 1) flat in uint fragNormalImageIndex;
-layout(location = 2) flat in uint fragMetallicRoughnessImageIndex;
+layout(binding = 1) uniform sampler samp;
+layout(binding = 2) uniform texture2D textures[];
+layout(binding = 3) uniform sampler shadowSampler;
+layout(binding = 4) uniform texture2D shadowMap;
 
-layout(location = 3) in vec4 fragColor;
-layout(location = 4) in vec2 fragUv;
-layout(location = 5) in vec3 fragWorldPos;
-layout(location = 6) in vec3 fragNormal;
+layout(location = 0) in vec2 fragUv;
 
-layout(binding = 2) uniform sampler samp;
-layout(binding = 3) uniform texture2D textures[];
+#include "brdf.glsl"
+#include "tonemapping.glsl"
 
 layout(location = 0) out vec4 outColor;
 
-#include "tonemapping.glsl"
-#include "brdf.glsl"
-
-vec3 unpackNormal()
+float textureProj(vec4 P, vec2 offset)
 {
-	vec2 packed = texture(sampler2D(textures[fragNormalImageIndex], samp), fragUv).rg;
-	packed = packed * 2.0 - 1.0;
-	float z = sqrt(1.0 - packed.x * packed.x - packed.y * packed.y);
-	vec3 tangentNormal = normalize(vec3(packed, z));
+	vec4 shadowCoord = P / P.w;
+	shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
 
-	vec3 q1 = dFdx(fragWorldPos);
-	vec3 q2 = dFdy(fragWorldPos);
-	vec2 st1 = dFdx(fragUv);
-	vec2 st2 = dFdy(fragUv);
+	if (shadowCoord.z > -1.0 && shadowCoord.z < 1.0)
+	{
+		float dist = texture(sampler2D(shadowMap, shadowSampler), vec2(shadowCoord.st + offset)).r;
+		if (shadowCoord.w > 0.0 && dist < shadowCoord.z)
+		{
+			return 1.0;
+		}
+	}
 
-	vec3 N = normalize(fragNormal);
-	vec3 T = normalize(q1 * st2.t - q2 * st1.t);
-	vec3 B = -normalize(cross(N, T));
-	mat3 TBN = mat3(T, B, N);
+	return 0.0;
+}
 
-	return normalize(TBN * tangentNormal);
+float filterPCF(vec4 sc)
+{
+	ivec2 texDim = textureSize(shadowMap, 0).xy;
+	float scale = 1.5;
+	float dx = scale * 1.0 / float(texDim.x);
+	float dy = scale * 1.0 / float(texDim.y);
+
+	float shadowFactor = 0.0;
+	int count = 0;
+	int range = 1;
+
+	for (int x = -range; x <= range; x++)
+	{
+		for (int y = -range; y <= range; y++)
+		{
+			shadowFactor += textureProj(sc, vec2(dx*x, dy*y));
+			count++;
+		}
+
+	}
+	return shadowFactor / count;
+}
+
+float ShadowCalculation(vec3 fragPos)
+{
+	vec4 shadowClip	= frameInfo.lightViewProj * vec4(fragPos, 1.0);
+	return filterPCF(shadowClip);
 }
 
 void main()
 {
-	vec4 baseColor = texture(sampler2D(textures[fragDiffuseImageIndex], samp), fragUv) * fragColor;
-	if (baseColor.a < 0.5) discard;
+	vec4 baseColor = texture(sampler2D(textures[0], samp), fragUv);
+	vec3 normal = texture(sampler2D(textures[1], samp), fragUv).rgb;
+	vec3 worldPos = texture(sampler2D(textures[2], samp), fragUv).rgb;
+	vec2 metalRoughness = texture(sampler2D(textures[3], samp), fragUv).rg;
 
-	vec2 metalRoughness = texture(sampler2D(textures[fragMetallicRoughnessImageIndex], samp), fragUv).rg;
 	vec3 f0 = vec3(0.04);
 
 	vec3 diffuseColor = baseColor.rgb * (vec3(1.0) - f0);
@@ -75,8 +99,8 @@ void main()
 	vec3 lightColor = frameInfo.sunLightColor * frameInfo.sunLightIntensity;
 	vec3 lightDir = -frameInfo.sunLightDir;
 
-	vec3 n = unpackNormal();
-	vec3 v = normalize(frameInfo.viewPos.xyz - fragWorldPos);    // Vector from surface point to camera
+	vec3 n = normal;
+	vec3 v = normalize(frameInfo.viewPos.xyz - worldPos);    // Vector from surface point to camera
 	vec3 l = normalize(lightDir);     // Vector from surface point to light
 	vec3 h = normalize(l+v);                        // Half vector between both l and v
 	vec3 reflection = -normalize(reflect(v, n));
@@ -111,30 +135,37 @@ void main()
 	// Calculation of analytical lighting contribution
 	vec3 diffuseContrib = (1.0 - F) * diffuse(pbrInputs);
 	vec3 specContrib = F * G * D / (4.0 * NdotL * NdotV);
+
+    // Calculate shadow
+    float shadow = ShadowCalculation(worldPos);
+
 	// Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
-	vec3 color = NdotL * lightColor * (diffuseContrib + specContrib);
+	vec3 color = (1.0 - shadow) * NdotL * lightColor * (diffuseContrib + specContrib);
 
 	// Calculate lighting contribution from image based lighting source (IBL)
 	//color += getIBLContribution(pbrInputs, n, reflection);
+	color += baseColor.rgb * 0.1; // static ambient
 
-	// TODO: Shader constants, not uniform!
 	switch (frameInfo.debugMode)
 	{
 		case 1: // Albedo
 			outColor = vec4(baseColor.rgb, 1);
 			break;
 
-		case 2: // Metalness
-			outColor = vec4(vec3(metalRoughness.x), 1);
+		case 2: // Normal
+			outColor = vec4(normal, 1);
 			break;
 
-		case 3: // Roughness
-			outColor = vec4(vec3(metalRoughness.y), 1);
+		case 3: // WorldPos
+			outColor = vec4(worldPos, 1);
+			break;
+
+		case 4: // MetalRoughness
+			outColor = vec4(metalRoughness, 0, 1);
 			break;
 
 		default:
-			//color = tonemapUncharted2(color);
-			outColor = vec4(color, baseColor.a);
+			outColor = vec4(color, 1.0);
 			break;
 	}
 }
