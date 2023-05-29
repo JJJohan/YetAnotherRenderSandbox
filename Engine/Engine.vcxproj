@@ -189,6 +189,7 @@
     <ClCompile Include="Rendering\Vulkan\ImageView.cpp" />
     <ClCompile Include="Rendering\Vulkan\Instance.cpp" />
     <ClCompile Include="Rendering\Vulkan\PhysicalDevice.cpp" />
+    <ClCompile Include="Rendering\Vulkan\ShadowMap.cpp" />
     <ClCompile Include="Rendering\Vulkan\VulkanSceneManager.cpp" />
     <ClCompile Include="Rendering\Vulkan\PipelineLayout.cpp" />
     <ClCompile Include="Rendering\Vulkan\VulkanRenderer.cpp" />
@@ -237,12 +238,14 @@
     <ClInclude Include="Rendering\Vulkan\FrameInfoUniformBuffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\GBuffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\ImageSampler.hpp" />
+    <ClInclude Include="Rendering\Vulkan\LightUniformBuffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\RenderImage.hpp" />
     <ClInclude Include="Rendering\Vulkan\ImageView.hpp" />
     <ClInclude Include="Rendering\Vulkan\Instance.hpp" />
     <ClInclude Include="Rendering\Vulkan\PhysicalDevice.hpp" />
     <ClInclude Include="Rendering\Vulkan\QueueFamilyIndices.hpp" />
     <ClInclude Include="Rendering\Vulkan\RenderMeshInfo.hpp" />
+    <ClInclude Include="Rendering\Vulkan\ShadowMap.hpp" />
     <ClInclude Include="Rendering\Vulkan\VulkanSceneManager.hpp" />
     <ClInclude Include="Rendering\Vulkan\PipelineLayout.hpp" />
     <ClInclude Include="Rendering\Vulkan\VulkanRenderer.hpp" />

@@ -1,13 +1,14 @@
 #include "GBuffer.hpp"
 #include "Core/Logging/Logger.hpp"
-#include "PhysicalDevice.hpp"
 #include "ImageView.hpp"
 #include "RenderImage.hpp"
 #include "DescriptorPool.hpp"
 #include "Device.hpp"
 #include "Buffer.hpp"
+#include "ShadowMap.hpp"
 #include "ImageSampler.hpp"
 #include "FrameInfoUniformBuffer.hpp"
+#include "LightUniformBuffer.hpp"
 #include "OS/Files.hpp"
 #include "PipelineLayout.hpp"
 #include <vma/vk_mem_alloc.h>
@@ -23,8 +24,6 @@ namespace Engine::Rendering::Vulkan
 		, m_gBufferImageViews()
 		, m_depthImage()
 		, m_depthImageView()
-		, m_shadowImage()
-		, m_shadowImageView()
 		, m_depthFormat(vk::Format::eUndefined)
 		, m_imageFormats()
 		, m_combineShader()
@@ -68,13 +67,13 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		// Normals
-		if (!CreateImageAndView(device, allocator, size, vk::Format::eR16G16B16A16Sfloat))
+		if (!CreateImageAndView(device, allocator, size, vk::Format::eR32G32B32A32Sfloat))
 		{
 			return false;
 		}
 
 		// WorldPos
-		if (!CreateImageAndView(device, allocator, size, vk::Format::eR16G16B16A16Sfloat))
+		if (!CreateImageAndView(device, allocator, size, vk::Format::eR32G32B32A32Sfloat))
 		{
 			return false;
 		}
@@ -88,9 +87,8 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool GBuffer::CreateDepthImage(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator, const glm::uvec2& size)
+	bool GBuffer::CreateDepthImage(const Device& device, VmaAllocator allocator, const glm::uvec2& size)
 	{
-		m_depthFormat = physicalDevice.FindDepthFormat();
 		if (m_depthFormat == vk::Format::eUndefined)
 		{
 			Logger::Error("Failed to find suitable format for depth texture.");
@@ -116,39 +114,16 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool GBuffer::CreateShadowImage(const Device& device, VmaAllocator allocator)
+	bool GBuffer::SetupDescriptorSetLayout(const Device& device, uint32_t shadowCascades)
 	{
-		// TODO: Make configurable
-		vk::Extent3D extent(4096, 4096, 1);
-
-		m_shadowImage = std::make_unique<RenderImage>(allocator);
-		if (!m_shadowImage->Initialise(vk::ImageType::e2D, m_depthFormat, extent, 1, vk::ImageTiling::eOptimal,
-			vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eDepthStencilAttachment,
-			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0, vk::SharingMode::eExclusive))
-		{
-			Logger::Error("Failed to create shadow image.");
-			return false;
-		}
-
-		m_shadowImageView = std::make_unique<ImageView>();
-		if (!m_shadowImageView->Initialise(device, m_shadowImage->Get(), 1, m_shadowImage->GetFormat(), vk::ImageAspectFlagBits::eDepth))
-		{
-			Logger::Error("Failed to create shadow image view.");
-			return false;
-		}
-
-		return true;
-	}
-
-	bool GBuffer::SetupDescriptorSetLayout(const Device& device)
-	{
-		std::array<vk::DescriptorSetLayoutBinding, 5> layoutBindings =
+		std::array<vk::DescriptorSetLayoutBinding, 6> layoutBindings =
 		{
 			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eSampledImage, GBUFFER_SIZE, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment)
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampledImage, GBUFFER_SIZE, vk::ShaderStageFlagBits::eFragment),
+			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
+			vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eSampledImage, shadowCascades, vk::ShaderStageFlagBits::eFragment)
 		};
 
 		vk::DescriptorSetLayoutCreateInfo layoutInfo(vk::DescriptorSetLayoutCreateFlags(), layoutBindings);
@@ -164,11 +139,12 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool GBuffer::Initialise(const PhysicalDevice& physicalDevice, const Device& device,
-		VmaAllocator allocator, vk::Format swapChainFormat, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
-		const glm::uvec2& size)
+	bool GBuffer::Initialise(const Device& device, VmaAllocator allocator, vk::Format swapChainFormat, vk::Format depthFormat, float maxAnisotoropic,
+		const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers, const std::vector<std::unique_ptr<Buffer>>& lightBuffers,
+		const ShadowMap& shadowMap, const glm::uvec2& size)
 	{
-		if (!SetupDescriptorSetLayout(device))
+		uint32_t cascades = shadowMap.GetCascadeCount();
+		if (!SetupDescriptorSetLayout(device, cascades))
 		{
 			return false;
 		}
@@ -176,10 +152,11 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::DescriptorPoolSize> poolSizes =
 		{
 			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
+			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
 			vk::DescriptorPoolSize(vk::DescriptorType::eSampler, 1),
 			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, GBUFFER_SIZE),
 			vk::DescriptorPoolSize(vk::DescriptorType::eSampler, 1),
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 1)
+			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 4)
 		};
 
 		m_descriptorPool = std::make_unique<DescriptorPool>();
@@ -194,6 +171,7 @@ namespace Engine::Rendering::Vulkan
 			layouts.push_back(m_descriptorSetLayout.get());
 		}
 
+		m_depthFormat = depthFormat;
 		m_descriptorSets = m_descriptorPool->CreateDescriptorSets(device, layouts);
 
 		std::string vertFilePath = "Shaders/Combine_vert.spv";
@@ -231,19 +209,19 @@ namespace Engine::Rendering::Vulkan
 
 		m_sampler = std::make_unique<ImageSampler>();
 		if (!m_sampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear,
-			vk::SamplerAddressMode::eRepeat, physicalDevice.GetLimits().maxSamplerAnisotropy))
+			vk::SamplerAddressMode::eRepeat, maxAnisotoropic))
 		{
 			return false;
 		}
 
 		m_shadowSampler = std::make_unique<ImageSampler>();
 		if (!m_shadowSampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear,
-			vk::SamplerAddressMode::eClampToBorder, physicalDevice.GetLimits().maxSamplerAnisotropy))
+			vk::SamplerAddressMode::eClampToBorder, maxAnisotoropic))
 		{
 			return false;
 		}
 
-		if (!Rebuild(physicalDevice, device, allocator, size, swapChainFormat, frameInfoBuffers, false))
+		if (!Rebuild(device, allocator, size, swapChainFormat, frameInfoBuffers, lightBuffers, shadowMap, false))
 		{
 			return false;
 		}
@@ -251,45 +229,17 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	RenderImage& GBuffer::GetShadowImage() const
-	{
-		return *m_shadowImage;
-	}
-
-	const ImageView& GBuffer::GetShadowImageView() const
-	{
-		return *m_shadowImageView;
-	}
-
-	vk::RenderingAttachmentInfo GBuffer::GetShadowAttachment() const
-	{
-		vk::RenderingAttachmentInfo attachment{};
-		attachment.imageView = m_shadowImageView->Get();
-		attachment.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
-		attachment.loadOp = vk::AttachmentLoadOp::eClear;
-		attachment.storeOp = vk::AttachmentStoreOp::eStore;
-		attachment.clearValue = vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0));
-		return attachment;
-	}
-
-	bool GBuffer::Rebuild(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator,
+	bool GBuffer::Rebuild(const Device& device, VmaAllocator allocator,
 		const glm::uvec2& size, vk::Format swapChainFormat, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
-		bool rebuildPipeline)
+		const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap, bool rebuildPipeline)
 	{
 		m_depthImageView.reset();
 		m_depthImage.reset();
-		m_shadowImageView.reset();
-		m_shadowImage.reset();
 		m_gBufferImageViews.clear();
 		m_gBufferImages.clear();
 		m_imageFormats.clear();
 
-		if (!CreateDepthImage(physicalDevice, device, allocator, size))
-		{
-			return false;
-		}
-
-		if (!CreateShadowImage(device, allocator))
+		if (!CreateDepthImage(device, allocator, size))
 		{
 			return false;
 		}
@@ -317,7 +267,12 @@ namespace Engine::Rendering::Vulkan
 			imageInfos[i] = vk::DescriptorImageInfo(nullptr, m_gBufferImageViews[i]->Get(), vk::ImageLayout::eShaderReadOnlyOptimal);
 		}
 
-		std::vector<vk::DescriptorImageInfo> shadowImageInfo = { vk::DescriptorImageInfo(nullptr, m_shadowImageView->Get(), vk::ImageLayout::eShaderReadOnlyOptimal) };
+		uint32_t cascades = shadowMap.GetCascadeCount();
+		std::vector<vk::DescriptorImageInfo> shadowImageInfo(cascades);
+		for (uint32_t i = 0; i < cascades; ++i)
+		{
+			shadowImageInfo[i] = vk::DescriptorImageInfo(nullptr, shadowMap.GetShadowImageView(i).Get(), vk::ImageLayout::eShaderReadOnlyOptimal);
+		}
 
 		for (uint32_t i = 0; i < m_concurrentFrames; ++i)
 		{
@@ -326,13 +281,19 @@ namespace Engine::Rendering::Vulkan
 				vk::DescriptorBufferInfo(frameInfoBuffers[i]->Get(), 0, sizeof(FrameInfoUniformBuffer))
 			};
 
-			std::array<vk::WriteDescriptorSet, 5> writeDescriptorSets =
+			std::array<vk::DescriptorBufferInfo, 1> lightBufferInfos =
+			{
+				vk::DescriptorBufferInfo(lightBuffers[i]->Get(), 0, sizeof(LightUniformBuffer))
+			};
+
+			std::array<vk::WriteDescriptorSet, 6> writeDescriptorSets =
 			{
 				vk::WriteDescriptorSet(m_descriptorSets[i], 0, 0, vk::DescriptorType::eUniformBuffer, nullptr, frameBufferInfos),
-				vk::WriteDescriptorSet(m_descriptorSets[i], 1, 0, vk::DescriptorType::eSampler, samplerInfos),
-				vk::WriteDescriptorSet(m_descriptorSets[i], 2, 0, vk::DescriptorType::eSampledImage, imageInfos),
-				vk::WriteDescriptorSet(m_descriptorSets[i], 3, 0, vk::DescriptorType::eSampler, shadowSamplerInfos),
-				vk::WriteDescriptorSet(m_descriptorSets[i], 4, 0, vk::DescriptorType::eSampledImage, shadowImageInfo)
+				vk::WriteDescriptorSet(m_descriptorSets[i], 1, 0, vk::DescriptorType::eUniformBuffer, nullptr, lightBufferInfos),
+				vk::WriteDescriptorSet(m_descriptorSets[i], 2, 0, vk::DescriptorType::eSampler, samplerInfos),
+				vk::WriteDescriptorSet(m_descriptorSets[i], 3, 0, vk::DescriptorType::eSampledImage, imageInfos),
+				vk::WriteDescriptorSet(m_descriptorSets[i], 4, 0, vk::DescriptorType::eSampler, shadowSamplerInfos),
+				vk::WriteDescriptorSet(m_descriptorSets[i], 5, 0, vk::DescriptorType::eSampledImage, shadowImageInfo)
 			};
 
 			device.Get().updateDescriptorSets(writeDescriptorSets, nullptr);

@@ -32,7 +32,7 @@ namespace Engine::Rendering::Vulkan
 	}
 
 	bool PipelineLayout::Rebuild(const Device& device, const std::vector<vk::Format>& attachmentFormats, vk::Format depthFormat,
-		const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts)
+		const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts, const std::vector<vk::PushConstantRange>& pushConstantRanges)
 	{
 		m_graphicsPipeline.reset();
 		m_pipelineLayout.reset();
@@ -77,6 +77,7 @@ namespace Engine::Rendering::Vulkan
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = vk::CullModeFlagBits::eBack;
 		rasterizer.frontFace = vk::FrontFace::eCounterClockwise;
+		rasterizer.depthClampEnable = true;
 
 		// Multisampling state
 		vk::PipelineMultisampleStateCreateInfo multisampling{};
@@ -120,6 +121,8 @@ namespace Engine::Rendering::Vulkan
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
 		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
+		pipelineLayoutInfo.pPushConstantRanges = pushConstantRanges.data();
+		pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size());
 
 		m_pipelineLayout = deviceImp.createPipelineLayoutUnique(pipelineLayoutInfo);
 		if (!m_pipelineLayout.get())
@@ -179,7 +182,8 @@ namespace Engine::Rendering::Vulkan
 		const std::vector<vk::VertexInputBindingDescription>& bindingDescriptions,
 		const std::vector<vk::VertexInputAttributeDescription>& attributeDescriptions,
 		const std::vector<vk::Format>& attachmentFormats, vk::Format depthFormat,
-		const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts)
+		const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
+		const std::vector<vk::PushConstantRange>& pushConstantRanges)
 	{
 		m_name = name;
 
@@ -204,7 +208,7 @@ namespace Engine::Rendering::Vulkan
 		m_bindingDescriptions = bindingDescriptions;
 		m_attributeDescriptions = attributeDescriptions;
 
-		if (!Rebuild(device, attachmentFormats, depthFormat, descriptorSetLayouts))
+		if (!Rebuild(device, attachmentFormats, depthFormat, descriptorSetLayouts, pushConstantRanges))
 		{
 			return false;
 		}

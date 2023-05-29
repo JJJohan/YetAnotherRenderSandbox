@@ -67,6 +67,7 @@ namespace Engine::Rendering::Vulkan
 		vk::PhysicalDeviceFeatures2 deviceFeatures2;
 		deviceFeatures2.features.samplerAnisotropy = true;
 		deviceFeatures2.features.multiDrawIndirect = true;
+		deviceFeatures2.features.depthClamp = true;
 		deviceFeatures2.pNext = &vulkan11Features;
 
 		std::vector<const char*> extensionNames = physicalDevice.GetRequiredExtensions();

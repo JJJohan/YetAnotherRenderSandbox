@@ -36,6 +36,7 @@ namespace Engine::Rendering::Vulkan
 	class VulkanSceneManager;
 	class Buffer;
 	class GBuffer;
+	class ShadowMap;
 
 	class VulkanRenderer : public Renderer
 	{
@@ -60,6 +61,7 @@ namespace Engine::Rendering::Vulkan
 		VmaAllocator GetAllocator() const;
 		uint32_t GetConcurrentFrameCount() const;
 		const std::vector<std::unique_ptr<Buffer>>& GetFrameInfoBuffers() const;
+		const std::vector<std::unique_ptr<Buffer>>& GetLightBuffers() const;
 
 		bool SubmitResourceCommand(std::function<bool(const vk::CommandBuffer&, std::vector<std::unique_ptr<Buffer>>&)> command, std::optional<std::function<void()>> postAction = std::nullopt);
 
@@ -71,6 +73,7 @@ namespace Engine::Rendering::Vulkan
 		bool CreateAllocator();
 		bool RecreateSwapChain(const glm::uvec2& size, bool rebuildPipelines);
 		bool CreateFrameInfoUniformBuffer();
+		bool CreateLightUniformBuffer();
 
 		void OnResize(const glm::uvec2& size);
 
@@ -89,6 +92,7 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<Surface> m_surface;
 		std::unique_ptr<SwapChain> m_swapChain;
 		std::unique_ptr<GBuffer> m_gBuffer;
+		std::unique_ptr<ShadowMap> m_shadowMap;
 		std::unique_ptr<Engine::UI::Vulkan::VulkanUIManager> m_uiManager;
 		VmaAllocator m_allocator;
 
@@ -96,7 +100,9 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<CommandPool> m_renderCommandPool;
 
 		std::vector<std::unique_ptr<Buffer>> m_frameInfoBuffers;
+		std::vector<std::unique_ptr<Buffer>> m_lightBuffers;
 		std::vector<void*> m_frameInfoBufferData;
+		std::vector<void*> m_lightBufferData;
 
 		std::vector<vk::UniqueCommandBuffer> m_renderCommandBuffers;
 		std::vector<vk::UniqueCommandBuffer> m_shadowCommandBuffers;

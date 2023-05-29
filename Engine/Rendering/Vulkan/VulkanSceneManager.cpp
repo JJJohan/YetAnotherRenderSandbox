@@ -10,6 +10,7 @@
 #include "VulkanRenderer.hpp"
 #include "CommandPool.hpp"
 #include "FrameInfoUniformBuffer.hpp"
+#include "LightUniformBuffer.hpp"
 #include "RenderMeshInfo.hpp"
 #include "GBuffer.hpp"
 #include "PipelineLayout.hpp"
@@ -146,7 +147,10 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::DescriptorPoolSize> poolSizes =
 		{
 			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
-			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 1)
+			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
+			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 1),
+			vk::DescriptorPoolSize(vk::DescriptorType::eSampler, 1),
+			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 1)
 		};
 
 		m_shadowDescriptorPool = std::make_unique<DescriptorPool>();
@@ -155,19 +159,8 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings =
+		if (!SetupShadowDescriptorSetLayout(device, 1))
 		{
-			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex),
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex)
-		};
-
-		vk::DescriptorSetLayoutCreateInfo layoutInfo(vk::DescriptorSetLayoutCreateFlags(), layoutBindings);
-
-		const vk::Device& deviceImp = device.Get();
-		m_shadowDescriptorSetLayout = deviceImp.createDescriptorSetLayoutUnique(layoutInfo);
-		if (!m_shadowDescriptorSetLayout.get())
-		{
-			Logger::Error("Failed to create descriptor set layout.");
 			return false;
 		}
 
@@ -194,19 +187,23 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<vk::VertexInputBindingDescription> bindingDescriptions =
 		{ {
-			vk::VertexInputBindingDescription(0, sizeof(glm::vec3), vk::VertexInputRate::eVertex)
+			vk::VertexInputBindingDescription(0, sizeof(glm::vec3), vk::VertexInputRate::eVertex),
+			vk::VertexInputBindingDescription(1, sizeof(glm::vec2), vk::VertexInputRate::eVertex)
 		} };
 
 		std::vector<vk::VertexInputAttributeDescription> attributeDescriptions =
 		{ {
-			vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, 0)
+			vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, 0),
+			vk::VertexInputAttributeDescription(1, 1, vk::Format::eR32G32Sfloat, 0)
 		} };
 
 		std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = { m_shadowDescriptorSetLayout.get() };
 
+		std::vector<vk::PushConstantRange> pushConstantRanges = { vk::PushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(uint32_t)) };
+
 		std::vector<vk::Format> attachmentFormats; // No colour attachments.
 		m_shadowShader = std::make_unique<PipelineLayout>();
-		if (!m_shadowShader->Initialise(device, "Shadow Shader", programs, bindingDescriptions, attributeDescriptions, attachmentFormats, depthFormat, descriptorSetLayouts))
+		if (!m_shadowShader->Initialise(device, "Shadow Shader", programs, bindingDescriptions, attributeDescriptions, attachmentFormats, depthFormat, descriptorSetLayouts, pushConstantRanges))
 		{
 			return false;
 		}
@@ -908,6 +905,7 @@ namespace Engine::Rendering::Vulkan
 				VmaAllocator allocator = m_renderer.GetAllocator();
 				PhysicalDevice physicalDevice = m_renderer.GetPhysicalDevice();
 				const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers = m_renderer.GetFrameInfoBuffers();
+				const std::vector<std::unique_ptr<Buffer>>& lightBuffers = m_renderer.GetLightBuffers();
 
 				uint32_t imageCount;
 				if (!SetupVertexBuffers(device, commandBuffer, chunkData, temporaryBuffers, allocator))
@@ -939,6 +937,12 @@ namespace Engine::Rendering::Vulkan
 				}
 
 				if (!SetupPBRDescriptorSetLayout(device, imageCount))
+				{
+					asyncData.State = AsyncState::Failed;
+					return false;
+				}
+
+				if (!SetupShadowDescriptorSetLayout(device, imageCount))
 				{
 					asyncData.State = AsyncState::Failed;
 					return false;
@@ -977,14 +981,19 @@ namespace Engine::Rendering::Vulkan
 
 				for (uint32_t i = 0; i < concurrentFrames; ++i)
 				{
-					std::array<vk::DescriptorBufferInfo, 1> frameBufferInfos =
+					std::array<vk::DescriptorBufferInfo, 1> frameInfoBufferInfos =
 					{
-						vk::DescriptorBufferInfo(frameInfoBuffers[i]->Get(), 0, sizeof(FrameInfoUniformBuffer))
+						vk::DescriptorBufferInfo(frameInfoBuffers[i]->Get(), 0, sizeof(FrameInfoUniformBuffer)),
+					};
+
+					std::array<vk::DescriptorBufferInfo, 1> lightBufferInfos =
+					{
+						vk::DescriptorBufferInfo(lightBuffers[i]->Get(), 0, sizeof(LightUniformBuffer)),
 					};
 
 					std::array<vk::WriteDescriptorSet, 4> pbrWriteDescriptorSets =
 					{
-						vk::WriteDescriptorSet(m_pbrDescriptorSets[i], 0, 0, vk::DescriptorType::eUniformBuffer, nullptr, frameBufferInfos),
+						vk::WriteDescriptorSet(m_pbrDescriptorSets[i], 0, 0, vk::DescriptorType::eUniformBuffer, nullptr, frameInfoBufferInfos),
 						vk::WriteDescriptorSet(m_pbrDescriptorSets[i], 1, 0, vk::DescriptorType::eStorageBuffer, nullptr, instanceBufferInfos),
 						vk::WriteDescriptorSet(m_pbrDescriptorSets[i], 2, 0, vk::DescriptorType::eSampler, samplerInfos),
 						vk::WriteDescriptorSet(m_pbrDescriptorSets[i], 3, 0, vk::DescriptorType::eSampledImage, imageInfos)
@@ -992,10 +1001,13 @@ namespace Engine::Rendering::Vulkan
 
 					device.Get().updateDescriptorSets(pbrWriteDescriptorSets, nullptr);
 
-					std::array<vk::WriteDescriptorSet, 2> shadowWriteDescriptorSets =
+					std::array<vk::WriteDescriptorSet, 5> shadowWriteDescriptorSets =
 					{
-						vk::WriteDescriptorSet(m_shadowDescriptorSets[i], 0, 0, vk::DescriptorType::eUniformBuffer, nullptr, frameBufferInfos),
-						vk::WriteDescriptorSet(m_shadowDescriptorSets[i], 1, 0, vk::DescriptorType::eStorageBuffer, nullptr, instanceBufferInfos)
+						vk::WriteDescriptorSet(m_shadowDescriptorSets[i], 0, 0, vk::DescriptorType::eUniformBuffer, nullptr, frameInfoBufferInfos),
+						vk::WriteDescriptorSet(m_shadowDescriptorSets[i], 1, 0, vk::DescriptorType::eUniformBuffer, nullptr, lightBufferInfos),
+						vk::WriteDescriptorSet(m_shadowDescriptorSets[i], 2, 0, vk::DescriptorType::eStorageBuffer, nullptr, instanceBufferInfos),
+						vk::WriteDescriptorSet(m_shadowDescriptorSets[i], 3, 0, vk::DescriptorType::eSampler, samplerInfos),
+						vk::WriteDescriptorSet(m_shadowDescriptorSets[i], 4, 0, vk::DescriptorType::eSampledImage, imageInfos)
 					};
 
 					device.Get().updateDescriptorSets(shadowWriteDescriptorSets, nullptr);
@@ -1022,7 +1034,15 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<vk::DescriptorSetLayout> pbrDescriptorSetLayouts = { m_pbrDescriptorSetLayout.get() };
 
-		return m_pbrShader->Rebuild(device, gBufferFormats, depthFormat, pbrDescriptorSetLayouts);
+		if (!m_pbrShader->Rebuild(device, gBufferFormats, depthFormat, pbrDescriptorSetLayouts))
+		{
+			return false;
+		}
+
+		std::vector<vk::DescriptorSetLayout> shadowDescriptorSetLayouts = { m_shadowDescriptorSetLayout.get() };
+		std::vector<vk::PushConstantRange> pushConstantRanges = { vk::PushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(uint32_t)) };
+
+		return m_shadowShader->Rebuild(device, {}, depthFormat, shadowDescriptorSetLayouts, pushConstantRanges);
 	}
 
 	bool VulkanSceneManager::SetupPBRDescriptorSetLayout(const Device& device, uint32_t imageCount)
@@ -1040,6 +1060,30 @@ namespace Engine::Rendering::Vulkan
 		const vk::Device& deviceImp = device.Get();
 		m_pbrDescriptorSetLayout = deviceImp.createDescriptorSetLayoutUnique(layoutInfo);
 		if (!m_pbrDescriptorSetLayout.get())
+		{
+			Logger::Error("Failed to create descriptor set layout.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool VulkanSceneManager::SetupShadowDescriptorSetLayout(const Device& device, uint32_t imageCount)
+	{
+		std::array<vk::DescriptorSetLayoutBinding, 5> layoutBindings =
+		{
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex),
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex),
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex),
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
+			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eSampledImage, imageCount, vk::ShaderStageFlagBits::eFragment)
+		};
+
+		vk::DescriptorSetLayoutCreateInfo layoutInfo(vk::DescriptorSetLayoutCreateFlags(), layoutBindings);
+
+		const vk::Device& deviceImp = device.Get();
+		m_shadowDescriptorSetLayout = deviceImp.createDescriptorSetLayoutUnique(layoutInfo);
+		if (!m_shadowDescriptorSetLayout.get())
 		{
 			Logger::Error("Failed to create descriptor set layout.");
 			return false;
@@ -1075,7 +1119,7 @@ namespace Engine::Rendering::Vulkan
 		commandBuffer.drawIndexedIndirect(m_indirectDrawBuffer->Get(), 0, drawCount, sizeof(vk::DrawIndexedIndirectCommand));
 	}
 
-	void VulkanSceneManager::DrawShadows(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex)
+	void VulkanSceneManager::DrawShadows(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex)
 	{
 		if (m_vertexBuffers.empty() || m_creating)
 			return;
@@ -1084,9 +1128,10 @@ namespace Engine::Rendering::Vulkan
 		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
 		std::vector<vk::DeviceSize> vertexBufferOffsets;
-		vertexBufferOffsets.resize(1);
-		std::vector<vk::Buffer> vertexBufferViews = { m_vertexBuffers.front()->Get() };
+		vertexBufferOffsets.resize(2);
+		std::vector<vk::Buffer> vertexBufferViews = { m_vertexBuffers[0]->Get(), m_vertexBuffers[1]->Get() };
 
+		commandBuffer.pushConstants(m_shadowShader->Get(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(uint32_t), &cascadeIndex);
 		commandBuffer.bindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
 		commandBuffer.bindIndexBuffer(m_indexBuffer->Get(), 0, vk::IndexType::eUint32);
 		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_shadowShader->Get(), 0, m_shadowDescriptorSets[currentFrameIndex], nullptr);

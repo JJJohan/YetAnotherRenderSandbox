@@ -1,0 +1,191 @@
+#include "ShadowMap.hpp"
+#include "Core/Logging/Logger.hpp"
+#include "ImageView.hpp"
+#include "RenderImage.hpp"
+#include "DescriptorPool.hpp"
+#include "Device.hpp"
+#include "Rendering/Camera.hpp"
+#include "Buffer.hpp"
+#include "ImageSampler.hpp"
+#include "FrameInfoUniformBuffer.hpp"
+#include "OS/Files.hpp"
+#include "PipelineLayout.hpp"
+#include <glm/gtc/matrix_transform.hpp>
+#include <vma/vk_mem_alloc.h>
+
+using namespace Engine::Logging;
+
+namespace Engine::Rendering::Vulkan
+{
+	constexpr int DefaultCascadeCount = 4;
+
+	ShadowMap::ShadowMap()
+		: m_shadowImages()
+		, m_shadowImageViews()
+		, m_cascadeMatrices(DefaultCascadeCount)
+		, m_cascadeSplits(DefaultCascadeCount)
+		, m_cascadeCount(DefaultCascadeCount)
+	{
+	}
+
+	ShadowCascadeData ShadowMap::UpdateCascades(const Camera& camera, const glm::vec3& lightDir)
+	{
+		const float cascadeSplitLambda = 0.95f;
+
+		std::vector<float> cascadeSplits(m_cascadeCount);
+
+		const glm::vec2& nearFar = camera.GetNearFar();
+		float clipRange = nearFar.y - nearFar.x;
+
+		float minZ = nearFar.x;
+		float maxZ = nearFar.x + clipRange;
+
+		float range = maxZ - minZ;
+		float ratio = maxZ / minZ;
+
+		// Calculate split depths based on view camera frustum
+		// Based on method presented in https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
+		for (uint32_t i = 0; i < m_cascadeCount; i++)
+		{
+			float p = (i + 1) / static_cast<float>(m_cascadeCount);
+			float log = minZ * std::pow(ratio, p);
+			float uniform = minZ + range * p;
+			float d = cascadeSplitLambda * (log - uniform) + uniform;
+			cascadeSplits[i] = (d - nearFar.x) / clipRange;
+		}
+
+		// Calculate orthographic projection matrix for each cascade
+		float lastSplitDist = 0.0;
+		glm::mat4 invCam = glm::inverse(camera.GetViewProjection());
+		for (uint32_t i = 0; i < m_cascadeCount; i++)
+		{
+			float splitDist = cascadeSplits[i];
+
+			glm::vec3 frustumCorners[8] = {
+				glm::vec3(-1.0f,  1.0f, 0.0f),
+				glm::vec3(1.0f,  1.0f, 0.0f),
+				glm::vec3(1.0f, -1.0f, 0.0f),
+				glm::vec3(-1.0f, -1.0f, 0.0f),
+				glm::vec3(-1.0f,  1.0f,  1.0f),
+				glm::vec3(1.0f,  1.0f,  1.0f),
+				glm::vec3(1.0f, -1.0f,  1.0f),
+				glm::vec3(-1.0f, -1.0f,  1.0f),
+			};
+
+			// Project frustum corners into world space
+			for (uint32_t i = 0; i < 8; i++)
+			{
+				glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[i], 1.0f);
+				frustumCorners[i] = invCorner / invCorner.w;
+			}
+
+			for (uint32_t i = 0; i < 4; i++)
+			{
+				glm::vec3 dist = frustumCorners[i + 4] - frustumCorners[i];
+				frustumCorners[i + 4] = frustumCorners[i] + (dist * splitDist);
+				frustumCorners[i] = frustumCorners[i] + (dist * lastSplitDist);
+			}
+
+			// Get frustum center
+			glm::vec3 frustumCenter = glm::vec3(0.0f);
+			for (uint32_t i = 0; i < 8; i++)
+			{
+				frustumCenter += frustumCorners[i];
+			}
+			frustumCenter /= 8.0f;
+
+			float radius = 0.0f;
+			for (uint32_t i = 0; i < 8; i++)
+			{
+				float distance = glm::length(frustumCorners[i] - frustumCenter);
+				radius = glm::max(radius, distance);
+			}
+			radius = std::ceil(radius * 16.0f) / 16.0f;
+
+			glm::vec3 maxExtents = glm::vec3(radius);
+			glm::vec3 minExtents = -maxExtents;
+
+			glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - lightDir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+			glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
+
+			// Store split distance and matrix in cascade
+			m_cascadeSplits[i] = (nearFar.x + splitDist * clipRange) * -1.0f;
+			m_cascadeMatrices[i] = lightOrthoMatrix * lightViewMatrix;
+
+			lastSplitDist = cascadeSplits[i];
+		}
+
+		return GetShadowCascadeData();
+	}
+
+	ShadowCascadeData ShadowMap::GetShadowCascadeData() const
+	{
+		return ShadowCascadeData(m_cascadeSplits, m_cascadeMatrices);
+	}
+
+	uint32_t ShadowMap::GetCascadeCount() const
+	{
+		return m_cascadeCount;
+	}
+
+	bool ShadowMap::CreateShadowImages(const Device& device, VmaAllocator allocator, vk::Format depthFormat)
+	{
+		// TODO: Make configurable
+		vk::Extent3D extent(4096, 4096, 1);
+
+		for (uint32_t i = 0; i < m_cascadeCount; ++i)
+		{
+			std::unique_ptr<RenderImage>& image = m_shadowImages.emplace_back(std::make_unique<RenderImage>(allocator));
+			if (!image->Initialise(vk::ImageType::e2D, depthFormat, extent, 1, vk::ImageTiling::eOptimal,
+				vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eDepthStencilAttachment,
+				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0, vk::SharingMode::eExclusive))
+			{
+				Logger::Error("Failed to create shadow image.");
+				return false;
+			}
+
+			std::unique_ptr<ImageView>& imageView = m_shadowImageViews.emplace_back(std::make_unique<ImageView>());
+			if (!imageView->Initialise(device, image->Get(), 1, image->GetFormat(), vk::ImageAspectFlagBits::eDepth))
+			{
+				Logger::Error("Failed to create shadow image view.");
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	bool ShadowMap::Rebuild(const Device& device, VmaAllocator allocator, vk::Format depthFormat)
+	{
+		m_shadowImageViews.clear();
+		m_shadowImages.clear();
+
+		if (!CreateShadowImages(device, allocator, depthFormat))
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	RenderImage& ShadowMap::GetShadowImage(uint32_t index) const
+	{
+		return *m_shadowImages[index];
+	}
+
+	const ImageView& ShadowMap::GetShadowImageView(uint32_t index) const
+	{
+		return *m_shadowImageViews[index];
+	}
+
+	vk::RenderingAttachmentInfo ShadowMap::GetShadowAttachment(uint32_t index) const
+	{
+		vk::RenderingAttachmentInfo attachment{};
+		attachment.imageView = m_shadowImageViews[index]->Get();
+		attachment.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+		attachment.loadOp = vk::AttachmentLoadOp::eClear;
+		attachment.storeOp = vk::AttachmentStoreOp::eStore;
+		attachment.clearValue = vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0));
+		return attachment;
+	}
+}

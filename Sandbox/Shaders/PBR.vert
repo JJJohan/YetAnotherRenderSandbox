@@ -4,12 +4,9 @@
 layout(binding = 0) uniform FrameInfo
 {
     mat4 viewProj;
-	mat4 lightViewProj;
+    mat4 view;
 	vec4 viewPos;
-	vec3 sunLightDir;
 	uint debugMode;
-	vec3 sunLightColor;
-	float sunLightIntensity;
 } frameInfo;
 
 struct MeshInfo
@@ -37,7 +34,7 @@ layout(location = 2) flat out uint fragMetallicRoughnessImageIndex;
 
 layout(location = 3) out vec4 fragColor;
 layout(location = 4) out vec2 fragUv;
-layout(location = 5) out vec3 fragWorldPos;
+layout(location = 5) out vec4 fragWorldPosAndViewDepth;
 layout(location = 6) out vec3 fragNormal;
 
 void main()
@@ -51,7 +48,8 @@ void main()
 	fragColor = infoBuffer.meshInfo[gl_DrawID].color;
 	fragUv = uv;
 
-    fragWorldPos = transformedPos.xyz / transformedPos.w;
+    fragWorldPosAndViewDepth.xyz = transformedPos.xyz / transformedPos.w;
+	fragWorldPosAndViewDepth.w = (frameInfo.view * transformedPos).z;
     fragNormal = normalize(vec3(infoBuffer.meshInfo[gl_DrawID].normalMatrix * vec4(normal, 0.0)));
 
     gl_Position = frameInfo.viewProj * transformedPos;

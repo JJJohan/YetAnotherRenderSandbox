@@ -5,18 +5,25 @@
 layout(binding = 0) uniform FrameInfo
 {
     mat4 viewProj;
-	mat4 lightViewProj;
+    mat4 view;
 	vec4 viewPos;
-	vec3 sunLightDir;
 	uint debugMode;
-	vec3 sunLightColor;
-	float sunLightIntensity;
 } frameInfo;
 
-layout(binding = 1) uniform sampler samp;
-layout(binding = 2) uniform texture2D textures[];
-layout(binding = 3) uniform sampler shadowSampler;
-layout(binding = 4) uniform texture2D shadowMap;
+layout(binding = 1) uniform LightData
+{
+	vec4 cascadeSplits;
+    mat4 cascadeMatrices[4];
+	vec3 sunLightColor;
+	float sunLightIntensity;
+	vec3 sunLightDir;
+	float padding;
+} lightData;
+
+layout(binding = 2) uniform sampler samp;
+layout(binding = 3) uniform texture2D textures[];
+layout(binding = 4) uniform sampler shadowSampler;
+layout(binding = 5) uniform texture2D shadowMap[];
 
 layout(location = 0) in vec2 fragUv;
 
@@ -25,15 +32,21 @@ layout(location = 0) in vec2 fragUv;
 
 layout(location = 0) out vec4 outColor;
 
-float textureProj(vec4 P, vec2 offset)
+const mat4 biasMat = mat4(
+	0.5, 0.0, 0.0, 0.0,
+	0.0, 0.5, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0,
+	0.5, 0.5, 0.0, 1.0
+);
+
+float textureProj(vec4 shadowCoord, vec2 offset, uint cascadeIndex)
 {
-	vec4 shadowCoord = P / P.w;
-	shadowCoord.st = shadowCoord.st * 0.5 + 0.5;
+	float bias = 0.005;
 
 	if (shadowCoord.z > -1.0 && shadowCoord.z < 1.0)
 	{
-		float dist = texture(sampler2D(shadowMap, shadowSampler), vec2(shadowCoord.st + offset)).r;
-		if (shadowCoord.w > 0.0 && dist < shadowCoord.z)
+		float dist = texture(sampler2D(shadowMap[cascadeIndex], shadowSampler), shadowCoord.st + offset).r;
+		if (shadowCoord.w > 0 && dist < shadowCoord.z - bias)
 		{
 			return 1.0;
 		}
@@ -42,10 +55,10 @@ float textureProj(vec4 P, vec2 offset)
 	return 0.0;
 }
 
-float filterPCF(vec4 sc)
+float filterPCF(vec4 sc, uint cascadeIndex)
 {
-	ivec2 texDim = textureSize(shadowMap, 0).xy;
-	float scale = 1.5;
+	ivec2 texDim = textureSize(shadowMap[0], 0).xy;
+	float scale = 0.75;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
 
@@ -57,26 +70,40 @@ float filterPCF(vec4 sc)
 	{
 		for (int y = -range; y <= range; y++)
 		{
-			shadowFactor += textureProj(sc, vec2(dx*x, dy*y));
+			shadowFactor += textureProj(sc, vec2(dx * x, dy * y), cascadeIndex);
 			count++;
 		}
-
 	}
+
 	return shadowFactor / count;
 }
 
-float ShadowCalculation(vec3 fragPos)
+float ShadowCalculation(vec3 fragPos, float viewDepth)
 {
-	vec4 shadowClip	= frameInfo.lightViewProj * vec4(fragPos, 1.0);
-	return filterPCF(shadowClip);
+	// Get cascade index for the current fragment's view position
+	uint cascadeIndex = 0;
+	for(uint i = 0; i < 3; ++i)
+	{
+		if(viewDepth < lightData.cascadeSplits[i])
+		{
+			cascadeIndex = i + 1;
+		}
+	}
+
+	// Depth compare for shadowing
+	vec4 shadowCoord = (biasMat * lightData.cascadeMatrices[cascadeIndex]) * vec4(fragPos, 1.0);
+
+	return filterPCF(shadowCoord / shadowCoord.w, cascadeIndex);
 }
 
 void main()
 {
 	vec4 baseColor = texture(sampler2D(textures[0], samp), fragUv);
 	vec3 normal = texture(sampler2D(textures[1], samp), fragUv).rgb;
-	vec3 worldPos = texture(sampler2D(textures[2], samp), fragUv).rgb;
+	vec4 worldPosAndViewDepth = texture(sampler2D(textures[2], samp), fragUv);
 	vec2 metalRoughness = texture(sampler2D(textures[3], samp), fragUv).rg;
+	vec3 worldPos = worldPosAndViewDepth.xyz;
+	float viewDepth = worldPosAndViewDepth.w;
 
 	vec3 f0 = vec3(0.04);
 
@@ -96,8 +123,8 @@ void main()
 	vec3 specularEnvironmentR0 = specularColor.rgb;
 	vec3 specularEnvironmentR90 = vec3(1.0, 1.0, 1.0) * reflectance90;
 
-	vec3 lightColor = frameInfo.sunLightColor * frameInfo.sunLightIntensity;
-	vec3 lightDir = -frameInfo.sunLightDir;
+	vec3 lightColor = lightData.sunLightColor * lightData.sunLightIntensity;
+	vec3 lightDir = -lightData.sunLightDir;
 
 	vec3 n = normal;
 	vec3 v = normalize(frameInfo.viewPos.xyz - worldPos);    // Vector from surface point to camera
@@ -137,7 +164,7 @@ void main()
 	vec3 specContrib = F * G * D / (4.0 * NdotL * NdotV);
 
     // Calculate shadow
-    float shadow = ShadowCalculation(worldPos);
+    float shadow = ShadowCalculation(worldPos, viewDepth);
 
 	// Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
 	vec3 color = (1.0 - shadow) * NdotL * lightColor * (diffuseContrib + specContrib);
@@ -162,6 +189,28 @@ void main()
 
 		case 4: // MetalRoughness
 			outColor = vec4(metalRoughness, 0, 1);
+			break;
+
+		case 5: // cascade index
+
+		uint cascadeIndex = 0U;
+		for(uint i = 0; i < 3; ++i)
+		{
+			if(viewDepth < lightData.cascadeSplits[i])
+			{
+				cascadeIndex = i + 1;
+			}
+		}
+
+		if (cascadeIndex == 0U)
+			outColor = vec4(color, 1.0) * vec4(1, 0.5, 0.5, 1);
+		else if (cascadeIndex == 1U)
+			outColor = vec4(color, 1.0) * vec4(1, 1, 0.5, 1);
+		else if (cascadeIndex == 2U)
+			outColor = vec4(color, 1.0) * vec4(0.5, 1, 0.5, 1);
+		else
+			outColor = vec4(color, 1.0) * vec4(0.5, 0.5, 1, 1);
+
 			break;
 
 		default:

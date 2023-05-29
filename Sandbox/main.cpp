@@ -53,7 +53,7 @@ bool g_useHDR = false;
 UIManager* g_uiManager;
 AsyncData g_sceneLoad;
 
-std::vector<const char*> g_debugModes = { "None", "Albedo", "Normal", "WorldPos", "MetalRoughness" };
+std::vector<const char*> g_debugModes = { "None", "Albedo", "Normal", "WorldPos", "MetalRoughness", "Cascade Index" };
 
 void DrawUI(const Drawer& drawer)
 {

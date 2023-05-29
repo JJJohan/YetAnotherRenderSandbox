@@ -21,7 +21,9 @@
 #include "ImageSampler.hpp"
 #include "PipelineLayout.hpp"
 #include "FrameInfoUniformBuffer.hpp"
+#include "LightUniformBuffer.hpp"
 #include "GBuffer.hpp"
+#include "ShadowMap.hpp"
 
 #define DEFAULT_MAX_CONCURRENT_FRAMES 2
 
@@ -61,9 +63,12 @@ namespace Engine::Rendering::Vulkan
 		, m_allocator()
 		, m_maxConcurrentFrames(DEFAULT_MAX_CONCURRENT_FRAMES)
 		, m_frameInfoBuffers()
+		, m_lightBuffers()
 		, m_frameInfoBufferData()
+		, m_lightBufferData()
 		, m_resourceSubmitMutex()
 		, m_gBuffer()
+		, m_shadowMap()
 		, m_uiManager(std::make_unique<VulkanUIManager>(window, *this))
 	{
 	}
@@ -84,7 +89,9 @@ namespace Engine::Rendering::Vulkan
 		m_sceneManager.reset();
 
 		m_frameInfoBuffers.clear();
+		m_lightBuffers.clear();
 		m_frameInfoBufferData.clear();
+		m_lightBufferData.clear();
 		m_imageAvailableSemaphores.clear();
 		m_renderFinishedSemaphores.clear();
 		m_shadowFinishedSemaphores.clear();
@@ -94,6 +101,7 @@ namespace Engine::Rendering::Vulkan
 		m_shadowCommandBuffers.clear();
 		m_presentCommandBuffers.clear();
 
+		m_shadowMap.reset();
 		m_gBuffer.reset();
 		m_renderCommandPool.reset();
 		m_resourceCommandPool.reset();
@@ -143,22 +151,30 @@ namespace Engine::Rendering::Vulkan
 		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
 		commandBuffer.setScissor(0, 1, &scissor);
 
-		// Update light matrix
-		float shadowVolume = 50.0f;
-		glm::mat4 lightView = glm::lookAt(-m_camera.GetPosition() + m_sunDirection * -shadowVolume, -m_camera.GetPosition(), glm::vec3(0, 1, 0));
-		glm::mat4 lightProj = glm::ortho(-shadowVolume, shadowVolume, -shadowVolume, shadowVolume, 0.0f, shadowVolume * 2.0f);
-		glm::mat4 lightViewProj = lightProj * lightView;
-
 		// Update uniform buffer
 		FrameInfoUniformBuffer frameInfo{};
 		frameInfo.viewProj = m_camera.GetViewProjection();
-		frameInfo.lightViewProj = lightViewProj;
+		frameInfo.view = m_camera.GetView();
 		frameInfo.viewPos = glm::vec4(m_camera.GetPosition(), 1.0f);
-		frameInfo.sunLightColour = m_sunColour.GetVec4();
-		frameInfo.sunLightIntensity = m_sunIntensity;
-		frameInfo.sunLightDir = m_sunDirection;
 		frameInfo.debugMode = m_debugMode;
+
 		memcpy(m_frameInfoBufferData[m_currentFrame], &frameInfo, sizeof(FrameInfoUniformBuffer));
+
+		// Update light buffer
+		LightUniformBuffer lightInfo{};
+		lightInfo.sunLightColour = m_sunColour.GetVec4();
+		lightInfo.sunLightIntensity = m_sunIntensity;
+		lightInfo.sunLightDir = m_sunDirection;
+
+		const uint32_t cascadeCount = m_shadowMap->GetCascadeCount();
+		ShadowCascadeData cascadeData = m_shadowMap->UpdateCascades(m_camera, m_sunDirection);
+		for (uint32_t i = 0; i < cascadeCount; ++i)
+		{
+			lightInfo.cascadeMatrices[i] = cascadeData.CascadeMatrices[i];
+			lightInfo.cascadeSplits[i] = cascadeData.CascadeSplits[i];
+		}
+
+		memcpy(m_lightBufferData[m_currentFrame], &lightInfo, sizeof(LightUniformBuffer));
 
 		m_sceneManager->Draw(commandBuffer, m_currentFrame);
 
@@ -180,36 +196,38 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		RenderImage& shadowImage = m_gBuffer->GetShadowImage();
-		shadowImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-		vk::RenderingAttachmentInfo shadowAttachment = m_gBuffer->GetShadowAttachment();
-		vk::Extent3D extents = shadowImage.GetDimensions();
+		vk::Extent3D extents = m_shadowMap->GetShadowImage(0).GetDimensions();
+		float width = static_cast<float>(extents.width);
+		float height = static_cast<float>(extents.height);
+		vk::Viewport viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
+		commandBuffer.setViewport(0, 1, &viewport);
 
 		vk::RenderingInfo renderingInfo{};
 		renderingInfo.renderArea.offset = vk::Offset2D();
 		renderingInfo.renderArea.extent = vk::Extent2D(extents.width, extents.height);
 		renderingInfo.layerCount = 1;
-		renderingInfo.pDepthAttachment = &shadowAttachment;
-
-		float depthBiasConstant = 1.25f;
-		float depthBiasSlope = 1.75f;
-		commandBuffer.setDepthBias(depthBiasConstant, 0.0f, depthBiasSlope);
-
-		commandBuffer.beginRendering(renderingInfo);
-
-		float width = static_cast<float>(renderingInfo.renderArea.extent.width);
-		float height = static_cast<float>(renderingInfo.renderArea.extent.height);
-		vk::Viewport viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
-		commandBuffer.setViewport(0, 1, &viewport);
 
 		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
 		commandBuffer.setScissor(0, 1, &scissor);
 
-		m_sceneManager->DrawShadows(commandBuffer, m_currentFrame);
+		// TODO: single pass
+		uint32_t cascadeCount = m_shadowMap->GetCascadeCount();
+		for (uint32_t i = 0; i < cascadeCount; ++i)
+		{
+			RenderImage& shadowImage = m_shadowMap->GetShadowImage(i);
+			shadowImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-		commandBuffer.endRendering();
+			vk::RenderingAttachmentInfo shadowAttachment = m_shadowMap->GetShadowAttachment(i);
+			renderingInfo.pDepthAttachment = &shadowAttachment;
 
-		shadowImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+			commandBuffer.beginRendering(renderingInfo);
+
+			m_sceneManager->DrawShadows(commandBuffer, m_currentFrame, i);
+
+			commandBuffer.endRendering();
+
+			shadowImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+		}
 
 		commandBuffer.end();
 
@@ -313,6 +331,11 @@ namespace Engine::Rendering::Vulkan
 		return m_frameInfoBuffers;
 	}
 
+	const std::vector<std::unique_ptr<Buffer>>& VulkanRenderer::GetLightBuffers() const
+	{
+		return m_lightBuffers;
+	}
+
 	bool VulkanRenderer::SubmitResourceCommand(std::function<bool(const vk::CommandBuffer&, std::vector<std::unique_ptr<Buffer>>&)> command,
 		std::optional<std::function<void()>> postAction)
 	{
@@ -400,7 +423,6 @@ namespace Engine::Rendering::Vulkan
 		return result == VK_SUCCESS;
 	}
 
-
 	bool VulkanRenderer::CreateFrameInfoUniformBuffer()
 	{
 		vk::DeviceSize bufferSize = sizeof(FrameInfoUniformBuffer);
@@ -428,6 +450,32 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
+	bool VulkanRenderer::CreateLightUniformBuffer()
+	{
+		vk::DeviceSize bufferSize = sizeof(LightUniformBuffer);
+
+		m_lightBuffers.resize(m_maxConcurrentFrames);
+		m_lightBufferData.resize(m_maxConcurrentFrames);
+
+		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
+		{
+			m_lightBuffers[i] = std::make_unique<Buffer>(m_allocator);
+			Buffer& buffer = *m_lightBuffers[i];
+
+			if (!buffer.Initialise(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_AUTO,
+				VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, vk::SharingMode::eExclusive))
+			{
+				return false;
+			}
+
+			if (!buffer.GetMappedMemory(&m_lightBufferData[i]))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
 
 	void VulkanRenderer::SetHDRState(bool enable)
 	{
@@ -484,19 +532,28 @@ namespace Engine::Rendering::Vulkan
 		m_Debug = std::make_unique<Debug>();
 		m_sceneManager = std::make_unique<VulkanSceneManager>(*this);
 		m_gBuffer = std::make_unique<GBuffer>(m_maxConcurrentFrames);
+		m_shadowMap = std::make_unique<ShadowMap>();
 
 		if (!m_instance->Initialise(title, *m_Debug, m_debug)
 			|| !m_surface->Initialise(*m_instance, m_window)
-			|| !m_physicalDevice->Initialise(*m_instance, *m_surface)
-			|| !m_device->Initialise(*m_physicalDevice)
+			|| !m_physicalDevice->Initialise(*m_instance, *m_surface))
+		{
+			return false;
+		}
+
+		vk::Format depthFormat = m_physicalDevice->FindDepthFormat();
+		float maxAnisotoropic = m_physicalDevice->GetLimits().maxSamplerAnisotropy;
+
+		if (!m_device->Initialise(*m_physicalDevice)
 			|| !CreateAllocator()
 			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, m_hdr)
 			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eTransient)
 			|| !m_renderCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
 			|| !CreateSyncObjects()
 			|| !CreateFrameInfoUniformBuffer()
-			|| !m_gBuffer->Initialise(*m_physicalDevice, *m_device, m_allocator, m_swapChain->GetFormat(), m_frameInfoBuffers, size))
-
+			|| !CreateLightUniformBuffer()
+			|| !m_shadowMap->Rebuild(*m_device, m_allocator, depthFormat)
+			|| !m_gBuffer->Initialise(*m_device, m_allocator, m_swapChain->GetFormat(), depthFormat, maxAnisotoropic, m_frameInfoBuffers, m_lightBuffers, *m_shadowMap, size))
 		{
 			return false;
 		}
@@ -552,7 +609,7 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!m_gBuffer->Rebuild(*m_physicalDevice, *m_device, m_allocator, size, m_swapChain->GetFormat(), m_frameInfoBuffers, rebuildPipelines))
+		if (!m_gBuffer->Rebuild(*m_device, m_allocator, size, m_swapChain->GetFormat(), m_frameInfoBuffers, m_lightBuffers, *m_shadowMap, rebuildPipelines))
 		{
 			return false;
 		}

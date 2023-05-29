@@ -22,10 +22,11 @@ namespace Engine::Rendering::Vulkan
 			const std::vector<vk::VertexInputBindingDescription>& bindingDescriptions,
 			const std::vector<vk::VertexInputAttributeDescription>& attributeDescriptions,
 			const std::vector<vk::Format>& attachmentFormats, vk::Format depthFormat,
-			const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts);
+			const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
+			const std::vector<vk::PushConstantRange>& pushConstantRanges = {});
 
 		bool Rebuild(const Device& device, const std::vector<vk::Format>& attachmentFormats, vk::Format depthFormat,
-			const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts);
+			const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts, const std::vector<vk::PushConstantRange>& pushConstantRanges = {});
 
 	private:
 		std::string m_name;
