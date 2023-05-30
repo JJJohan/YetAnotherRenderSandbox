@@ -44,13 +44,16 @@ namespace Engine::Rendering::Vulkan
 		void Draw(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex);
 		void DrawShadows(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex);
 
-		bool RebuildShader(const Device& device, const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat);
+		bool RebuildShader(const PhysicalDevice& physicalDevice, const Device& device,
+			const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat);
 
 	private:
 		bool SetupPBRDescriptorSetLayout(const Device& device, uint32_t imageCount);
 		bool SetupShadowDescriptorSetLayout(const Device& device, uint32_t imageCount);
-		bool InitPBRShaderResources(const Device& device, uint32_t concurrentFrames, const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat, VmaAllocator allocator);
-		bool InitShadowShaderResources(const Device& device, uint32_t concurrentFrames, vk::Format depthFormat, VmaAllocator allocator);
+		bool InitPBRShaderResources(const PhysicalDevice& physicalDevice, const Device& device, uint32_t concurrentFrames,
+			const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat, VmaAllocator allocator);
+		bool InitShadowShaderResources(const PhysicalDevice& physicalDevice, const Device& device, uint32_t concurrentFrames,
+			vk::Format depthFormat, VmaAllocator allocator);
 
 		bool SetupIndirectDrawBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator);

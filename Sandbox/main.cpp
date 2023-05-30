@@ -57,37 +57,68 @@ std::vector<const char*> g_debugModes = { "None", "Albedo", "Normal", "WorldPos"
 
 void DrawUI(const Drawer& drawer)
 {
-	if (drawer.Begin("Test"))
+	if (drawer.Begin("UI"))
 	{
-		drawer.Text("FPS: %.2f", g_uiManager->GetFPS());
-
-		int32_t debugMode = static_cast<int32_t>(g_renderer->GetDebugMode());
-		if (drawer.ComboBox("Debug Mode", g_debugModes, &debugMode))
+		if (drawer.BeginTabBar("##uiTabBar"))
 		{
-			g_renderer->SetDebugMode(debugMode);
-		}
+			if (drawer.BeginTabItem("Options"))
+			{
+				int32_t debugMode = static_cast<int32_t>(g_renderer->GetDebugMode());
+				if (drawer.ComboBox("Debug Mode", g_debugModes, &debugMode))
+				{
+					g_renderer->SetDebugMode(debugMode);
+				}
 
-		bool hdrSupported = g_renderer->IsHDRSupported();
-		drawer.BeginDisabled(!hdrSupported);
-		if (drawer.Checkbox("Use HDR", &g_useHDR))
-		{
-			g_renderer->SetHDRState(g_useHDR);
-		}
-		drawer.EndDisabled();
+				bool hdrSupported = g_renderer->IsHDRSupported();
+				drawer.BeginDisabled(!hdrSupported);
+				if (drawer.Checkbox("Use HDR", &g_useHDR))
+				{
+					g_renderer->SetHDRState(g_useHDR);
+				}
+				drawer.EndDisabled();
 
-		if (drawer.Colour3("Clear Colour", g_clearColour))
-		{
-			g_renderer->SetClearColour(g_clearColour);
-		}
+				if (drawer.Colour3("Clear Colour", g_clearColour))
+				{
+					g_renderer->SetClearColour(g_clearColour);
+				}
 
-		if (drawer.Colour3("Sun Colour", g_sunColour))
-		{
-			g_renderer->SetSunLightColour(g_sunColour);
-		}
+				if (drawer.Colour3("Sun Colour", g_sunColour))
+				{
+					g_renderer->SetSunLightColour(g_sunColour);
+				}
 
-		if (drawer.SliderFloat("Sun Intensity", &g_sunIntensity, 0.0f, 20.0f))
-		{
-			g_renderer->SetSunLightIntensity(g_sunIntensity);
+				if (drawer.SliderFloat("Sun Intensity", &g_sunIntensity, 0.0f, 20.0f))
+				{
+					g_renderer->SetSunLightIntensity(g_sunIntensity);
+				}
+
+				drawer.EndTabItem();
+			}
+
+			if (drawer.BeginTabItem("Statistics"))
+			{
+				drawer.Text("FPS: %.2f", g_uiManager->GetFPS());
+
+				std::vector<std::string> passLabels = { "Scene", "Shadow Cascade 1", "Shadow Cascade 2", "Shadow Cascade 3", "Shadow Cascade 4", "Combine", "Total" };
+
+				const std::vector<RenderStatsData>& statsArray = g_renderer->GetRenderStats();
+				for (size_t pass = 0; pass < statsArray.size(); ++pass)
+				{
+					const RenderStatsData& stats = statsArray[pass];
+					if (drawer.CollapsingHeader(passLabels[pass].c_str()))
+					{
+						drawer.Text("Render Time: %.2fms", stats.RenderTime);
+						drawer.Text("Input Vertex Count: %i", stats.InputAssemblyVertexCount);
+						drawer.Text("Input Primitive Count: %i", stats.InputAssemblyPrimitivesCount);
+						drawer.Text("Vertex Shader Invocations: %i", stats.VertexShaderInvocations);
+						drawer.Text("Fragment Shader Invocations: %i", stats.FragmentShaderInvocations);
+					}
+				}
+
+				drawer.EndTabItem();
+			}
+
+			drawer.EndTabBar();
 		}
 
 		drawer.End();

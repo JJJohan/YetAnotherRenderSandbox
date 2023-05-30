@@ -4,6 +4,7 @@
 #include "RenderImage.hpp"
 #include "DescriptorPool.hpp"
 #include "Device.hpp"
+#include "PhysicalDevice.hpp"
 #include "Buffer.hpp"
 #include "ShadowMap.hpp"
 #include "ImageSampler.hpp"
@@ -139,9 +140,9 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool GBuffer::Initialise(const Device& device, VmaAllocator allocator, vk::Format swapChainFormat, vk::Format depthFormat, float maxAnisotoropic,
-		const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers, const std::vector<std::unique_ptr<Buffer>>& lightBuffers,
-		const ShadowMap& shadowMap, const glm::uvec2& size)
+	bool GBuffer::Initialise(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator, vk::Format swapChainFormat,
+		vk::Format depthFormat, float maxAnisotoropic, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
+		const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap, const glm::uvec2& size)
 	{
 		uint32_t cascades = shadowMap.GetCascadeCount();
 		if (!SetupDescriptorSetLayout(device, cascades))
@@ -202,7 +203,8 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::Format> attachmentFormats = { swapChainFormat };
 
 		m_combineShader = std::make_unique<PipelineLayout>();
-		if (!m_combineShader->Initialise(device, "Combine", programs, bindingDescriptions, attributeDescriptions, attachmentFormats, vk::Format::eUndefined, descriptorSetLayouts))
+		if (!m_combineShader->Initialise(physicalDevice, device, "Combine", programs, bindingDescriptions,
+			attributeDescriptions, attachmentFormats, vk::Format::eUndefined, descriptorSetLayouts))
 		{
 			return false;
 		}
@@ -221,7 +223,7 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!Rebuild(device, allocator, size, swapChainFormat, frameInfoBuffers, lightBuffers, shadowMap, false))
+		if (!Rebuild(physicalDevice, device, allocator, size, swapChainFormat, frameInfoBuffers, lightBuffers, shadowMap, false))
 		{
 			return false;
 		}
@@ -229,7 +231,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool GBuffer::Rebuild(const Device& device, VmaAllocator allocator,
+	bool GBuffer::Rebuild(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator,
 		const glm::uvec2& size, vk::Format swapChainFormat, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
 		const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap, bool rebuildPipeline)
 	{
@@ -306,7 +308,7 @@ namespace Engine::Rendering::Vulkan
 			std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = { m_descriptorSetLayout.get() };
 
 			PipelineLayout* pipelineLayout = static_cast<PipelineLayout*>(m_combineShader.get());
-			if (!pipelineLayout->Rebuild(device, attachmentFormats, vk::Format::eUndefined, descriptorSetLayouts))
+			if (!pipelineLayout->Rebuild(physicalDevice, device, attachmentFormats, vk::Format::eUndefined, descriptorSetLayouts))
 			{
 				return false;
 			}

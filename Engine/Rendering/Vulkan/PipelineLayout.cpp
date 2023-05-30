@@ -1,5 +1,6 @@
 #include "PipelineLayout.hpp"
 #include "Device.hpp"
+#include "PhysicalDevice.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "OS/Files.hpp"
 #include <filesystem>
@@ -31,7 +32,7 @@ namespace Engine::Rendering::Vulkan
 		return m_graphicsPipeline.get();
 	}
 
-	bool PipelineLayout::Rebuild(const Device& device, const std::vector<vk::Format>& attachmentFormats, vk::Format depthFormat,
+	bool PipelineLayout::Rebuild(const PhysicalDevice& physicalDevice, const Device& device, const std::vector<vk::Format>& attachmentFormats, vk::Format depthFormat,
 		const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts, const std::vector<vk::PushConstantRange>& pushConstantRanges)
 	{
 		m_graphicsPipeline.reset();
@@ -72,12 +73,11 @@ namespace Engine::Rendering::Vulkan
 
 		// Rasterizer state
 		vk::PipelineRasterizationStateCreateInfo rasterizer;
-		rasterizer.depthClampEnable = VK_FALSE;
 		rasterizer.polygonMode = vk::PolygonMode::eFill;
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = vk::CullModeFlagBits::eBack;
 		rasterizer.frontFace = vk::FrontFace::eCounterClockwise;
-		rasterizer.depthClampEnable = true;
+		rasterizer.depthClampEnable = physicalDevice.GetFeatures().depthBiasClamp;
 
 		// Multisampling state
 		vk::PipelineMultisampleStateCreateInfo multisampling{};
@@ -177,7 +177,7 @@ namespace Engine::Rendering::Vulkan
 		}
 	}
 
-	bool PipelineLayout::Initialise(const Device& device, const std::string& name,
+	bool PipelineLayout::Initialise(const PhysicalDevice& physicalDevice, const Device& device, const std::string& name,
 		const std::unordered_map<vk::ShaderStageFlagBits, std::vector<uint8_t>>& programs,
 		const std::vector<vk::VertexInputBindingDescription>& bindingDescriptions,
 		const std::vector<vk::VertexInputAttributeDescription>& attributeDescriptions,
@@ -208,7 +208,7 @@ namespace Engine::Rendering::Vulkan
 		m_bindingDescriptions = bindingDescriptions;
 		m_attributeDescriptions = attributeDescriptions;
 
-		if (!Rebuild(device, attachmentFormats, depthFormat, descriptorSetLayouts, pushConstantRanges))
+		if (!Rebuild(physicalDevice, device, attachmentFormats, depthFormat, descriptorSetLayouts, pushConstantRanges))
 		{
 			return false;
 		}

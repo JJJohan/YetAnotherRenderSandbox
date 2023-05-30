@@ -37,22 +37,24 @@ namespace Engine::Rendering::Vulkan
 	class Buffer;
 	class GBuffer;
 	class ShadowMap;
+	class VulkanRenderStats;
 
 	class VulkanRenderer : public Renderer
 	{
 	public:
 		VulkanRenderer(const Engine::OS::Window& window, bool debug);
-		virtual ~VulkanRenderer();
+		virtual ~VulkanRenderer() override;
 
-		virtual bool Initialise();
-		virtual bool Render();
+		virtual bool Initialise() override;
+		virtual bool Render() override;
+		virtual const std::vector<RenderStatsData>& GetRenderStats() const override;
 
 		virtual void SetMultiSampleCount(uint32_t sampleCount) override;
 		virtual void SetHDRState(bool enable) override;
 		virtual bool IsHDRSupported() const override;
 
-		virtual SceneManager* GetSceneManager() const;
-		virtual Engine::UI::UIManager* GetUIManager() const;
+		virtual SceneManager* GetSceneManager() const override;
+		virtual Engine::UI::UIManager* GetUIManager() const override;
 
 		const Device& GetDevice() const;
 		const PhysicalDevice& GetPhysicalDevice() const;
@@ -93,6 +95,7 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<SwapChain> m_swapChain;
 		std::unique_ptr<GBuffer> m_gBuffer;
 		std::unique_ptr<ShadowMap> m_shadowMap;
+		std::unique_ptr<VulkanRenderStats> m_renderStats;
 		std::unique_ptr<Engine::UI::Vulkan::VulkanUIManager> m_uiManager;
 		VmaAllocator m_allocator;
 

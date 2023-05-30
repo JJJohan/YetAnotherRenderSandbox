@@ -184,6 +184,12 @@
     <ClCompile Include="Rendering\Vulkan\ShadowMap.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\VulkanRenderStats.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\RenderStats.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Macros.hpp">
@@ -353,6 +359,12 @@
     </ClInclude>
     <ClInclude Include="Rendering\Vulkan\LightUniformBuffer.hpp">
       <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\VulkanRenderStats.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\RenderStats.hpp">
+      <Filter>Rendering</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

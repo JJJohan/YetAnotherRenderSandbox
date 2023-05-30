@@ -86,6 +86,31 @@ namespace Engine::UI
 		ImGui::EndDisabled();
 	}
 
+	bool Drawer::BeginTabBar(const char* label) const
+	{
+		return ImGui::BeginTabBar(label);
+	}
+
+	void Drawer::EndTabBar() const
+	{
+		ImGui::EndTabBar();
+	}
+
+	bool Drawer::BeginTabItem(const char* label) const
+	{
+		return ImGui::BeginTabItem(label);
+	}
+
+	void Drawer::EndTabItem() const
+	{
+		ImGui::EndTabItem();
+	}
+
+	bool Drawer::CollapsingHeader(const char* label) const
+	{
+		return ImGui::CollapsingHeader(label);
+	}
+
 	void Drawer::Progress(const ProgressInfo& progress) const
 	{
 		ImGuiWindowFlags flags;

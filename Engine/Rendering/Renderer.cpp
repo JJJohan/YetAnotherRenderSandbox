@@ -79,6 +79,11 @@ namespace Engine::Rendering
 		return nullptr;
 	}
 
+	const std::vector<RenderStatsData>& Renderer::GetRenderStats() const
+	{
+		throw;
+	}
+
 	void Renderer::SetMultiSampleCount(uint32_t multiSampleCount)
 	{
 		if (multiSampleCount > m_maxMultiSampleCount)

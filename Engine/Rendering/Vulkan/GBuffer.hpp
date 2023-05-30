@@ -9,6 +9,7 @@
 namespace Engine::Rendering::Vulkan
 {
 	class Device;
+	class PhysicalDevice;
 	class ImageView;
 	class RenderImage;
 	class DescriptorPool;
@@ -22,10 +23,10 @@ namespace Engine::Rendering::Vulkan
 	public:
 		GBuffer(uint32_t concurrentFrames);
 
-		bool Initialise(const Device& device, VmaAllocator allocator, vk::Format swapChainFormat, vk::Format depthFormat, float maxAnisotoropic,
-			const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers, const std::vector<std::unique_ptr<Buffer>>& lightBuffers,
-			const ShadowMap& shadowMap, const glm::uvec2& size);
-		bool Rebuild(const Device& device, VmaAllocator allocator,
+		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator, vk::Format swapChainFormat,
+			vk::Format depthFormat, float maxAnisotoropic, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
+			const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap, const glm::uvec2& size);
+		bool Rebuild(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator,
 			const glm::uvec2& size, vk::Format swapChainFormat, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
 			const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap, bool rebuildPipeline);
 		void TransitionImageLayouts(const Device& device, const vk::CommandBuffer& commandBuffer, vk::ImageLayout newLayout);

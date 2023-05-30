@@ -57,7 +57,8 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	bool VulkanSceneManager::InitPBRShaderResources(const Device& device, uint32_t concurrentFrames, const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat, VmaAllocator allocator)
+	bool VulkanSceneManager::InitPBRShaderResources(const PhysicalDevice& physicalDevice, const Device& device, uint32_t concurrentFrames,
+		const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat, VmaAllocator allocator)
 	{
 		m_blankImage = std::make_shared<RenderImage>(allocator);
 		bool imageInitialised = m_blankImage->Initialise(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, vk::Extent3D(1, 1, 1), 1, vk::ImageTiling::eOptimal,
@@ -134,7 +135,8 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = { m_pbrDescriptorSetLayout.get() };
 
 		m_pbrShader = std::make_unique<PipelineLayout>();
-		if (!m_pbrShader->Initialise(device, "PBR Shader", programs, bindingDescriptions, attributeDescriptions, gBufferFormats, depthFormat, descriptorSetLayouts))
+		if (!m_pbrShader->Initialise(physicalDevice, device, "PBR Shader", programs, bindingDescriptions,
+			attributeDescriptions, gBufferFormats, depthFormat, descriptorSetLayouts))
 		{
 			return false;
 		}
@@ -142,7 +144,8 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::InitShadowShaderResources(const Device& device, uint32_t concurrentFrames, vk::Format depthFormat, VmaAllocator allocator)
+	bool VulkanSceneManager::InitShadowShaderResources(const PhysicalDevice& physicalDevice, const Device& device,
+		uint32_t concurrentFrames, vk::Format depthFormat, VmaAllocator allocator)
 	{
 		std::vector<vk::DescriptorPoolSize> poolSizes =
 		{
@@ -203,7 +206,8 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<vk::Format> attachmentFormats; // No colour attachments.
 		m_shadowShader = std::make_unique<PipelineLayout>();
-		if (!m_shadowShader->Initialise(device, "Shadow Shader", programs, bindingDescriptions, attributeDescriptions, attachmentFormats, depthFormat, descriptorSetLayouts, pushConstantRanges))
+		if (!m_shadowShader->Initialise(physicalDevice, device, "Shadow Shader", programs, bindingDescriptions,
+			attributeDescriptions, attachmentFormats, depthFormat, descriptorSetLayouts, pushConstantRanges))
 		{
 			return false;
 		}
@@ -227,12 +231,12 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!InitPBRShaderResources(device, concurrentFrames, gBufferFormats, depthFormat, allocator))
+		if (!InitPBRShaderResources(physicalDevice, device, concurrentFrames, gBufferFormats, depthFormat, allocator))
 		{
 			return false;
 		}
 
-		if (!InitShadowShaderResources(device, concurrentFrames, depthFormat, allocator))
+		if (!InitShadowShaderResources(physicalDevice, device, concurrentFrames, depthFormat, allocator))
 		{
 			return false;
 		}
@@ -1013,7 +1017,7 @@ namespace Engine::Rendering::Vulkan
 					device.Get().updateDescriptorSets(shadowWriteDescriptorSets, nullptr);
 				}
 
-				if (!RebuildShader(device, m_lastKnownColorFormats, m_lastKnownDepthFormat))
+				if (!RebuildShader(physicalDevice, device, m_lastKnownColorFormats, m_lastKnownDepthFormat))
 				{
 					return false;
 				}
@@ -1027,14 +1031,14 @@ namespace Engine::Rendering::Vulkan
 				});
 	}
 
-	bool VulkanSceneManager::RebuildShader(const Device& device, const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat)
+	bool VulkanSceneManager::RebuildShader(const PhysicalDevice& physicalDevice, const Device& device, const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat)
 	{
 		m_lastKnownColorFormats = gBufferFormats;
 		m_lastKnownDepthFormat = depthFormat;
 
 		std::vector<vk::DescriptorSetLayout> pbrDescriptorSetLayouts = { m_pbrDescriptorSetLayout.get() };
 
-		if (!m_pbrShader->Rebuild(device, gBufferFormats, depthFormat, pbrDescriptorSetLayouts))
+		if (!m_pbrShader->Rebuild(physicalDevice, device, gBufferFormats, depthFormat, pbrDescriptorSetLayouts))
 		{
 			return false;
 		}
@@ -1042,7 +1046,7 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::DescriptorSetLayout> shadowDescriptorSetLayouts = { m_shadowDescriptorSetLayout.get() };
 		std::vector<vk::PushConstantRange> pushConstantRanges = { vk::PushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(uint32_t)) };
 
-		return m_shadowShader->Rebuild(device, {}, depthFormat, shadowDescriptorSetLayouts, pushConstantRanges);
+		return m_shadowShader->Rebuild(physicalDevice, device, {}, depthFormat, shadowDescriptorSetLayouts, pushConstantRanges);
 	}
 
 	bool VulkanSceneManager::SetupPBRDescriptorSetLayout(const Device& device, uint32_t imageCount)

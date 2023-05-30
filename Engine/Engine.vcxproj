@@ -173,6 +173,7 @@
     <ClCompile Include="OS\Window.cpp" />
     <ClCompile Include="Rendering\Camera.cpp" />
     <ClCompile Include="Rendering\GLTFLoader.cpp" />
+    <ClCompile Include="Rendering\RenderStats.cpp" />
     <ClCompile Include="Rendering\SceneManager.cpp" />
     <ClCompile Include="Rendering\Renderer.cpp" />
     <ClCompile Include="Rendering\Shader.cpp" />
@@ -189,6 +190,7 @@
     <ClCompile Include="Rendering\Vulkan\ImageView.cpp" />
     <ClCompile Include="Rendering\Vulkan\Instance.cpp" />
     <ClCompile Include="Rendering\Vulkan\PhysicalDevice.cpp" />
+    <ClCompile Include="Rendering\Vulkan\VulkanRenderStats.cpp" />
     <ClCompile Include="Rendering\Vulkan\ShadowMap.cpp" />
     <ClCompile Include="Rendering\Vulkan\VulkanSceneManager.cpp" />
     <ClCompile Include="Rendering\Vulkan\PipelineLayout.cpp" />
@@ -225,6 +227,7 @@
     <ClInclude Include="Rendering\Camera.hpp" />
     <ClInclude Include="Rendering\GLTFLoader.hpp" />
     <ClInclude Include="Rendering\MeshInfo.hpp" />
+    <ClInclude Include="Rendering\RenderStats.hpp" />
     <ClInclude Include="Rendering\SceneManager.hpp" />
     <ClInclude Include="Rendering\Renderer.hpp" />
     <ClInclude Include="Rendering\Shader.hpp" />
@@ -245,6 +248,7 @@
     <ClInclude Include="Rendering\Vulkan\PhysicalDevice.hpp" />
     <ClInclude Include="Rendering\Vulkan\QueueFamilyIndices.hpp" />
     <ClInclude Include="Rendering\Vulkan\RenderMeshInfo.hpp" />
+    <ClInclude Include="Rendering\Vulkan\VulkanRenderStats.hpp" />
     <ClInclude Include="Rendering\Vulkan\ShadowMap.hpp" />
     <ClInclude Include="Rendering\Vulkan\VulkanSceneManager.hpp" />
     <ClInclude Include="Rendering\Vulkan\PipelineLayout.hpp" />

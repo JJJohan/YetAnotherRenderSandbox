@@ -7,6 +7,7 @@
 #include "Core/Macros.hpp"
 #include <glm/glm.hpp>
 #include "Camera.hpp"
+#include "RenderStats.hpp"
 
 namespace Engine::OS
 {
@@ -36,6 +37,7 @@ namespace Engine::Rendering
 
 		EXPORT virtual bool Initialise();
 		EXPORT virtual bool Render();
+		EXPORT virtual const std::vector<RenderStatsData>& GetRenderStats() const;
 
 		EXPORT void SetClearColour(const Colour& colour);
 		EXPORT const Colour GetClearColor() const;

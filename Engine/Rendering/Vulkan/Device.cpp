@@ -34,6 +34,7 @@ namespace Engine::Rendering::Vulkan
 		QueueFamilyIndices indices = physicalDevice.GetQueueFamilyIndices();
 		std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
 		std::set<uint32_t> uniqueQueueFamilies = { indices.GraphicsFamily.value(), indices.PresentFamily.value() };
+		const vk::PhysicalDeviceFeatures& availableFeatures = physicalDevice.GetFeatures();
 
 		float queuePriority = 1.0f;
 		for (uint32_t queueFamily : uniqueQueueFamilies)
@@ -65,9 +66,10 @@ namespace Engine::Rendering::Vulkan
 		vulkan11Features.pNext = &bufferDeviceAddressFeatures;
 
 		vk::PhysicalDeviceFeatures2 deviceFeatures2;
-		deviceFeatures2.features.samplerAnisotropy = true;
+		deviceFeatures2.features.samplerAnisotropy = availableFeatures.samplerAnisotropy;
 		deviceFeatures2.features.multiDrawIndirect = true;
-		deviceFeatures2.features.depthClamp = true;
+		deviceFeatures2.features.depthClamp = availableFeatures.depthClamp;
+		deviceFeatures2.features.pipelineStatisticsQuery = availableFeatures.pipelineStatisticsQuery;
 		deviceFeatures2.pNext = &vulkan11Features;
 
 		std::vector<const char*> extensionNames = physicalDevice.GetRequiredExtensions();

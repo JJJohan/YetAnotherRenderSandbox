@@ -28,6 +28,12 @@ namespace Engine::UI
 		EXPORT bool ComboBox(const char* label, const std::vector<const char*>& entries, int32_t* index) const;
 		EXPORT void Progress(const ProgressInfo& progress) const;
 
+		EXPORT bool BeginTabBar(const char* label) const;
+		EXPORT void EndTabBar() const;
+		EXPORT bool BeginTabItem(const char* label) const;
+		EXPORT void EndTabItem() const;
+		EXPORT bool CollapsingHeader(const char* label) const;
+
 		EXPORT void BeginDisabled(bool disabled = true) const;
 		EXPORT void EndDisabled() const;
 	};

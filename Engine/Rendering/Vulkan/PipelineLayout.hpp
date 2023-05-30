@@ -8,6 +8,7 @@
 namespace Engine::Rendering::Vulkan
 {
 	class Device;
+	class PhysicalDevice;
 
 	class PipelineLayout
 	{
@@ -17,7 +18,7 @@ namespace Engine::Rendering::Vulkan
 		const vk::PipelineLayout& Get() const;
 		const vk::Pipeline& GetGraphicsPipeline() const;
 
-		bool Initialise(const Device& device, const std::string& name,
+		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, const std::string& name,
 			const std::unordered_map<vk::ShaderStageFlagBits, std::vector<uint8_t>>& programs,
 			const std::vector<vk::VertexInputBindingDescription>& bindingDescriptions,
 			const std::vector<vk::VertexInputAttributeDescription>& attributeDescriptions,
@@ -25,7 +26,7 @@ namespace Engine::Rendering::Vulkan
 			const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
 			const std::vector<vk::PushConstantRange>& pushConstantRanges = {});
 
-		bool Rebuild(const Device& device, const std::vector<vk::Format>& attachmentFormats, vk::Format depthFormat,
+		bool Rebuild(const PhysicalDevice& physicalDevice, const Device& device, const std::vector<vk::Format>& attachmentFormats, vk::Format depthFormat,
 			const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts, const std::vector<vk::PushConstantRange>& pushConstantRanges = {});
 
 	private:

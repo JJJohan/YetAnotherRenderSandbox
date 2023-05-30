@@ -31,7 +31,7 @@ namespace Engine::Rendering::Vulkan
 	std::vector<const char*> PhysicalDevice::GetRequiredExtensions() const
 	{
 		return {
-			VK_KHR_SWAPCHAIN_EXTENSION_NAME, 
+			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 			VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
 			VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
 			VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
@@ -197,6 +197,12 @@ namespace Engine::Rendering::Vulkan
 
 		vk::PhysicalDeviceProperties deviceProperties = device.getProperties();
 		vk::PhysicalDeviceFeatures deviceFeatures = device.getFeatures();
+
+		if (!deviceFeatures.multiDrawIndirect)
+		{
+			// Require at least multi-draw indirect.
+			return std::nullopt;
+		}
 
 		uint32_t score = 0;
 

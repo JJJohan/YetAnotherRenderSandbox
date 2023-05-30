@@ -24,6 +24,7 @@
 #include "LightUniformBuffer.hpp"
 #include "GBuffer.hpp"
 #include "ShadowMap.hpp"
+#include "VulkanRenderStats.hpp"
 
 #define DEFAULT_MAX_CONCURRENT_FRAMES 2
 
@@ -69,6 +70,7 @@ namespace Engine::Rendering::Vulkan
 		, m_resourceSubmitMutex()
 		, m_gBuffer()
 		, m_shadowMap()
+		, m_renderStats()
 		, m_uiManager(std::make_unique<VulkanUIManager>(window, *this))
 	{
 	}
@@ -87,6 +89,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_uiManager.reset();
 		m_sceneManager.reset();
+		m_renderStats.reset();
 
 		m_frameInfoBuffers.clear();
 		m_lightBuffers.clear();
@@ -141,6 +144,9 @@ namespace Engine::Rendering::Vulkan
 		renderingInfo.pColorAttachments = colorAttachments.data();
 		renderingInfo.pDepthAttachment = &depthAttachment;
 
+		if (!m_renderStats->Begin(*m_device, commandBuffer))
+			return false;
+
 		commandBuffer.beginRendering(renderingInfo);
 
 		float width = static_cast<float>(renderingInfo.renderArea.extent.width);
@@ -179,6 +185,7 @@ namespace Engine::Rendering::Vulkan
 		m_sceneManager->Draw(commandBuffer, m_currentFrame);
 
 		commandBuffer.endRendering();
+		m_renderStats->End(commandBuffer);
 
 		m_gBuffer->TransitionImageLayouts(*m_device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
 
@@ -220,11 +227,15 @@ namespace Engine::Rendering::Vulkan
 			vk::RenderingAttachmentInfo shadowAttachment = m_shadowMap->GetShadowAttachment(i);
 			renderingInfo.pDepthAttachment = &shadowAttachment;
 
+			if (!m_renderStats->Begin(*m_device, commandBuffer))
+				return false;
+
 			commandBuffer.beginRendering(renderingInfo);
 
 			m_sceneManager->DrawShadows(commandBuffer, m_currentFrame, i);
 
 			commandBuffer.endRendering();
+			m_renderStats->End(commandBuffer);
 
 			shadowImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
 		}
@@ -263,6 +274,9 @@ namespace Engine::Rendering::Vulkan
 		renderingInfo.colorAttachmentCount = 1;
 		renderingInfo.pColorAttachments = &colorAttachmentInfo;
 
+		if (!m_renderStats->Begin(*m_device, commandBuffer))
+			return false;
+
 		commandBuffer.beginRendering(renderingInfo);
 
 		float width = static_cast<float>(renderingInfo.renderArea.extent.width);
@@ -278,6 +292,7 @@ namespace Engine::Rendering::Vulkan
 		m_uiManager->Draw(commandBuffer, width, height);
 
 		commandBuffer.endRendering();
+		m_renderStats->End(commandBuffer);
 
 		colorImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::ePresentSrcKHR);
 
@@ -509,6 +524,11 @@ namespace Engine::Rendering::Vulkan
 		Logger::Warning("Multisampling not supported in Vulkan backend.");
 	}
 
+	const std::vector<RenderStatsData>& VulkanRenderer::GetRenderStats() const
+	{
+		return m_renderStats->GetStatistics();
+	}
+
 	bool VulkanRenderer::Initialise()
 	{
 		Logger::Verbose("Initialising Vulkan renderer...");
@@ -533,6 +553,7 @@ namespace Engine::Rendering::Vulkan
 		m_sceneManager = std::make_unique<VulkanSceneManager>(*this);
 		m_gBuffer = std::make_unique<GBuffer>(m_maxConcurrentFrames);
 		m_shadowMap = std::make_unique<ShadowMap>();
+		m_renderStats = std::make_unique<VulkanRenderStats>(*m_gBuffer);
 
 		if (!m_instance->Initialise(title, *m_Debug, m_debug)
 			|| !m_surface->Initialise(*m_instance, m_window)
@@ -553,7 +574,9 @@ namespace Engine::Rendering::Vulkan
 			|| !CreateFrameInfoUniformBuffer()
 			|| !CreateLightUniformBuffer()
 			|| !m_shadowMap->Rebuild(*m_device, m_allocator, depthFormat)
-			|| !m_gBuffer->Initialise(*m_device, m_allocator, m_swapChain->GetFormat(), depthFormat, maxAnisotoropic, m_frameInfoBuffers, m_lightBuffers, *m_shadowMap, size))
+			|| !m_renderStats->Initialise(*m_physicalDevice, *m_device)
+			|| !m_gBuffer->Initialise(*m_physicalDevice, *m_device, m_allocator, m_swapChain->GetFormat(),
+				depthFormat, maxAnisotoropic, m_frameInfoBuffers, m_lightBuffers, *m_shadowMap, size))
 		{
 			return false;
 		}
@@ -609,14 +632,15 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!m_gBuffer->Rebuild(*m_device, m_allocator, size, m_swapChain->GetFormat(), m_frameInfoBuffers, m_lightBuffers, *m_shadowMap, rebuildPipelines))
+		if (!m_gBuffer->Rebuild(*m_physicalDevice, *m_device, m_allocator, size, m_swapChain->GetFormat(),
+			m_frameInfoBuffers, m_lightBuffers, *m_shadowMap, rebuildPipelines))
 		{
 			return false;
 		}
 
 		if (rebuildPipelines)
 		{
-			if (!m_sceneManager->RebuildShader(*m_device, m_gBuffer->GetImageFormats(), m_gBuffer->GetDepthFormat()))
+			if (!m_sceneManager->RebuildShader(*m_physicalDevice, *m_device, m_gBuffer->GetImageFormats(), m_gBuffer->GetDepthFormat()))
 			{
 				Logger::Error("Failed to rebuild scene manager shader.");
 				return false;
@@ -742,6 +766,8 @@ namespace Engine::Rendering::Vulkan
 
 		std::array<vk::SubmitInfo, 3> submitInfos = { renderSubmitInfo, shadowSubmitInfo, presentSubmitInfo };
 		graphicsQueue.submit(submitInfos, m_inFlightFences[m_currentFrame].get());
+
+		m_renderStats->GetResults(*m_device);
 
 		vk::PresentInfoKHR presentInfo(1, &m_presentFinishedSemaphores[m_currentFrame].get(), 1, &swapchainImp, &imageIndex);
 
