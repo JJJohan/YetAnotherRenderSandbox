@@ -53,6 +53,17 @@ bool g_useHDR = false;
 UIManager* g_uiManager;
 AsyncData g_sceneLoad;
 
+std::vector<ScrollingGraphBuffer> g_statGraphBuffers =
+{
+	ScrollingGraphBuffer("Scene", 1000),
+	ScrollingGraphBuffer("Shadow Cascade 1", 1000),
+	ScrollingGraphBuffer("Shadow Cascade 2", 1000),
+	ScrollingGraphBuffer("Shadow Cascade 3", 1000),
+	ScrollingGraphBuffer("Shadow Cascade 4", 1000),
+	ScrollingGraphBuffer("Combine", 1000),
+	ScrollingGraphBuffer("Total", 1000)
+};
+
 std::vector<const char*> g_debugModes = { "None", "Albedo", "Normal", "WorldPos", "MetalRoughness", "Cascade Index" };
 
 void DrawUI(const Drawer& drawer)
@@ -97,21 +108,31 @@ void DrawUI(const Drawer& drawer)
 
 			if (drawer.BeginTabItem("Statistics"))
 			{
-				drawer.Text("FPS: %.2f", g_uiManager->GetFPS());
-
-				std::vector<std::string> passLabels = { "Scene", "Shadow Cascade 1", "Shadow Cascade 2", "Shadow Cascade 3", "Shadow Cascade 4", "Combine", "Total" };
-
-				const std::vector<RenderStatsData>& statsArray = g_renderer->GetRenderStats();
-				for (size_t pass = 0; pass < statsArray.size(); ++pass)
+				if (drawer.CollapsingHeader("Memory", true))
 				{
-					const RenderStatsData& stats = statsArray[pass];
-					if (drawer.CollapsingHeader(passLabels[pass].c_str()))
+					const MemoryStats& memoryStats = g_renderer->GetMemoryStats();
+					drawer.Text("GBuffer Usage: %.2f MB", static_cast<float>(memoryStats.GBuffer) / 1024.0f / 1024.0f);
+					drawer.Text("Shadow Map Usage: %.2f MB", static_cast<float>(memoryStats.ShadowMap) / 1024.0f / 1024.0f);
+					drawer.Text("Total Memory Usage: %.2f MB", static_cast<float>(memoryStats.TotalUsage) / 1024.0f / 1024.0f);
+					drawer.Text("Total Memory Budget: %.2f MB", static_cast<float>(memoryStats.TotalBudget) / 1024.0f / 1024.0f);
+				}
+
+				if (drawer.CollapsingHeader("Performance", true))
+				{
+					drawer.Text("FPS: %.2f", g_uiManager->GetFPS());
+
+					const std::vector<FrameStats>& statsArray = g_renderer->GetRenderStats();
+					if (!statsArray.empty())
 					{
-						drawer.Text("Render Time: %.2fms", stats.RenderTime);
-						drawer.Text("Input Vertex Count: %i", stats.InputAssemblyVertexCount);
-						drawer.Text("Input Primitive Count: %i", stats.InputAssemblyPrimitivesCount);
-						drawer.Text("Vertex Shader Invocations: %i", stats.VertexShaderInvocations);
-						drawer.Text("Fragment Shader Invocations: %i", stats.FragmentShaderInvocations);
+						for (size_t pass = 0; pass < statsArray.size(); ++pass)
+						{
+							const FrameStats& stats = statsArray[pass];
+							ScrollingGraphBuffer& buffer = g_statGraphBuffers[pass];
+							buffer.AddValue(stats.RenderTime);
+						}
+
+						glm::vec2 space = drawer.GetContentRegionAvailable();
+						drawer.PlotGraphs("Frame Times (ms)", g_statGraphBuffers, space);
 					}
 				}
 

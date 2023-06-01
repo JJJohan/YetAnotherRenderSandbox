@@ -39,6 +39,7 @@ namespace Engine::Rendering::Vulkan
 		vk::RenderingAttachmentInfo GetShadowAttachment(uint32_t index) const;
 		ShadowCascadeData GetShadowCascadeData() const;
 		uint32_t GetCascadeCount() const;
+		uint64_t GetMemoryUsage() const;
 
 	private:
 		bool CreateShadowImages(const Device& device, VmaAllocator allocator, vk::Format depthFormat);

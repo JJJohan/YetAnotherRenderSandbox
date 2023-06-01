@@ -2,6 +2,7 @@
 #include "Core/AsyncData.hpp"
 #include <cstdarg>
 #include <imgui.h>
+#include <implot.h>
 
 namespace Engine::UI
 {
@@ -106,9 +107,34 @@ namespace Engine::UI
 		ImGui::EndTabItem();
 	}
 
-	bool Drawer::CollapsingHeader(const char* label) const
+	bool Drawer::CollapsingHeader(const char* label, bool startOpen) const
+	{		
+		return ImGui::CollapsingHeader(label, startOpen ? ImGuiTreeNodeFlags_DefaultOpen : 0);
+	}
+
+	void Drawer::PlotGraphs(const char* label, const std::vector<ScrollingGraphBuffer>& buffers, const glm::vec2& size) const
 	{
-		return ImGui::CollapsingHeader(label);
+		if (buffers.empty())
+			return;
+
+		ImPlotFlags flags = ImPlotFlags_NoInputs | ImPlotFlags_NoMenus | ImPlotFlags_NoBoxSelect | ImPlotFlags_NoChild;
+
+		if (ImPlot::BeginPlot(label, ImVec2(size.x, size.y), flags))
+		{
+			ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickLabels, ImPlotAxisFlags_AutoFit);
+			ImPlot::SetupAxisLimits(ImAxis_X1, 0.0f, static_cast<float>(buffers[0].Capacity), ImGuiCond_Always);
+			for (const auto& buffer : buffers)
+			{
+				ImPlot::PlotLine(buffer.Label.c_str(), buffer.Values.data(), static_cast<int32_t>(buffers[0].Values.size()));
+			}
+			ImPlot::EndPlot();
+		}
+	}
+
+	glm::vec2 Drawer::GetContentRegionAvailable() const
+	{
+		const ImVec2& region = ImGui::GetContentRegionAvail();
+		return glm::vec2(region.x, region.y);
 	}
 
 	void Drawer::Progress(const ProgressInfo& progress) const

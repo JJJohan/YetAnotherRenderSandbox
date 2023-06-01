@@ -28,6 +28,9 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
+	// TODO: Make configurable
+	const vk::Extent3D extent(4096, 4096, 1);
+
 	ShadowCascadeData ShadowMap::UpdateCascades(const Camera& camera, const glm::vec3& lightDir)
 	{
 		const float cascadeSplitLambda = 0.95f;
@@ -128,11 +131,14 @@ namespace Engine::Rendering::Vulkan
 		return m_cascadeCount;
 	}
 
+	uint64_t ShadowMap::GetMemoryUsage() const
+	{
+		const float bytesPerTexel = 4.0f;
+		return m_cascadeCount * extent.width * extent.height * bytesPerTexel;
+	}
+
 	bool ShadowMap::CreateShadowImages(const Device& device, VmaAllocator allocator, vk::Format depthFormat)
 	{
-		// TODO: Make configurable
-		vk::Extent3D extent(4096, 4096, 1);
-
 		for (uint32_t i = 0; i < m_cascadeCount; ++i)
 		{
 			std::unique_ptr<RenderImage>& image = m_shadowImages.emplace_back(std::make_unique<RenderImage>(allocator));

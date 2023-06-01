@@ -8,6 +8,7 @@
 #include "Core/Logging/Logger.hpp"
 #include "OS/Window.hpp"
 #include "imgui.h"
+#include "implot.h"
 
 #include <vulkan/vulkan.hpp>
 #include "backends/imgui_impl_vulkan.h"
@@ -38,10 +39,12 @@ namespace Engine::UI::Vulkan
 		, m_descriptorPool()
 		, m_initVersion(0)
 	{
+		ImPlot::CreateContext();
 	}
 
 	VulkanUIManager::~VulkanUIManager()
 	{
+		ImPlot::DestroyContext();
 		ImGui_ImplVulkan_Shutdown();
 #ifdef _WIN32
 		ImGui_ImplWin32_Shutdown();
@@ -190,5 +193,5 @@ namespace Engine::UI::Vulkan
 		{
 			ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
 		}
-}
+	}
 }

@@ -47,7 +47,8 @@ namespace Engine::Rendering::Vulkan
 
 		virtual bool Initialise() override;
 		virtual bool Render() override;
-		virtual const std::vector<RenderStatsData>& GetRenderStats() const override;
+		virtual const std::vector<FrameStats>& GetRenderStats() const override;
+		virtual const MemoryStats& GetMemoryStats() const override;
 
 		virtual void SetMultiSampleCount(uint32_t sampleCount) override;
 		virtual void SetHDRState(bool enable) override;

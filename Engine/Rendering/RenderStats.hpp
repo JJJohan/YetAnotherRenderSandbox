@@ -5,7 +5,7 @@
 
 namespace Engine::Rendering
 {
-	struct RenderStatsData
+	struct FrameStats
 	{
 		uint64_t InputAssemblyVertexCount;
 		uint64_t InputAssemblyPrimitivesCount;
@@ -14,13 +14,23 @@ namespace Engine::Rendering
 		float RenderTime;
 	};
 
+	struct MemoryStats
+	{
+		uint64_t GBuffer;
+		uint64_t ShadowMap;
+		uint64_t TotalUsage;
+		uint64_t TotalBudget;
+	};
+
 	class RenderStats
 	{
 	public:
 		RenderStats();
-		const std::vector<RenderStatsData>& GetStatistics() const;
+		const std::vector<FrameStats>& GetFrameStats() const;
+		const MemoryStats& GetMemoryStats() const;
 
 	protected:
-		std::vector<RenderStatsData> m_statsData;
+		std::vector<FrameStats> m_statsData;
+		MemoryStats m_memoryStats;
 	};
 }

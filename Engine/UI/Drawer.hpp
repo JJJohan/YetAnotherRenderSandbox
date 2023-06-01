@@ -3,6 +3,7 @@
 #include "Core/Macros.hpp"
 #include "Core/Colour.hpp"
 #include <vector>
+#include "ScrollingGraphBuffer.hpp"
 
 namespace Engine
 {
@@ -32,7 +33,10 @@ namespace Engine::UI
 		EXPORT void EndTabBar() const;
 		EXPORT bool BeginTabItem(const char* label) const;
 		EXPORT void EndTabItem() const;
-		EXPORT bool CollapsingHeader(const char* label) const;
+		EXPORT bool CollapsingHeader(const char* label, bool startOpen) const;
+
+		EXPORT void PlotGraphs(const char* label, const std::vector<ScrollingGraphBuffer>& buffers, const glm::vec2& size = glm::vec2(-1, 0)) const;
+		EXPORT glm::vec2 GetContentRegionAvailable() const;
 
 		EXPORT void BeginDisabled(bool disabled = true) const;
 		EXPORT void EndDisabled() const;

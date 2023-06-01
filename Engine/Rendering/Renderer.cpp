@@ -79,7 +79,12 @@ namespace Engine::Rendering
 		return nullptr;
 	}
 
-	const std::vector<RenderStatsData>& Renderer::GetRenderStats() const
+	const std::vector<FrameStats>& Renderer::GetRenderStats() const
+	{
+		throw;
+	}
+
+	const MemoryStats& Renderer::GetMemoryStats() const
 	{
 		throw;
 	}

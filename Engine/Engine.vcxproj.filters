@@ -34,6 +34,9 @@
     <Filter Include="Dependencies">
       <UniqueIdentifier>{654df920-27f9-47c2-840c-6e4196092904}</UniqueIdentifier>
     </Filter>
+    <Filter Include="UI\implot">
+      <UniqueIdentifier>{57a30aa0-5328-4051-ba8b-58e9a037a9ff}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
@@ -130,9 +133,6 @@
     <ClCompile Include="UI\imgui\imgui.cpp">
       <Filter>UI\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="UI\imgui\imgui_demo.cpp">
-      <Filter>UI\imgui</Filter>
-    </ClCompile>
     <ClCompile Include="UI\imgui\imgui_draw.cpp">
       <Filter>UI\imgui</Filter>
     </ClCompile>
@@ -189,6 +189,15 @@
     </ClCompile>
     <ClCompile Include="Rendering\RenderStats.cpp">
       <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\implot\implot.cpp">
+      <Filter>UI\implot</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\implot\implot_items.cpp">
+      <Filter>UI\implot</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ScrollingGraphBuffer.cpp">
+      <Filter>UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -365,6 +374,15 @@
     </ClInclude>
     <ClInclude Include="Rendering\RenderStats.hpp">
       <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\implot\implot.h">
+      <Filter>UI\implot</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\implot\implot_internal.h">
+      <Filter>UI\implot</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ScrollingGraphBuffer.hpp">
+      <Filter>UI</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -231,6 +231,44 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
+	inline uint64_t GetSizeForFormat(vk::Format format)
+	{
+		switch (format)
+		{
+		case vk::Format::eR8G8Unorm:
+			return 2;
+		case vk::Format::eR8G8B8A8Unorm:
+			return 4;
+		case vk::Format::eR32G32B32A32Sfloat:
+			return 16;
+		case vk::Format::eD32Sfloat:
+			return 4;
+		case vk::Format::eD32SfloatS8Uint:
+			return 5;
+		case vk::Format::eD24UnormS8Uint:
+			return 4;
+		default:
+			Logger::Error("Unhandled format.");
+			return 0;
+		}
+	}
+
+	uint64_t GBuffer::GetMemoryUsage() const
+	{
+		uint64_t totalSize = 0;
+
+		for (const auto& image : m_gBufferImages)
+		{
+			const vk::Extent3D& extents = image->GetDimensions();
+			totalSize += GetSizeForFormat(image->GetFormat()) * extents.width * extents.height * extents.depth;
+		}
+
+		const vk::Extent3D& depthExtents = m_depthImage->GetDimensions();
+		totalSize += GetSizeForFormat(m_depthImage->GetFormat()) * depthExtents.width * depthExtents.height * depthExtents.depth;
+
+		return totalSize;
+	}
+
 	bool GBuffer::Rebuild(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator,
 		const glm::uvec2& size, vk::Format swapChainFormat, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
 		const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap, bool rebuildPipeline)

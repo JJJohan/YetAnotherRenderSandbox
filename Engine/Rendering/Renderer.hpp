@@ -37,7 +37,8 @@ namespace Engine::Rendering
 
 		EXPORT virtual bool Initialise();
 		EXPORT virtual bool Render();
-		EXPORT virtual const std::vector<RenderStatsData>& GetRenderStats() const;
+		EXPORT virtual const std::vector<FrameStats>& GetRenderStats() const;
+		EXPORT virtual const MemoryStats& GetMemoryStats() const;
 
 		EXPORT void SetClearColour(const Colour& colour);
 		EXPORT const Colour GetClearColor() const;
