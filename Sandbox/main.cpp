@@ -24,7 +24,7 @@ const bool debug = false;
 
 uint32_t CreateTestMesh(const Renderer& renderer, std::shared_ptr<Image>& image)
 {
-	return renderer.GetSceneManager()->CreateMesh(
+	return renderer.GetSceneManager().CreateMesh(
 		{
 			{
 				glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(-0.5f, 0.5f, 0.0f),
@@ -49,8 +49,8 @@ Colour g_sunColour = Colour(1, 1, 0.9f);
 float g_sunIntensity = 5.0f;
 Renderer* g_renderer;
 Window* g_window;
+bool g_useTAA = true;
 bool g_useHDR = false;
-UIManager* g_uiManager;
 AsyncData g_sceneLoad;
 
 std::vector<ScrollingGraphBuffer> g_statGraphBuffers =
@@ -61,6 +61,8 @@ std::vector<ScrollingGraphBuffer> g_statGraphBuffers =
 	ScrollingGraphBuffer("Shadow Cascade 3", 1000),
 	ScrollingGraphBuffer("Shadow Cascade 4", 1000),
 	ScrollingGraphBuffer("Combine", 1000),
+	ScrollingGraphBuffer("TAA", 1000),
+	ScrollingGraphBuffer("UI", 1000),
 	ScrollingGraphBuffer("Total", 1000)
 };
 
@@ -78,6 +80,11 @@ void DrawUI(const Drawer& drawer)
 				if (drawer.ComboBox("Debug Mode", g_debugModes, &debugMode))
 				{
 					g_renderer->SetDebugMode(debugMode);
+				}
+
+				if (drawer.Checkbox("Use Temporal AA", &g_useTAA))
+				{
+					g_renderer->SetTemporalAAState(g_useTAA);
 				}
 
 				bool hdrSupported = g_renderer->IsHDRSupported();
@@ -111,15 +118,23 @@ void DrawUI(const Drawer& drawer)
 				if (drawer.CollapsingHeader("Memory", true))
 				{
 					const MemoryStats& memoryStats = g_renderer->GetMemoryStats();
+
+					float dedicatedUsage = static_cast<float>(memoryStats.DedicatedUsage) / 1024.0f / 1024.0f;
+					float dedicatedBudget = static_cast<float>(memoryStats.DedicatedBudget) / 1024.0f / 1024.0f;
+					float dedicatedPercent = dedicatedUsage / dedicatedBudget * 100.0f;
+					float sharedUsage = static_cast<float>(memoryStats.SharedUsage) / 1024.0f / 1024.0f;
+					float sharedBudget = static_cast<float>(memoryStats.SharedBudget) / 1024.0f / 1024.0f;
+					float sharedPercent = sharedUsage / sharedBudget * 100.0f;
+
 					drawer.Text("GBuffer Usage: %.2f MB", static_cast<float>(memoryStats.GBuffer) / 1024.0f / 1024.0f);
 					drawer.Text("Shadow Map Usage: %.2f MB", static_cast<float>(memoryStats.ShadowMap) / 1024.0f / 1024.0f);
-					drawer.Text("Total Memory Usage: %.2f MB", static_cast<float>(memoryStats.TotalUsage) / 1024.0f / 1024.0f);
-					drawer.Text("Total Memory Budget: %.2f MB", static_cast<float>(memoryStats.TotalBudget) / 1024.0f / 1024.0f);
+					drawer.Text("Dedicated VRAM Usage: %.2f MB / %.2f MB (%.2f%%)", dedicatedUsage, dedicatedBudget, dedicatedPercent);
+					drawer.Text("Shared VRAM Usage: %.2f MB / %.2f MB (%.2f%%)", sharedUsage, sharedBudget, sharedPercent);
 				}
 
 				if (drawer.CollapsingHeader("Performance", true))
 				{
-					drawer.Text("FPS: %.2f", g_uiManager->GetFPS());
+					drawer.Text("FPS: %.2f", g_renderer->GetUIManager().GetFPS());
 
 					const std::vector<FrameStats>& statsArray = g_renderer->GetRenderStats();
 					if (!statsArray.empty())
@@ -150,7 +165,7 @@ void DrawLoadProgress(const Drawer& drawer)
 {
 	if (g_sceneLoad.State == AsyncState::Completed)
 	{
-		g_uiManager->UnregisterDrawCallback(DrawLoadProgress);
+		g_renderer->GetUIManager().UnregisterDrawCallback(DrawLoadProgress);
 		g_window->SetCursorVisible(false);
 	}
 
@@ -174,14 +189,12 @@ int main()
 		return 1;
 	}
 
-	g_uiManager = renderer->GetUIManager();
-
 	renderer->SetClearColour(g_clearColour);
 	renderer->SetSunLightColour(g_sunColour);
 	renderer->SetSunLightIntensity(g_sunIntensity);
 
-	g_uiManager->RegisterDrawCallback(DrawLoadProgress);
-	renderer->GetSceneManager()->LoadScene("C:/Users/Johan/Desktop/test/Bistro_small.glb", true, g_sceneLoad);
+	renderer->GetUIManager().RegisterDrawCallback(DrawLoadProgress);
+	renderer->GetSceneManager().LoadScene("C:/Users/Johan/Desktop/test/Bistro_small.glb", true, g_sceneLoad);
 
 	Camera& camera = renderer->GetCamera();
 
@@ -209,9 +222,9 @@ int main()
 			drawUI = !drawUI;
 			window->SetCursorVisible(drawUI);
 			if (drawUI)
-				g_uiManager->RegisterDrawCallback(DrawUI);
+				renderer->GetUIManager().RegisterDrawCallback(DrawUI);
 			else
-				g_uiManager->UnregisterDrawCallback(DrawUI);
+				renderer->GetUIManager().UnregisterDrawCallback(DrawUI);
 		}
 
 		// Rotate sunlight for testing

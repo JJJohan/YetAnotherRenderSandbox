@@ -24,6 +24,7 @@
 #include "LightUniformBuffer.hpp"
 #include "GBuffer.hpp"
 #include "ShadowMap.hpp"
+#include "PostProcessing.hpp"
 #include "VulkanRenderStats.hpp"
 
 #define DEFAULT_MAX_CONCURRENT_FRAMES 2
@@ -50,11 +51,15 @@ namespace Engine::Rendering::Vulkan
 		, m_renderCommandBuffers()
 		, m_shadowCommandBuffers()
 		, m_presentCommandBuffers()
+		, m_postProcessingCommandBuffers()
+		, m_uiCommandBuffers()
 		, m_sceneManager()
 		, m_imageAvailableSemaphores()
 		, m_renderFinishedSemaphores()
 		, m_shadowFinishedSemaphores()
 		, m_presentFinishedSemaphores()
+		, m_postProcessingFinishedSemaphores()
+		, m_uiFinishedSemaphores()
 		, m_inFlightFences()
 		, m_inFlightResources()
 		, m_actionQueue()
@@ -70,6 +75,7 @@ namespace Engine::Rendering::Vulkan
 		, m_resourceSubmitMutex()
 		, m_gBuffer()
 		, m_shadowMap()
+		, m_postProcessing()
 		, m_renderStats()
 		, m_uiManager(std::make_unique<VulkanUIManager>(window, *this))
 	{
@@ -89,6 +95,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_uiManager.reset();
 		m_sceneManager.reset();
+		m_postProcessing.reset();
 		m_renderStats.reset();
 
 		m_frameInfoBuffers.clear();
@@ -99,10 +106,14 @@ namespace Engine::Rendering::Vulkan
 		m_renderFinishedSemaphores.clear();
 		m_shadowFinishedSemaphores.clear();
 		m_presentFinishedSemaphores.clear();
+		m_postProcessingFinishedSemaphores.clear();
+		m_uiFinishedSemaphores.clear();
 		m_inFlightFences.clear();
 		m_renderCommandBuffers.clear();
 		m_shadowCommandBuffers.clear();
 		m_presentCommandBuffers.clear();
+		m_postProcessingCommandBuffers.clear();
+		m_uiCommandBuffers.clear();
 
 		m_shadowMap.reset();
 		m_gBuffer.reset();
@@ -120,6 +131,20 @@ namespace Engine::Rendering::Vulkan
 		m_device.reset();
 		m_surface.reset();
 		m_instance.reset();
+	}
+
+	void VulkanRenderer::UpdateFrameInfo()
+	{
+		const glm::vec2& size = m_window.GetSize();
+
+		FrameInfoUniformBuffer* frameInfo = m_frameInfoBufferData[m_currentFrame];
+		frameInfo->view = m_camera.GetView();
+		frameInfo->viewPos = glm::vec4(m_camera.GetPosition(), 1.0f);
+		frameInfo->debugMode = m_debugMode;
+		frameInfo->prevViewProj = frameInfo->viewProj;
+		frameInfo->viewSize = size;
+		frameInfo->viewProj = m_camera.GetViewProjection();
+		frameInfo->jitter = m_postProcessing->IsEnabled() ? m_postProcessing->GetTAAJitter(size) : glm::vec2();
 	}
 
 	bool VulkanRenderer::RecordRenderCommandBuffer(const vk::CommandBuffer& commandBuffer)
@@ -155,30 +180,21 @@ namespace Engine::Rendering::Vulkan
 		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
 		commandBuffer.setScissor(0, 1, &scissor);
 
-		// Update uniform buffer
-		FrameInfoUniformBuffer frameInfo{};
-		frameInfo.viewProj = m_camera.GetViewProjection();
-		frameInfo.view = m_camera.GetView();
-		frameInfo.viewPos = glm::vec4(m_camera.GetPosition(), 1.0f);
-		frameInfo.debugMode = m_debugMode;
-
-		memcpy(m_frameInfoBufferData[m_currentFrame], &frameInfo, sizeof(FrameInfoUniformBuffer));
+		UpdateFrameInfo();
 
 		// Update light buffer
-		LightUniformBuffer lightInfo{};
-		lightInfo.sunLightColour = m_sunColour.GetVec4();
-		lightInfo.sunLightIntensity = m_sunIntensity;
-		lightInfo.sunLightDir = m_sunDirection;
+		LightUniformBuffer* lightInfo = m_lightBufferData[m_currentFrame];
+		lightInfo->sunLightColour = m_sunColour.GetVec4();
+		lightInfo->sunLightIntensity = m_sunIntensity;
+		lightInfo->sunLightDir = m_sunDirection;
 
 		const uint32_t cascadeCount = m_shadowMap->GetCascadeCount();
 		ShadowCascadeData cascadeData = m_shadowMap->UpdateCascades(m_camera, m_sunDirection);
 		for (uint32_t i = 0; i < cascadeCount; ++i)
 		{
-			lightInfo.cascadeMatrices[i] = cascadeData.CascadeMatrices[i];
-			lightInfo.cascadeSplits[i] = cascadeData.CascadeSplits[i];
+			lightInfo->cascadeMatrices[i] = cascadeData.CascadeMatrices[i];
+			lightInfo->cascadeSplits[i] = cascadeData.CascadeSplits[i];
 		}
-
-		memcpy(m_lightBufferData[m_currentFrame], &lightInfo, sizeof(LightUniformBuffer));
 
 		m_sceneManager->Draw(commandBuffer, m_currentFrame);
 
@@ -241,7 +257,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanRenderer::RecordPresentCommandBuffer(const vk::CommandBuffer& commandBuffer, uint32_t imageIndex)
+	bool VulkanRenderer::RecordPresentCommandBuffer(const vk::CommandBuffer& commandBuffer)
 	{
 		vk::CommandBufferBeginInfo beginInfo;
 		if (commandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
@@ -250,14 +266,14 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		RenderImage& colorImage = m_swapChain->GetSwapChainImages()[imageIndex];
-
-		colorImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eColorAttachmentOptimal);
+		RenderImage& outputImage = m_gBuffer->GetOutputImage();
+		const ImageView& outputImageView = m_gBuffer->GetOutputImageView();
+		outputImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eColorAttachmentOptimal);
 
 		vk::ClearValue clearValue = vk::ClearValue(vk::ClearColorValue(m_clearColour.r, m_clearColour.g, m_clearColour.b, m_clearColour.a));
 
 		vk::RenderingAttachmentInfo colorAttachmentInfo{};
-		colorAttachmentInfo.imageView = m_swapChain->GetSwapChainImageViews()[imageIndex]->Get();
+		colorAttachmentInfo.imageView = outputImageView.Get();
 		colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
 		colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
 		colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
@@ -283,6 +299,111 @@ namespace Engine::Rendering::Vulkan
 
 		m_gBuffer->DrawFinalImage(commandBuffer, m_currentFrame);
 
+		commandBuffer.endRendering();
+		m_renderStats->End(commandBuffer);
+
+		commandBuffer.end();
+
+		return true;
+	}
+
+	bool VulkanRenderer::RecordPostProcessingCommandBuffer(const vk::CommandBuffer& commandBuffer, RenderImage& colorImage, const ImageView& imageView)
+	{
+		vk::CommandBufferBeginInfo beginInfo;
+		if (commandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
+		{
+			Logger::Error("Failed to begin recording post processing command buffer.");
+			return false;
+		}
+
+		const ImageView& taaPrevImageView = m_postProcessing->GetTAAPrevImageView();
+
+		colorImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eColorAttachmentOptimal);
+		m_postProcessing->TransitionTAAImageLayouts(*m_device, commandBuffer);
+		m_gBuffer->GetOutputImage().TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+		m_gBuffer->TransitionDepthLayout(*m_device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+		vk::RenderingAttachmentInfo colorAttachmentInfo{};
+		colorAttachmentInfo.imageView = imageView.Get();
+		colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+		colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eLoad;
+		colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
+
+		vk::RenderingAttachmentInfo previousColorAttachmentInfo = colorAttachmentInfo;
+		previousColorAttachmentInfo.imageView = taaPrevImageView.Get();
+
+		std::array< vk::RenderingAttachmentInfo, 2> attachmentInfos =
+		{
+			colorAttachmentInfo,
+			previousColorAttachmentInfo
+		};
+
+		vk::RenderingInfo renderingInfo{};
+		renderingInfo.renderArea.offset = vk::Offset2D();
+		renderingInfo.renderArea.extent = m_swapChain->GetExtent();
+		renderingInfo.layerCount = 1;
+		renderingInfo.colorAttachmentCount = static_cast<uint32_t>(attachmentInfos.size());
+		renderingInfo.pColorAttachments = attachmentInfos.data();
+
+		m_renderStats->Begin(commandBuffer);
+		commandBuffer.beginRendering(renderingInfo);
+
+		float width = static_cast<float>(renderingInfo.renderArea.extent.width);
+		float height = static_cast<float>(renderingInfo.renderArea.extent.height);
+		vk::Viewport viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
+		commandBuffer.setViewport(0, 1, &viewport);
+
+		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
+		commandBuffer.setScissor(0, 1, &scissor);
+
+		m_postProcessing->Draw(commandBuffer, m_currentFrame);
+
+		commandBuffer.endRendering();
+		m_renderStats->End(commandBuffer);
+
+		m_postProcessing->BlitTAA(*m_device, commandBuffer);
+
+		commandBuffer.end();
+
+		return true;
+	}
+
+
+	bool VulkanRenderer::RecordUICommandBuffer(const vk::CommandBuffer& commandBuffer, RenderImage& colorImage, const ImageView& imageView)
+	{
+		vk::CommandBufferBeginInfo beginInfo;
+		if (commandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
+		{
+			Logger::Error("Failed to begin recording UI command buffer.");
+			return false;
+		}
+
+		colorImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eColorAttachmentOptimal);
+
+		vk::RenderingAttachmentInfo colorAttachmentInfo{};
+		colorAttachmentInfo.imageView = imageView.Get();
+		colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+		colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eLoad;
+		colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
+
+		vk::RenderingInfo renderingInfo{};
+		renderingInfo.renderArea.offset = vk::Offset2D();
+		renderingInfo.renderArea.extent = m_swapChain->GetExtent();
+		renderingInfo.layerCount = 1;
+		renderingInfo.colorAttachmentCount = 1;
+		renderingInfo.pColorAttachments = &colorAttachmentInfo;
+
+		m_renderStats->Begin(commandBuffer);
+		commandBuffer.beginRendering(renderingInfo);
+
+		float width = static_cast<float>(renderingInfo.renderArea.extent.width);
+		float height = static_cast<float>(renderingInfo.renderArea.extent.height);
+		vk::Viewport viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
+		commandBuffer.setViewport(0, 1, &viewport);
+
+		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
+		commandBuffer.setScissor(0, 1, &scissor);
+
 		m_uiManager->Draw(commandBuffer, width, height);
 
 		commandBuffer.endRendering();
@@ -293,56 +414,6 @@ namespace Engine::Rendering::Vulkan
 		commandBuffer.end();
 
 		return true;
-	}
-
-	SceneManager* VulkanRenderer::GetSceneManager() const
-	{
-		return m_sceneManager.get();
-	}
-
-	UIManager* VulkanRenderer::GetUIManager() const
-	{
-		return m_uiManager.get();
-	}
-
-	const Device& VulkanRenderer::GetDevice() const
-	{
-		return *m_device;
-	}
-
-	const PhysicalDevice& VulkanRenderer::GetPhysicalDevice() const
-	{
-		return *m_physicalDevice;
-	}
-
-	const SwapChain& VulkanRenderer::GetSwapChain() const
-	{
-		return *m_swapChain;
-	}
-
-	const GBuffer& VulkanRenderer::GetGBuffer() const
-	{
-		return *m_gBuffer;
-	}
-
-	VmaAllocator VulkanRenderer::GetAllocator() const
-	{
-		return m_allocator;
-	}
-
-	uint32_t VulkanRenderer::GetConcurrentFrameCount() const
-	{
-		return m_maxConcurrentFrames;
-	}
-
-	const std::vector<std::unique_ptr<Buffer>>& VulkanRenderer::GetFrameInfoBuffers() const
-	{
-		return m_frameInfoBuffers;
-	}
-
-	const std::vector<std::unique_ptr<Buffer>>& VulkanRenderer::GetLightBuffers() const
-	{
-		return m_lightBuffers;
 	}
 
 	bool VulkanRenderer::SubmitResourceCommand(std::function<bool(const vk::CommandBuffer&, std::vector<std::unique_ptr<Buffer>>&)> command,
@@ -390,6 +461,8 @@ namespace Engine::Rendering::Vulkan
 		m_renderFinishedSemaphores.reserve(m_maxConcurrentFrames);
 		m_shadowFinishedSemaphores.reserve(m_maxConcurrentFrames);
 		m_presentFinishedSemaphores.reserve(m_maxConcurrentFrames);
+		m_postProcessingFinishedSemaphores.reserve(m_maxConcurrentFrames);
+		m_uiFinishedSemaphores.reserve(m_maxConcurrentFrames);
 		m_inFlightFences.reserve(m_maxConcurrentFrames);
 		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
 		{
@@ -397,8 +470,12 @@ namespace Engine::Rendering::Vulkan
 			vk::UniqueSemaphore renderFinishedSemaphore = deviceImp.createSemaphoreUnique(semaphoreInfo);
 			vk::UniqueSemaphore shadowFinishedSemaphore = deviceImp.createSemaphoreUnique(semaphoreInfo);
 			vk::UniqueSemaphore presentFinishedSemaphore = deviceImp.createSemaphoreUnique(semaphoreInfo);
+			vk::UniqueSemaphore postProcessingFinishedSemaphore = deviceImp.createSemaphoreUnique(semaphoreInfo);
+			vk::UniqueSemaphore uiFinishedSemaphore = deviceImp.createSemaphoreUnique(semaphoreInfo);
 			vk::UniqueFence inFlightFence = deviceImp.createFenceUnique(fenceInfo);
-			if (!imageAvailableSemaphore.get() || !renderFinishedSemaphore.get() || !shadowFinishedSemaphore.get() || !presentFinishedSemaphore.get() || !inFlightFence.get())
+			if (!imageAvailableSemaphore.get() || !renderFinishedSemaphore.get() || !shadowFinishedSemaphore.get() ||
+				!presentFinishedSemaphore.get() || !inFlightFence.get() || !postProcessingFinishedSemaphore.get() ||
+				!uiFinishedSemaphore.get())
 			{
 				Logger::Error("Failed to create synchronization objects.");
 				return false;
@@ -408,6 +485,8 @@ namespace Engine::Rendering::Vulkan
 			m_renderFinishedSemaphores.push_back(std::move(renderFinishedSemaphore));
 			m_shadowFinishedSemaphores.push_back(std::move(shadowFinishedSemaphore));
 			m_presentFinishedSemaphores.push_back(std::move(presentFinishedSemaphore));
+			m_postProcessingFinishedSemaphores.push_back(std::move(postProcessingFinishedSemaphore));
+			m_uiFinishedSemaphores.push_back(std::move(uiFinishedSemaphore));
 			m_inFlightFences.push_back(std::move(inFlightFence));
 		}
 
@@ -486,6 +565,17 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
+	void VulkanRenderer::SetTemporalAAState(bool enabled)
+	{
+		Renderer::SetTemporalAAState(enabled);
+
+		m_actionQueue.push([this, enabled]()
+			{
+				m_postProcessing->SetEnabled(enabled); // Ensure in-flight semaphores get signaled.
+				return true;
+			});
+	}
+
 	void VulkanRenderer::SetHDRState(bool enable)
 	{
 		bool prevHDRState = m_hdr;
@@ -506,26 +596,6 @@ namespace Engine::Rendering::Vulkan
 
 				return true;
 			});
-	}
-
-	bool VulkanRenderer::IsHDRSupported() const
-	{
-		return m_swapChain->IsHDRCapable();
-	}
-
-	void VulkanRenderer::SetMultiSampleCount(uint32_t multiSampleCount)
-	{
-		Logger::Warning("Multisampling not supported in Vulkan backend.");
-	}
-
-	const std::vector<FrameStats>& VulkanRenderer::GetRenderStats() const
-	{
-		return m_renderStats->GetFrameStats();
-	}
-
-	const MemoryStats& VulkanRenderer::GetMemoryStats() const
-	{
-		return m_renderStats->GetMemoryStats();
 	}
 
 	bool VulkanRenderer::Initialise()
@@ -552,6 +622,7 @@ namespace Engine::Rendering::Vulkan
 		m_sceneManager = std::make_unique<VulkanSceneManager>(*this);
 		m_gBuffer = std::make_unique<GBuffer>(m_maxConcurrentFrames);
 		m_shadowMap = std::make_unique<ShadowMap>();
+		m_postProcessing = std::make_unique<PostProcessing>(*m_gBuffer, m_maxConcurrentFrames);
 		m_renderStats = std::make_unique<VulkanRenderStats>(*m_gBuffer, *m_shadowMap);
 
 		if (!m_instance->Initialise(title, *m_Debug, m_debug)
@@ -573,13 +644,15 @@ namespace Engine::Rendering::Vulkan
 			|| !CreateFrameInfoUniformBuffer()
 			|| !CreateLightUniformBuffer()
 			|| !m_shadowMap->Rebuild(*m_device, m_allocator, depthFormat)
-			|| !m_gBuffer->Initialise(*m_physicalDevice, *m_device, m_allocator, m_swapChain->GetFormat(),
-				depthFormat, maxAnisotoropic, m_frameInfoBuffers, m_lightBuffers, *m_shadowMap, size))
+			|| !m_gBuffer->Initialise(*m_physicalDevice, *m_device, m_allocator,
+				depthFormat, size, m_frameInfoBuffers, m_lightBuffers, *m_shadowMap)
+			|| !m_postProcessing->Initialise(*m_physicalDevice, *m_device, m_allocator,
+				m_swapChain->GetFormat(), size))
 		{
 			return false;
 		}
 
-		const uint32_t renderPassCount = m_shadowMap->GetCascadeCount() + 2; // Shadow cascades, scene & resolve
+		const uint32_t renderPassCount = m_shadowMap->GetCascadeCount() + 4; // Shadow cascades, scene, resolve, TAA & UI
 		if (!m_renderStats->Initialise(*m_physicalDevice, *m_device, renderPassCount))
 		{
 			return false;
@@ -610,6 +683,18 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
+		m_postProcessingCommandBuffers = m_renderCommandPool->CreateCommandBuffers(*m_device, m_maxConcurrentFrames);
+		if (m_postProcessingCommandBuffers.empty())
+		{
+			return false;
+		}
+
+		m_uiCommandBuffers = m_renderCommandPool->CreateCommandBuffers(*m_device, m_maxConcurrentFrames);
+		if (m_uiCommandBuffers.empty())
+		{
+			return false;
+		}
+
 		if (!m_sceneManager->Initialise(m_gBuffer->GetImageFormats(), m_gBuffer->GetDepthFormat()))
 		{
 			return false;
@@ -636,8 +721,14 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!m_gBuffer->Rebuild(*m_physicalDevice, *m_device, m_allocator, size, m_swapChain->GetFormat(),
+		if (!m_gBuffer->Rebuild(*m_physicalDevice, *m_device, m_allocator, size,
 			m_frameInfoBuffers, m_lightBuffers, *m_shadowMap, rebuildPipelines))
+		{
+			return false;
+		}
+
+		if (!m_postProcessing->Rebuild(*m_physicalDevice, *m_device, m_allocator,
+			m_swapChain->GetFormat(), size, rebuildPipelines))
 		{
 			return false;
 		}
@@ -741,12 +832,14 @@ namespace Engine::Rendering::Vulkan
 
 		m_camera.Update(windowSize);
 
+		std::vector<vk::SubmitInfo> submitInfos;
+
 		if (!RecordRenderCommandBuffer(m_renderCommandBuffers[m_currentFrame].get()))
 		{
 			return false;
 		}
 
-		vk::SubmitInfo renderSubmitInfo(0, nullptr, nullptr, 1, &m_renderCommandBuffers[m_currentFrame].get(), 1, &m_renderFinishedSemaphores[m_currentFrame].get());
+		submitInfos.emplace_back(vk::SubmitInfo(0, nullptr, nullptr, 1, &m_renderCommandBuffers[m_currentFrame].get(), 1, &m_renderFinishedSemaphores[m_currentFrame].get()));
 
 		m_shadowCommandBuffers[m_currentFrame]->reset();
 
@@ -755,25 +848,51 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		vk::SubmitInfo shadowSubmitInfo(0, nullptr, nullptr, 1, &m_shadowCommandBuffers[m_currentFrame].get(), 1, &m_shadowFinishedSemaphores[m_currentFrame].get());
+		submitInfos.emplace_back(vk::SubmitInfo(0, nullptr, nullptr, 1, &m_shadowCommandBuffers[m_currentFrame].get(), 1, &m_shadowFinishedSemaphores[m_currentFrame].get()));
 
 		m_presentCommandBuffers[m_currentFrame]->reset();
 
-		if (!RecordPresentCommandBuffer(m_presentCommandBuffers[m_currentFrame].get(), imageIndex))
+		if (!RecordPresentCommandBuffer(m_presentCommandBuffers[m_currentFrame].get()))
 		{
 			return false;
 		}
 
 		std::array<vk::PipelineStageFlags, 3> presentWaitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eColorAttachmentOutput };
 		std::array<vk::Semaphore, 3> presentWaitSemaphores = { m_imageAvailableSemaphores[m_currentFrame].get(), m_renderFinishedSemaphores[m_currentFrame].get(), m_shadowFinishedSemaphores[m_currentFrame].get() };
-		vk::SubmitInfo presentSubmitInfo(3, presentWaitSemaphores.data(), presentWaitStages.data(), 1, &m_presentCommandBuffers[m_currentFrame].get(), 1, &m_presentFinishedSemaphores[m_currentFrame].get());
+		submitInfos.emplace_back(vk::SubmitInfo(3, presentWaitSemaphores.data(), presentWaitStages.data(), 1, &m_presentCommandBuffers[m_currentFrame].get(), 1, &m_presentFinishedSemaphores[m_currentFrame].get()));
 
-		std::array<vk::SubmitInfo, 3> submitInfos = { renderSubmitInfo, shadowSubmitInfo, presentSubmitInfo };
+		RenderImage& colorImage = m_swapChain->GetSwapChainImage(imageIndex);
+		const ImageView& imageView = m_swapChain->GetSwapChainImageView(imageIndex);
+
+		m_postProcessingCommandBuffers[m_currentFrame]->reset();
+
+		if (!RecordPostProcessingCommandBuffer(m_postProcessingCommandBuffers[m_currentFrame].get(), colorImage, imageView))
+		{
+			return false;
+		}
+
+		std::array<vk::PipelineStageFlags, 1> postProcessingWaitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+		std::array<vk::Semaphore, 1> postProcessingWaitSemaphores = { m_presentFinishedSemaphores[m_currentFrame].get() };
+		submitInfos.emplace_back(vk::SubmitInfo(1, postProcessingWaitSemaphores.data(), postProcessingWaitStages.data(), 1,
+			&m_postProcessingCommandBuffers[m_currentFrame].get(), 1, &m_postProcessingFinishedSemaphores[m_currentFrame].get()));
+
+		m_uiCommandBuffers[m_currentFrame]->reset();
+
+		if (!RecordUICommandBuffer(m_uiCommandBuffers[m_currentFrame].get(), colorImage, imageView))
+		{
+			return false;
+		}
+
+		std::array<vk::PipelineStageFlags, 1> uiWaitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+		std::array<vk::Semaphore, 1> uiWaitSemaphores = { m_postProcessingFinishedSemaphores[m_currentFrame].get() };
+		submitInfos.emplace_back(vk::SubmitInfo(1, uiWaitSemaphores.data(), uiWaitStages.data(), 1,
+			&m_uiCommandBuffers[m_currentFrame].get(), 1, &m_uiFinishedSemaphores[m_currentFrame].get()));
+
 		graphicsQueue.submit(submitInfos, m_inFlightFences[m_currentFrame].get());
 
 		m_renderStats->GetResults(*m_physicalDevice, *m_device);
 
-		vk::PresentInfoKHR presentInfo(1, &m_presentFinishedSemaphores[m_currentFrame].get(), 1, &swapchainImp, &imageIndex);
+		vk::PresentInfoKHR presentInfo(1, &m_uiFinishedSemaphores[m_currentFrame].get(), 1, &swapchainImp, &imageIndex);
 
 		// Exceptions in the core render loop, oh my!
 		// The premise is that these are likely to only occur during swapchain resizing and are truly 'exceptional'.

@@ -5,8 +5,11 @@
 layout(binding = 0) uniform FrameInfo
 {
     mat4 viewProj;
+    mat4 prevViewProj;
     mat4 view;
 	vec4 viewPos;
+	vec2 viewSize;
+	vec2 jitter;
 	uint debugMode;
 } frameInfo;
 

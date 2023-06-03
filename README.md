@@ -13,4 +13,4 @@ The short-term focus as of writing:
 * Experimenting with basic animation.
 * Code cleanup before pursuing more intricate topics.
 
-![preview](ReadmeAssets/preview_v2.png)
+![preview](ReadmeAssets/preview_v3.png)

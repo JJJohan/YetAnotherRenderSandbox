@@ -44,51 +44,6 @@ namespace Engine::Rendering
 		}
 	}
 
-	void Renderer::SetSunLightDirection(const glm::vec3& dir)
-	{
-		m_sunDirection = glm::normalize(dir);
-	}
-
-	void Renderer::SetSunLightColour(const Colour& colour)
-	{
-		m_sunColour = colour;
-	}
-
-	void Renderer::SetSunLightIntensity(float intensity)
-	{
-		m_sunIntensity = intensity;
-	}
-
-	void Renderer::SetCamera(const Camera& camera)
-	{
-		m_camera = camera;
-	}
-
-	Camera& Renderer::GetCamera()
-	{
-		return m_camera;
-	}
-
-	SceneManager* Renderer::GetSceneManager() const
-	{
-		return nullptr;
-	}
-
-	UIManager* Renderer::GetUIManager() const
-	{
-		return nullptr;
-	}
-
-	const std::vector<FrameStats>& Renderer::GetRenderStats() const
-	{
-		throw;
-	}
-
-	const MemoryStats& Renderer::GetMemoryStats() const
-	{
-		throw;
-	}
-
 	void Renderer::SetMultiSampleCount(uint32_t multiSampleCount)
 	{
 		if (multiSampleCount > m_maxMultiSampleCount)
@@ -98,55 +53,5 @@ namespace Engine::Rendering
 		}
 
 		m_multiSampleCount = std::clamp(multiSampleCount, 1U, m_maxMultiSampleCount);
-	}
-
-	uint32_t Renderer::GetMaxMultiSampleCount() const
-	{
-		return m_maxMultiSampleCount;
-	}
-
-	void Renderer::SetClearColour(const Colour& clearColour)
-	{
-		m_clearColour = clearColour.GetVec4();
-	}
-
-	const Colour Renderer::GetClearColor() const
-	{
-		return Colour(m_clearColour);
-	}
-
-	void Renderer::SetHDRState(bool enable)
-	{
-		m_hdr = enable;
-	}
-
-	bool Renderer::GetHDRState() const
-	{
-		return m_hdr;
-	}
-
-	bool Renderer::IsHDRSupported() const
-	{
-		return false;
-	}
-
-	void Renderer::SetDebugMode(uint32_t mode)
-	{
-		m_debugMode = mode;
-	}
-
-	uint32_t Renderer::GetDebugMode() const
-	{
-		return m_debugMode;
-	}
-
-	bool Renderer::Initialise()
-	{
-		return true;
-	}
-
-	bool Renderer::Render()
-	{
-		return false;
 	}
 }

@@ -30,8 +30,8 @@ namespace Engine::Rendering::Vulkan
 		const vk::Extent2D& GetExtent() const;
 		const vk::SwapchainKHR& Get() const;
 
-		std::vector<RenderImage>& GetSwapChainImages();
-		const std::vector<std::unique_ptr<ImageView>>& GetSwapChainImageViews() const;
+		RenderImage& GetSwapChainImage(uint32_t imageIndex);
+		const ImageView& GetSwapChainImageView(uint32_t imageIndex) const;
 		bool IsHDRCapable() const;
 
 		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, const Surface& surface,

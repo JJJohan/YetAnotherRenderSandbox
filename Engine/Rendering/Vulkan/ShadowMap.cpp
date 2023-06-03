@@ -1,7 +1,5 @@
 #include "ShadowMap.hpp"
 #include "Core/Logging/Logger.hpp"
-#include "ImageView.hpp"
-#include "RenderImage.hpp"
 #include "DescriptorPool.hpp"
 #include "Device.hpp"
 #include "Rendering/Camera.hpp"
@@ -25,11 +23,9 @@ namespace Engine::Rendering::Vulkan
 		, m_cascadeMatrices(DefaultCascadeCount)
 		, m_cascadeSplits(DefaultCascadeCount)
 		, m_cascadeCount(DefaultCascadeCount)
+		, m_extent(4096, 4096, 1) // TODO: Make configurable
 	{
 	}
-
-	// TODO: Make configurable
-	const vk::Extent3D extent(4096, 4096, 1);
 
 	ShadowCascadeData ShadowMap::UpdateCascades(const Camera& camera, const glm::vec3& lightDir)
 	{
@@ -121,28 +117,12 @@ namespace Engine::Rendering::Vulkan
 		return GetShadowCascadeData();
 	}
 
-	ShadowCascadeData ShadowMap::GetShadowCascadeData() const
-	{
-		return ShadowCascadeData(m_cascadeSplits, m_cascadeMatrices);
-	}
-
-	uint32_t ShadowMap::GetCascadeCount() const
-	{
-		return m_cascadeCount;
-	}
-
-	uint64_t ShadowMap::GetMemoryUsage() const
-	{
-		const float bytesPerTexel = 4.0f;
-		return m_cascadeCount * extent.width * extent.height * bytesPerTexel;
-	}
-
 	bool ShadowMap::CreateShadowImages(const Device& device, VmaAllocator allocator, vk::Format depthFormat)
 	{
 		for (uint32_t i = 0; i < m_cascadeCount; ++i)
 		{
 			std::unique_ptr<RenderImage>& image = m_shadowImages.emplace_back(std::make_unique<RenderImage>(allocator));
-			if (!image->Initialise(vk::ImageType::e2D, depthFormat, extent, 1, vk::ImageTiling::eOptimal,
+			if (!image->Initialise(vk::ImageType::e2D, depthFormat, m_extent, 1, vk::ImageTiling::eOptimal,
 				vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eDepthStencilAttachment,
 				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0, vk::SharingMode::eExclusive))
 			{
@@ -172,26 +152,5 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		return true;
-	}
-
-	RenderImage& ShadowMap::GetShadowImage(uint32_t index) const
-	{
-		return *m_shadowImages[index];
-	}
-
-	const ImageView& ShadowMap::GetShadowImageView(uint32_t index) const
-	{
-		return *m_shadowImageViews[index];
-	}
-
-	vk::RenderingAttachmentInfo ShadowMap::GetShadowAttachment(uint32_t index) const
-	{
-		vk::RenderingAttachmentInfo attachment{};
-		attachment.imageView = m_shadowImageViews[index]->Get();
-		attachment.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
-		attachment.loadOp = vk::AttachmentLoadOp::eClear;
-		attachment.storeOp = vk::AttachmentStoreOp::eStore;
-		attachment.clearValue = vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0));
-		return attachment;
 	}
 }

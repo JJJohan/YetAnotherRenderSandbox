@@ -4,8 +4,11 @@
 layout(binding = 0) uniform FrameInfo
 {
     mat4 viewProj;
+    mat4 prevViewProj;
     mat4 view;
 	vec4 viewPos;
+	vec2 viewSize;
+	vec2 jitter;
 	uint debugMode;
 } frameInfo;
 
@@ -34,8 +37,10 @@ layout(location = 2) flat out uint fragMetallicRoughnessImageIndex;
 
 layout(location = 3) out vec4 fragColor;
 layout(location = 4) out vec2 fragUv;
-layout(location = 5) out vec4 fragWorldPosAndViewDepth;
-layout(location = 6) out vec3 fragNormal;
+layout(location = 5) out vec4 fragPrevPos;
+layout(location = 6) out vec4 fragPos;
+layout(location = 7) out vec4 fragWorldPosAndViewDepth;
+layout(location = 8) out vec3 fragNormal;
 
 void main()
 {
@@ -51,6 +56,8 @@ void main()
     fragWorldPosAndViewDepth.xyz = transformedPos.xyz / transformedPos.w;
 	fragWorldPosAndViewDepth.w = (frameInfo.view * transformedPos).z;
     fragNormal = normalize(vec3(infoBuffer.meshInfo[gl_DrawID].normalMatrix * vec4(normal, 0.0)));
+	fragPrevPos = frameInfo.prevViewProj * vec4(fragWorldPosAndViewDepth.xyz, 1.0);
 
-    gl_Position = frameInfo.viewProj * transformedPos;
+    gl_Position = fragPos = frameInfo.viewProj * transformedPos;
+    gl_Position.xy += frameInfo.jitter * fragPos.w; // Apply Jittering
 }

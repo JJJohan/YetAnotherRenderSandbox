@@ -35,32 +35,36 @@ namespace Engine::Rendering
 		EXPORT static std::unique_ptr<Renderer> Create(RendererType rendererType, const Engine::OS::Window& window, bool debug);
 		EXPORT virtual ~Renderer();
 
-		EXPORT virtual bool Initialise();
-		EXPORT virtual bool Render();
-		EXPORT virtual const std::vector<FrameStats>& GetRenderStats() const;
-		EXPORT virtual const MemoryStats& GetMemoryStats() const;
+		inline virtual bool Initialise() { return true; }
+		inline virtual bool Render() { return false; }
+		EXPORT virtual const std::vector<FrameStats>& GetRenderStats() const { throw; };
+		EXPORT virtual const MemoryStats& GetMemoryStats() const { throw; };
 
-		EXPORT void SetClearColour(const Colour& colour);
-		EXPORT const Colour GetClearColor() const;
+		inline void SetClearColour(const Colour& clearColour) { m_clearColour = clearColour.GetVec4(); };
+		inline const Colour GetClearColor() const { return Colour(m_clearColour); };
 
-		EXPORT void SetDebugMode(uint32_t mode);
-		EXPORT uint32_t GetDebugMode() const;
+		inline virtual void SetTemporalAAState(bool enabled) { m_temporalAA = enabled; };
+		inline bool GetTemporalAAState(bool enabled) const { return m_temporalAA; };
 
-		EXPORT virtual void SetMultiSampleCount(uint32_t multiSampleCount);
-		EXPORT uint32_t GetMaxMultiSampleCount() const;
+		inline void SetDebugMode(uint32_t mode) { m_debugMode = mode; };
+		inline uint32_t GetDebugMode() const { return m_debugMode; };
 
-		EXPORT void SetSunLightDirection(const glm::vec3& dir);
-		EXPORT void SetSunLightColour(const Colour& colour);
-		EXPORT void SetSunLightIntensity(float intensity);
-		EXPORT virtual void SetHDRState(bool enable);
-		EXPORT bool GetHDRState() const;
-		EXPORT virtual bool IsHDRSupported() const;
+		inline virtual void SetMultiSampleCount(uint32_t multiSampleCount);;
+		inline uint32_t GetMaxMultiSampleCount() const { return m_maxMultiSampleCount; };
 
-		EXPORT void SetCamera(const Camera& camera);
-		EXPORT Camera& GetCamera();
+		inline virtual void SetHDRState(bool enable) { m_hdr = enable; };
+		inline bool GetHDRState() const { return m_hdr; };
+		inline virtual bool IsHDRSupported() const { return false; };
 
-		EXPORT virtual SceneManager* GetSceneManager() const;
-		EXPORT virtual Engine::UI::UIManager* GetUIManager() const;
+		inline void SetSunLightDirection(const glm::vec3& dir) { m_sunDirection = glm::normalize(dir); };
+		inline void SetSunLightColour(const Colour& colour) { m_sunColour = colour; };
+		inline void SetSunLightIntensity(float intensity) { m_sunIntensity = intensity; };
+
+		inline void SetCamera(const Camera& camera) { m_camera = camera; };
+		inline Camera& GetCamera() { return m_camera; };
+
+		inline virtual SceneManager& GetSceneManager() const { throw; };
+		inline virtual Engine::UI::UIManager& GetUIManager() const { throw; };
 
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);
@@ -72,6 +76,7 @@ namespace Engine::Rendering
 		uint32_t m_multiSampleCount;
 		uint32_t m_maxMultiSampleCount;
 		const Engine::OS::Window& m_window;
+		bool m_temporalAA;
 		bool m_debug;
 		bool m_hdr;
 		Camera m_camera;

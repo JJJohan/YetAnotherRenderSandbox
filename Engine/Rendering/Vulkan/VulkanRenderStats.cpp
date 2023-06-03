@@ -104,20 +104,30 @@ namespace Engine::Rendering::Vulkan
 
 	void VulkanRenderStats::GetResults(const PhysicalDevice& physicalDevice, const Device& device)
 	{
+		memset(&m_memoryStats, 0, sizeof(MemoryStats));
+
 		m_memoryStats.GBuffer = m_gBuffer.GetMemoryUsage();
 		m_memoryStats.ShadowMap = m_shadowMap.GetMemoryUsage();
-
-		m_memoryStats.TotalUsage = 0;
-		m_memoryStats.TotalBudget = 0;
 		vk::PhysicalDeviceMemoryBudgetPropertiesEXT budgetProperties{};
 		vk::PhysicalDeviceMemoryProperties2 memoryProperties{};
 		memoryProperties.pNext = &budgetProperties;
 		physicalDevice.Get().getMemoryProperties2(&memoryProperties);
 		uint32_t heapCount = memoryProperties.memoryProperties.memoryHeapCount;
+
 		for (uint32_t i = 0; i < heapCount; ++i)
 		{
-			m_memoryStats.TotalUsage += budgetProperties.heapUsage[i];
-			m_memoryStats.TotalBudget += budgetProperties.heapBudget[i];
+			// Split memory usage into dedicated and shared based on DEVICE_LOCAL flag.
+			if ((memoryProperties.memoryProperties.memoryHeaps[i].flags & vk::MemoryHeapFlagBits::eDeviceLocal) == vk::MemoryHeapFlagBits::eDeviceLocal)
+			{
+				m_memoryStats.DedicatedUsage += budgetProperties.heapUsage[i];
+				m_memoryStats.DedicatedBudget += budgetProperties.heapBudget[i];
+			}
+			else
+			{
+				m_memoryStats.SharedUsage += budgetProperties.heapUsage[i];
+				m_memoryStats.SharedBudget += budgetProperties.heapBudget[i];
+			}
+
 		}
 
 		if (!m_timestampSupported && !m_statisticsSupported)

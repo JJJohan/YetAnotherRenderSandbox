@@ -199,6 +199,9 @@
     <ClCompile Include="UI\ScrollingGraphBuffer.cpp">
       <Filter>UI</Filter>
     </ClCompile>
+    <ClCompile Include="Rendering\Vulkan\PostProcessing.cpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Macros.hpp">
@@ -294,9 +297,6 @@
     <ClInclude Include="Core\Hash.hpp">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\Vulkan\FrameInfoUniformBuffer.hpp">
-      <Filter>Rendering\Vulkan</Filter>
-    </ClInclude>
     <ClInclude Include="Rendering\MeshInfo.hpp">
       <Filter>Rendering</Filter>
     </ClInclude>
@@ -366,9 +366,6 @@
     <ClInclude Include="Rendering\Vulkan\ShadowMap.hpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\Vulkan\LightUniformBuffer.hpp">
-      <Filter>Rendering\Vulkan</Filter>
-    </ClInclude>
     <ClInclude Include="Rendering\Vulkan\VulkanRenderStats.hpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClInclude>
@@ -383,6 +380,15 @@
     </ClInclude>
     <ClInclude Include="UI\ScrollingGraphBuffer.hpp">
       <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\PostProcessing.hpp">
+      <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\LightUniformBuffer.hpp">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Vulkan\FrameInfoUniformBuffer.hpp">
+      <Filter>Rendering</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

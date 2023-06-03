@@ -158,6 +158,43 @@ namespace Engine::Rendering::Vulkan
 		return format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint;
 	}
 
+	inline bool SetFlags(const vk::ImageLayout& imageLayout, vk::AccessFlags& accessMask, vk::PipelineStageFlags& stage)
+	{
+		switch (imageLayout)
+		{
+		case vk::ImageLayout::eUndefined:
+			accessMask = vk::AccessFlagBits::eNone;
+			stage = vk::PipelineStageFlagBits::eTopOfPipe;
+			return true;
+		case vk::ImageLayout::eTransferSrcOptimal:
+			accessMask = vk::AccessFlagBits::eTransferRead;
+			stage = vk::PipelineStageFlagBits::eTransfer;
+			return true;
+		case vk::ImageLayout::eTransferDstOptimal:
+			accessMask = vk::AccessFlagBits::eTransferWrite;
+			stage = vk::PipelineStageFlagBits::eTransfer;
+			return true;
+		case vk::ImageLayout::eShaderReadOnlyOptimal:
+			accessMask = vk::AccessFlagBits::eShaderRead;
+			stage = vk::PipelineStageFlagBits::eFragmentShader;
+			return true;
+		case vk::ImageLayout::eColorAttachmentOptimal:
+			accessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+			stage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+			return true;
+		case vk::ImageLayout::eDepthStencilAttachmentOptimal:
+			accessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+			stage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+			return true;
+		case vk::ImageLayout::ePresentSrcKHR:
+			accessMask = vk::AccessFlagBits::eNone;
+			stage = vk::PipelineStageFlagBits::eBottomOfPipe;
+			return true;
+		default:
+			return false;
+		}
+	}
+
 	void RenderImage::TransitionImageLayout(const Device& device, const vk::CommandBuffer& commandBuffer, vk::ImageLayout newLayout)
 	{
 		if (m_layout == newLayout)
@@ -168,83 +205,16 @@ namespace Engine::Rendering::Vulkan
 		vk::PipelineStageFlags srcStage;
 		vk::PipelineStageFlags dstStage;
 
-		if (m_layout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal)
+		if (!SetFlags(m_layout, srcAccessMask, srcStage))
 		{
-			srcAccessMask = vk::AccessFlagBits::eNone;
-			dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-			srcStage = vk::PipelineStageFlagBits::eTopOfPipe;
-			dstStage = vk::PipelineStageFlagBits::eTransfer;
+			Logger::Error("Source image layout not handled.");
+			return;
 		}
-		else if (m_layout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
+
+		if (!SetFlags(newLayout, dstAccessMask, dstStage))
 		{
-			srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-			dstAccessMask = vk::AccessFlagBits::eShaderRead;
-			srcStage = vk::PipelineStageFlagBits::eTransfer;
-			dstStage = vk::PipelineStageFlagBits::eFragmentShader;
-		}
-		else if (m_layout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eColorAttachmentOptimal)
-		{
-			srcAccessMask = vk::AccessFlagBits::eNone;
-			dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-			srcStage = vk::PipelineStageFlagBits::eTopOfPipe;
-			dstStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-		}
-		else if (m_layout == vk::ImageLayout::ePresentSrcKHR && newLayout == vk::ImageLayout::eColorAttachmentOptimal)
-		{
-			srcAccessMask = vk::AccessFlagBits::eNone;
-			dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-			srcStage = vk::PipelineStageFlagBits::eBottomOfPipe;
-			dstStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-		}
-		else if (m_layout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
-		{
-			srcAccessMask = vk::AccessFlagBits::eNone;
-			dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-			srcStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
-			dstStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
-		}
-		else if (m_layout == vk::ImageLayout::eColorAttachmentOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
-		{
-			srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-			dstAccessMask = vk::AccessFlagBits::eShaderRead;
-			srcStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-			dstStage = vk::PipelineStageFlagBits::eFragmentShader;
-		}
-		else if (m_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
-		{
-			srcAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-			dstAccessMask = vk::AccessFlagBits::eShaderRead;
-			srcStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
-			dstStage = vk::PipelineStageFlagBits::eFragmentShader;
-		}
-		else if (m_layout == vk::ImageLayout::eShaderReadOnlyOptimal && newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
-		{
-			srcAccessMask = vk::AccessFlagBits::eShaderRead;
-			dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-			srcStage = vk::PipelineStageFlagBits::eFragmentShader;
-			dstStage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
-		}
-		else if (m_layout == vk::ImageLayout::eShaderReadOnlyOptimal && newLayout == vk::ImageLayout::eColorAttachmentOptimal)
-		{
-			srcAccessMask = vk::AccessFlagBits::eShaderRead;
-			dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-			srcStage = vk::PipelineStageFlagBits::eFragmentShader;
-			dstStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-		}
-		else if (m_layout == vk::ImageLayout::eColorAttachmentOptimal && newLayout == vk::ImageLayout::ePresentSrcKHR)
-		{
-			srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-			dstAccessMask = vk::AccessFlagBits::eNone;
-			srcStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-			dstStage = vk::PipelineStageFlagBits::eBottomOfPipe;
-		}
-		else
-		{
-			srcAccessMask = vk::AccessFlagBits::eNone;
-			dstAccessMask = vk::AccessFlagBits::eNone;
-			srcStage = vk::PipelineStageFlagBits::eNone;
-			dstStage = vk::PipelineStageFlagBits::eNone;
-			Logger::Error("Transition layout not supported.");
+			Logger::Error("Destination image layout not handled.");
+			return;
 		}
 
 		vk::ImageAspectFlags aspectFlags;

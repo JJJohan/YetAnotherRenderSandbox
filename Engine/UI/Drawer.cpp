@@ -23,7 +23,7 @@ namespace Engine::UI
 		size_t len = vsnprintf(0, 0, fmt, args);
 		char* buffer = new char[len + 1];
 		vsnprintf(buffer, len + 1, fmt, args);
-		ImGui::Text(buffer);
+		ImGui::TextUnformatted(buffer);
 
 		va_end(args);
 	}
@@ -108,7 +108,7 @@ namespace Engine::UI
 	}
 
 	bool Drawer::CollapsingHeader(const char* label, bool startOpen) const
-	{		
+	{
 		return ImGui::CollapsingHeader(label, startOpen ? ImGuiTreeNodeFlags_DefaultOpen : 0);
 	}
 

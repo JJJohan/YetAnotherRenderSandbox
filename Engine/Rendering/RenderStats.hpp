@@ -18,8 +18,10 @@ namespace Engine::Rendering
 	{
 		uint64_t GBuffer;
 		uint64_t ShadowMap;
-		uint64_t TotalUsage;
-		uint64_t TotalBudget;
+		uint64_t DedicatedUsage;
+		uint64_t DedicatedBudget;
+		uint64_t SharedUsage;
+		uint64_t SharedBudget;
 	};
 
 	class RenderStats

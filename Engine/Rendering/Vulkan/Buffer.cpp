@@ -2,7 +2,6 @@
 #include "RenderImage.hpp"
 #include "Device.hpp"
 #include "CommandPool.hpp"
-#include "Core/Logging/Logger.hpp"
 
 using namespace Engine::Logging;
 
@@ -42,19 +41,6 @@ namespace Engine::Rendering::Vulkan
 		memcpy(m_bufferAllocInfo.pMappedData, data, size);
 		return true;
 	}
-
-	bool Buffer::GetMappedMemory(void** mappedMemory) const
-	{
-		if (m_bufferAllocInfo.pMappedData == nullptr)
-		{
-			Logger::Error("Memory is not mapped.");
-			return false;
-		}
-
-		*mappedMemory = m_bufferAllocInfo.pMappedData;
-		return true;
-	}
-
 
 	void Buffer::Copy(const Device& device, const vk::CommandBuffer& commandBuffer, const Buffer& destination, vk::DeviceSize size) const
 	{

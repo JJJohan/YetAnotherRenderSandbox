@@ -6,21 +6,23 @@
 #include <functional>
 #include <queue>
 #include <vma/vk_mem_alloc.h>
+#include "VulkanRenderStats.hpp"
+#include "SwapChain.hpp"
+#include "VulkanSceneManager.hpp"
+#include "Core/Logging/Logger.hpp"
+#include "UI/Vulkan/VulkanUIManager.hpp"
 
 namespace Engine::Rendering
 {
 	class Shader;
 	class SceneManager;
+	struct FrameInfoUniformBuffer;
+	struct LightUniformBuffer;
 }
 
 namespace Engine::UI
 {
 	class UIManager;
-}
-
-namespace Engine::UI::Vulkan
-{
-	class VulkanUIManager;
 }
 
 namespace Engine::Rendering::Vulkan
@@ -31,13 +33,13 @@ namespace Engine::Rendering::Vulkan
 	class Instance;
 	class Surface;
 	class PipelineLayout;
-	class SwapChain;
 	class CommandPool;
-	class VulkanSceneManager;
 	class Buffer;
 	class GBuffer;
 	class ShadowMap;
-	class VulkanRenderStats;
+	class PostProcessing;
+	class RenderImage;
+	class ImageView;
 
 	class VulkanRenderer : public Renderer
 	{
@@ -47,36 +49,45 @@ namespace Engine::Rendering::Vulkan
 
 		virtual bool Initialise() override;
 		virtual bool Render() override;
-		virtual const std::vector<FrameStats>& GetRenderStats() const override;
-		virtual const MemoryStats& GetMemoryStats() const override;
+		inline virtual const std::vector<FrameStats>& GetRenderStats() const override { return m_renderStats->GetFrameStats(); };
+		inline virtual const MemoryStats& GetMemoryStats() const override { return m_renderStats->GetMemoryStats(); };
 
-		virtual void SetMultiSampleCount(uint32_t sampleCount) override;
+		inline virtual void SetMultiSampleCount(uint32_t multiSampleCount) override
+		{
+			Engine::Logging::Logger::Warning("Multisampling not supported in Vulkan backend.");
+		}
+
+		virtual void SetTemporalAAState(bool enabled) override;
+
 		virtual void SetHDRState(bool enable) override;
-		virtual bool IsHDRSupported() const override;
+		inline virtual bool IsHDRSupported() const override { return m_swapChain->IsHDRCapable(); };
 
-		virtual SceneManager* GetSceneManager() const override;
-		virtual Engine::UI::UIManager* GetUIManager() const override;
+		inline virtual SceneManager& GetSceneManager() const override { return *m_sceneManager; };
+		inline virtual Engine::UI::UIManager& GetUIManager() const override { return *m_uiManager; };
 
-		const Device& GetDevice() const;
-		const PhysicalDevice& GetPhysicalDevice() const;
-		const SwapChain& GetSwapChain() const;
-		const GBuffer& GetGBuffer() const;
-		VmaAllocator GetAllocator() const;
-		uint32_t GetConcurrentFrameCount() const;
-		const std::vector<std::unique_ptr<Buffer>>& GetFrameInfoBuffers() const;
-		const std::vector<std::unique_ptr<Buffer>>& GetLightBuffers() const;
+		inline const Device& GetDevice() const { return *m_device; };
+		inline const PhysicalDevice& GetPhysicalDevice() const { return *m_physicalDevice; };
+		inline const SwapChain& GetSwapChain() const { return *m_swapChain; };
+		inline const GBuffer& GetGBuffer() const { return *m_gBuffer; };
+		inline VmaAllocator GetAllocator() const { return m_allocator; };
+		inline uint32_t GetConcurrentFrameCount() const { return m_maxConcurrentFrames; };
+		inline const std::vector<std::unique_ptr<Buffer>>& GetFrameInfoBuffers() const { return m_frameInfoBuffers; };
+		inline const std::vector<std::unique_ptr<Buffer>>& GetLightBuffers() const { return m_lightBuffers; };
 
 		bool SubmitResourceCommand(std::function<bool(const vk::CommandBuffer&, std::vector<std::unique_ptr<Buffer>>&)> command, std::optional<std::function<void()>> postAction = std::nullopt);
 
 	private:
 		bool RecordRenderCommandBuffer(const vk::CommandBuffer& commandBuffer);
 		bool RecordShadowCommandBuffer(const vk::CommandBuffer& commandBuffer);
-		bool RecordPresentCommandBuffer(const vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
+		bool RecordPresentCommandBuffer(const vk::CommandBuffer& commandBuffer);
+		bool RecordPostProcessingCommandBuffer(const vk::CommandBuffer& commandBuffer, RenderImage& image, const ImageView& imageView);
+		bool RecordUICommandBuffer(const vk::CommandBuffer& commandBuffer, RenderImage& image, const ImageView& imageView);
 		bool CreateSyncObjects();
 		bool CreateAllocator();
 		bool RecreateSwapChain(const glm::uvec2& size, bool rebuildPipelines);
 		bool CreateFrameInfoUniformBuffer();
 		bool CreateLightUniformBuffer();
+		void UpdateFrameInfo();
 
 		void OnResize(const glm::uvec2& size);
 
@@ -96,6 +107,7 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<SwapChain> m_swapChain;
 		std::unique_ptr<GBuffer> m_gBuffer;
 		std::unique_ptr<ShadowMap> m_shadowMap;
+		std::unique_ptr<PostProcessing> m_postProcessing;
 		std::unique_ptr<VulkanRenderStats> m_renderStats;
 		std::unique_ptr<Engine::UI::Vulkan::VulkanUIManager> m_uiManager;
 		VmaAllocator m_allocator;
@@ -105,16 +117,20 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<std::unique_ptr<Buffer>> m_frameInfoBuffers;
 		std::vector<std::unique_ptr<Buffer>> m_lightBuffers;
-		std::vector<void*> m_frameInfoBufferData;
-		std::vector<void*> m_lightBufferData;
+		std::vector<FrameInfoUniformBuffer*> m_frameInfoBufferData;
+		std::vector<LightUniformBuffer*> m_lightBufferData;
 
 		std::vector<vk::UniqueCommandBuffer> m_renderCommandBuffers;
 		std::vector<vk::UniqueCommandBuffer> m_shadowCommandBuffers;
 		std::vector<vk::UniqueCommandBuffer> m_presentCommandBuffers;
+		std::vector<vk::UniqueCommandBuffer> m_postProcessingCommandBuffers;
+		std::vector<vk::UniqueCommandBuffer> m_uiCommandBuffers;
 		std::vector<vk::UniqueSemaphore> m_imageAvailableSemaphores;
 		std::vector<vk::UniqueSemaphore> m_renderFinishedSemaphores;
 		std::vector<vk::UniqueSemaphore> m_shadowFinishedSemaphores;
 		std::vector<vk::UniqueSemaphore> m_presentFinishedSemaphores;
+		std::vector<vk::UniqueSemaphore> m_postProcessingFinishedSemaphores;
+		std::vector<vk::UniqueSemaphore> m_uiFinishedSemaphores;
 		std::vector<vk::UniqueFence> m_inFlightFences;
 		std::vector<ResourceCommandData> m_inFlightResources;
 

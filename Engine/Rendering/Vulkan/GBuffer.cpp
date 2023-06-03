@@ -1,7 +1,5 @@
 #include "GBuffer.hpp"
 #include "Core/Logging/Logger.hpp"
-#include "ImageView.hpp"
-#include "RenderImage.hpp"
 #include "DescriptorPool.hpp"
 #include "Device.hpp"
 #include "PhysicalDevice.hpp"
@@ -12,7 +10,6 @@
 #include "LightUniformBuffer.hpp"
 #include "OS/Files.hpp"
 #include "PipelineLayout.hpp"
-#include <vma/vk_mem_alloc.h>
 
 using namespace Engine::Logging;
 using namespace Engine::OS;
@@ -26,6 +23,8 @@ namespace Engine::Rendering::Vulkan
 		, m_depthImage()
 		, m_depthImageView()
 		, m_depthFormat(vk::Format::eUndefined)
+		, m_outputImage()
+		, m_outputImageView()
 		, m_imageFormats()
 		, m_combineShader()
 		, m_descriptorSets()
@@ -34,6 +33,8 @@ namespace Engine::Rendering::Vulkan
 		, m_shadowSampler()
 	{
 	}
+
+	const vk::Format OutputImageFormat = vk::Format::eR8G8B8A8Unorm;
 
 	bool GBuffer::CreateImageAndView(const Device& device, VmaAllocator allocator, const glm::uvec2& size, vk::Format format)
 	{
@@ -85,6 +86,33 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
+		// Velocity
+		if (!CreateImageAndView(device, allocator, size, vk::Format::eR16G16Sfloat))
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	bool GBuffer::CreateOutputImage(const Device& device, VmaAllocator allocator, const glm::uvec2& size)
+	{
+		m_outputImage = std::make_unique<RenderImage>(allocator);
+		vk::Extent3D extent(size.x, size.y, 1);
+		if (!m_outputImage->Initialise(vk::ImageType::e2D, OutputImageFormat, extent, 1, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled,
+			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0, vk::SharingMode::eExclusive))
+		{
+			Logger::Error("Failed to create image.");
+			return false;
+		}
+
+		m_outputImageView = std::make_unique<ImageView>();
+		if (!m_outputImageView->Initialise(device, m_outputImage->Get(), 1, OutputImageFormat, vk::ImageAspectFlagBits::eColor))
+		{
+			Logger::Error("Failed to create image view.");
+			return false;
+		}
+
 		return true;
 	}
 
@@ -98,7 +126,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_depthImage = std::make_unique<RenderImage>(allocator);
 		vk::Extent3D extent(size.x, size.y, 1);
-		if (!m_depthImage->Initialise(vk::ImageType::e2D, m_depthFormat, extent, 1, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
+		if (!m_depthImage->Initialise(vk::ImageType::e2D, m_depthFormat, extent, 1, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0, vk::SharingMode::eExclusive))
 		{
 			Logger::Error("Failed to create depth image.");
@@ -122,7 +150,7 @@ namespace Engine::Rendering::Vulkan
 			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
 			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
 			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampledImage, GBUFFER_SIZE, vk::ShaderStageFlagBits::eFragment),
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampledImage, 4, vk::ShaderStageFlagBits::eFragment),
 			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
 			vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eSampledImage, shadowCascades, vk::ShaderStageFlagBits::eFragment)
 		};
@@ -140,9 +168,9 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool GBuffer::Initialise(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator, vk::Format swapChainFormat,
-		vk::Format depthFormat, float maxAnisotoropic, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
-		const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap, const glm::uvec2& size)
+	bool GBuffer::Initialise(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator,
+		vk::Format depthFormat, const glm::uvec2& size, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
+		const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap)
 	{
 		uint32_t cascades = shadowMap.GetCascadeCount();
 		if (!SetupDescriptorSetLayout(device, cascades))
@@ -155,7 +183,7 @@ namespace Engine::Rendering::Vulkan
 			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
 			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
 			vk::DescriptorPoolSize(vk::DescriptorType::eSampler, 1),
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, GBUFFER_SIZE),
+			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 4),
 			vk::DescriptorPoolSize(vk::DescriptorType::eSampler, 1),
 			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 4)
 		};
@@ -200,7 +228,7 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::VertexInputAttributeDescription> attributeDescriptions = {};
 		std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = { m_descriptorSetLayout.get() };
 
-		std::vector<vk::Format> attachmentFormats = { swapChainFormat };
+		std::vector<vk::Format> attachmentFormats = { OutputImageFormat };
 
 		m_combineShader = std::make_unique<PipelineLayout>();
 		if (!m_combineShader->Initialise(physicalDevice, device, "Combine", programs, bindingDescriptions,
@@ -211,19 +239,19 @@ namespace Engine::Rendering::Vulkan
 
 		m_sampler = std::make_unique<ImageSampler>();
 		if (!m_sampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear,
-			vk::SamplerAddressMode::eRepeat, maxAnisotoropic))
+			vk::SamplerAddressMode::eRepeat, 1))
 		{
 			return false;
 		}
 
 		m_shadowSampler = std::make_unique<ImageSampler>();
 		if (!m_shadowSampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear,
-			vk::SamplerAddressMode::eClampToBorder, maxAnisotoropic))
+			vk::SamplerAddressMode::eClampToBorder, 1))
 		{
 			return false;
 		}
 
-		if (!Rebuild(physicalDevice, device, allocator, size, swapChainFormat, frameInfoBuffers, lightBuffers, shadowMap, false))
+		if (!Rebuild(physicalDevice, device, allocator, size, frameInfoBuffers, lightBuffers, shadowMap, false))
 		{
 			return false;
 		}
@@ -247,6 +275,10 @@ namespace Engine::Rendering::Vulkan
 			return 5;
 		case vk::Format::eD24UnormS8Uint:
 			return 4;
+		case vk::Format::eR16G16Sfloat:
+			return 4;
+		case vk::Format::eR32G32Sfloat:
+			return 8;
 		default:
 			Logger::Error("Unhandled format.");
 			return 0;
@@ -256,25 +288,27 @@ namespace Engine::Rendering::Vulkan
 	uint64_t GBuffer::GetMemoryUsage() const
 	{
 		uint64_t totalSize = 0;
+		const vk::Extent3D& extents = m_outputImage->GetDimensions();
 
 		for (const auto& image : m_gBufferImages)
 		{
-			const vk::Extent3D& extents = image->GetDimensions();
 			totalSize += GetSizeForFormat(image->GetFormat()) * extents.width * extents.height * extents.depth;
 		}
 
-		const vk::Extent3D& depthExtents = m_depthImage->GetDimensions();
-		totalSize += GetSizeForFormat(m_depthImage->GetFormat()) * depthExtents.width * depthExtents.height * depthExtents.depth;
+		totalSize += GetSizeForFormat(m_depthImage->GetFormat()) * extents.width * extents.height * extents.depth;
+		totalSize += GetSizeForFormat(m_outputImage->GetFormat()) * extents.width * extents.height * extents.depth;
 
 		return totalSize;
 	}
 
 	bool GBuffer::Rebuild(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator,
-		const glm::uvec2& size, vk::Format swapChainFormat, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
+		const glm::uvec2& size, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
 		const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap, bool rebuildPipeline)
 	{
 		m_depthImageView.reset();
 		m_depthImage.reset();
+		m_outputImageView.reset();
+		m_outputImage.reset();
 		m_gBufferImageViews.clear();
 		m_gBufferImages.clear();
 		m_imageFormats.clear();
@@ -285,6 +319,11 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		if (!CreateColorImages(device, allocator, size))
+		{
+			return false;
+		}
+
+		if (!CreateOutputImage(device, allocator, size))
 		{
 			return false;
 		}
@@ -300,9 +339,9 @@ namespace Engine::Rendering::Vulkan
 		};
 
 		std::vector<vk::DescriptorImageInfo> imageInfos;
-		imageInfos.resize(GBUFFER_SIZE);
+		imageInfos.resize(4);
 
-		for (uint32_t i = 0; i < GBUFFER_SIZE; ++i)
+		for (uint32_t i = 0; i < 4; ++i)
 		{
 			imageInfos[i] = vk::DescriptorImageInfo(nullptr, m_gBufferImageViews[i]->Get(), vk::ImageLayout::eShaderReadOnlyOptimal);
 		}
@@ -341,7 +380,7 @@ namespace Engine::Rendering::Vulkan
 
 		if (rebuildPipeline)
 		{
-			std::vector<vk::Format> attachmentFormats = { swapChainFormat };
+			std::vector<vk::Format> attachmentFormats = { OutputImageFormat };
 
 			std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = { m_descriptorSetLayout.get() };
 
@@ -395,17 +434,6 @@ namespace Engine::Rendering::Vulkan
 		return depthAttachmentInfo;
 	}
 
-	std::vector<vk::ImageView> GBuffer::GetImageViews() const
-	{
-		std::vector<vk::ImageView> imageViews(GBUFFER_SIZE);
-		for (size_t i = 0; i < GBUFFER_SIZE; ++i)
-		{
-			imageViews[i] = m_gBufferImageViews[i]->Get();
-		}
-
-		return imageViews;
-	}
-
 	void GBuffer::DrawFinalImage(const vk::CommandBuffer& commandBuffer, uint32_t frameIndex) const
 	{
 		const vk::Pipeline& graphicsPipeline = m_combineShader->GetGraphicsPipeline();
@@ -413,15 +441,5 @@ namespace Engine::Rendering::Vulkan
 
 		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_combineShader->Get(), 0, m_descriptorSets[frameIndex], nullptr);
 		commandBuffer.draw(3, 1, 0, 0);
-	}
-
-	const std::vector<vk::Format>& GBuffer::GetImageFormats() const
-	{
-		return m_imageFormats;
-	}
-
-	vk::Format GBuffer::GetDepthFormat() const
-	{
-		return m_depthFormat;
 	}
 }

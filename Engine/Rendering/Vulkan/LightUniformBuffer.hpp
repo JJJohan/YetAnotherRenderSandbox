@@ -2,7 +2,7 @@
 
 #include <glm/glm.hpp>
 
-namespace Engine::Rendering::Vulkan
+namespace Engine::Rendering
 {
 	// hard-coded for now
 	struct LightUniformBuffer

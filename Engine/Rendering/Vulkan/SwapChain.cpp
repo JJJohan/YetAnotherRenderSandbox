@@ -68,14 +68,14 @@ namespace Engine::Rendering::Vulkan
 		return vk::PresentModeKHR::eFifo;
 	}
 
-	std::vector<RenderImage>& SwapChain::GetSwapChainImages()
+	RenderImage& SwapChain::GetSwapChainImage(uint32_t imageIndex)
 	{
-		return m_swapChainImages;
+		return m_swapChainImages[imageIndex];
 	}
 
-	const std::vector<std::unique_ptr<ImageView>>& SwapChain::GetSwapChainImageViews() const
+	const ImageView& SwapChain::GetSwapChainImageView(uint32_t imageIndex) const
 	{
-		return m_swapChainImageViews;
+		return *m_swapChainImageViews[imageIndex];
 	}
 
 	vk::Extent2D ChooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities, const glm::uvec2& size)
