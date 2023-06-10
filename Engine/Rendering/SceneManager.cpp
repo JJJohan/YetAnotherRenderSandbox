@@ -1,5 +1,4 @@
 #include "SceneManager.hpp"
-#include "Shader.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "Core/ChunkData.hpp"
 #include "Core/Utilities.hpp"

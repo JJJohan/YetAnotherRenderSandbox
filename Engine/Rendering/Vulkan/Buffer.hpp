@@ -20,6 +20,7 @@ namespace Engine::Rendering::Vulkan
 		void Copy(const Device& device, const vk::CommandBuffer& commandBuffer, const Buffer& destination, vk::DeviceSize size) const;
 		void CopyToImage(const Device& device, uint32_t mipLevel, const vk::CommandBuffer& commandBuffer, const RenderImage& destination) const;
 		const VkBuffer& Get() const;
+		inline uint64_t Size() const { return m_size; }
 
 		template <typename T>
 		bool GetMappedMemory(T** mappedMemory) const
@@ -35,6 +36,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 	private:
+		uint64_t m_size;
 		VkBuffer m_buffer;
 		VmaAllocation m_bufferAlloc;
 		VmaAllocationInfo m_bufferAllocInfo;

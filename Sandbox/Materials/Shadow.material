@@ -1,0 +1,12 @@
+{
+	"Programs":
+	[
+		{ "Type": "Vertex", "Path": "Shaders/Shadow_vert.spv" },
+		{ "Type": "Fragment", "Path": "Shaders/Shadow_frag.spv" }
+	],
+
+	"DepthWrite": true,
+	"DepthTest": true,
+
+	"Attachments": []
+}

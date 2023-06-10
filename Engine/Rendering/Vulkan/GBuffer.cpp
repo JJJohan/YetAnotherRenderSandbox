@@ -1,6 +1,5 @@
 #include "GBuffer.hpp"
 #include "Core/Logging/Logger.hpp"
-#include "DescriptorPool.hpp"
 #include "Device.hpp"
 #include "PhysicalDevice.hpp"
 #include "Buffer.hpp"
@@ -10,15 +9,16 @@
 #include "LightUniformBuffer.hpp"
 #include "OS/Files.hpp"
 #include "PipelineLayout.hpp"
+#include "VulkanFormatInterop.hpp"
+#include "PipelineManager.hpp"
 
 using namespace Engine::Logging;
 using namespace Engine::OS;
 
 namespace Engine::Rendering::Vulkan
 {
-	GBuffer::GBuffer(uint32_t concurrentFrames)
-		: m_concurrentFrames(concurrentFrames)
-		, m_gBufferImages()
+	GBuffer::GBuffer()
+		: m_gBufferImages()
 		, m_gBufferImageViews()
 		, m_depthImage()
 		, m_depthImageView()
@@ -26,11 +26,9 @@ namespace Engine::Rendering::Vulkan
 		, m_outputImage()
 		, m_outputImageView()
 		, m_imageFormats()
-		, m_combineShader()
-		, m_descriptorSets()
-		, m_descriptorPool()
 		, m_sampler()
 		, m_shadowSampler()
+		, m_combineShader(nullptr)
 	{
 	}
 
@@ -143,96 +141,16 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool GBuffer::SetupDescriptorSetLayout(const Device& device, uint32_t shadowCascades)
-	{
-		std::array<vk::DescriptorSetLayoutBinding, 6> layoutBindings =
-		{
-			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampledImage, 4, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eSampledImage, shadowCascades, vk::ShaderStageFlagBits::eFragment)
-		};
-
-		vk::DescriptorSetLayoutCreateInfo layoutInfo(vk::DescriptorSetLayoutCreateFlags(), layoutBindings);
-
-		const vk::Device& deviceImp = device.Get();
-		m_descriptorSetLayout = deviceImp.createDescriptorSetLayoutUnique(layoutInfo);
-		if (!m_descriptorSetLayout.get())
-		{
-			Logger::Error("Failed to create descriptor set layout.");
-			return false;
-		}
-
-		return true;
-	}
-
-	bool GBuffer::Initialise(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator,
+	bool GBuffer::Initialise(const PhysicalDevice& physicalDevice, const Device& device,
+		const PipelineManager& pipelineManager, VmaAllocator allocator,
 		vk::Format depthFormat, const glm::uvec2& size, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
 		const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap)
 	{
 		uint32_t cascades = shadowMap.GetCascadeCount();
-		if (!SetupDescriptorSetLayout(device, cascades))
-		{
-			return false;
-		}
-
-		std::vector<vk::DescriptorPoolSize> poolSizes =
-		{
-			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
-			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampler, 1),
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 4),
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampler, 1),
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 4)
-		};
-
-		m_descriptorPool = std::make_unique<DescriptorPool>();
-		if (!m_descriptorPool->Initialise(device, m_concurrentFrames, poolSizes))
-		{
-			return false;
-		}
-
-		std::vector<vk::DescriptorSetLayout> layouts;
-		for (uint32_t i = 0; i < m_concurrentFrames; ++i)
-		{
-			layouts.push_back(m_descriptorSetLayout.get());
-		}
 
 		m_depthFormat = depthFormat;
-		m_descriptorSets = m_descriptorPool->CreateDescriptorSets(device, layouts);
 
-		std::string vertFilePath = "Shaders/Combine_vert.spv";
-		std::vector<uint8_t> vertData;
-		if (!Files::TryReadFile(vertFilePath, vertData))
-		{
-			Logger::Error("Failed to read shader program at path '{}'.", vertFilePath);
-			return false;
-		}
-
-		std::string fragFilePath = "Shaders/Combine_frag.spv";
-		std::vector<uint8_t> fragData;
-		if (!Files::TryReadFile(fragFilePath, fragData))
-		{
-			Logger::Error("Failed to read shader program at path '{}'.", fragFilePath);
-			return false;
-		}
-
-		auto programs = std::unordered_map<vk::ShaderStageFlagBits, std::vector<uint8_t>>{
-			{ vk::ShaderStageFlagBits::eVertex, vertData },
-			{ vk::ShaderStageFlagBits::eFragment, fragData }
-		};
-
-		std::vector<vk::VertexInputBindingDescription> bindingDescriptions = {};
-		std::vector<vk::VertexInputAttributeDescription> attributeDescriptions = {};
-		std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = { m_descriptorSetLayout.get() };
-
-		std::vector<vk::Format> attachmentFormats = { OutputImageFormat };
-
-		m_combineShader = std::make_unique<PipelineLayout>();
-		if (!m_combineShader->Initialise(physicalDevice, device, "Combine", programs, bindingDescriptions,
-			attributeDescriptions, attachmentFormats, vk::Format::eUndefined, descriptorSetLayouts))
+		if (!pipelineManager.TryGetPipelineLayout("Combine", &m_combineShader))
 		{
 			return false;
 		}
@@ -251,38 +169,12 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!Rebuild(physicalDevice, device, allocator, size, frameInfoBuffers, lightBuffers, shadowMap, false))
+		if (!Rebuild(physicalDevice, device, allocator, size, frameInfoBuffers, lightBuffers, shadowMap))
 		{
 			return false;
 		}
 
 		return true;
-	}
-
-	inline uint64_t GetSizeForFormat(vk::Format format)
-	{
-		switch (format)
-		{
-		case vk::Format::eR8G8Unorm:
-			return 2;
-		case vk::Format::eR8G8B8A8Unorm:
-			return 4;
-		case vk::Format::eR32G32B32A32Sfloat:
-			return 16;
-		case vk::Format::eD32Sfloat:
-			return 4;
-		case vk::Format::eD32SfloatS8Uint:
-			return 5;
-		case vk::Format::eD24UnormS8Uint:
-			return 4;
-		case vk::Format::eR16G16Sfloat:
-			return 4;
-		case vk::Format::eR32G32Sfloat:
-			return 8;
-		default:
-			Logger::Error("Unhandled format.");
-			return 0;
-		}
 	}
 
 	uint64_t GBuffer::GetMemoryUsage() const
@@ -303,7 +195,7 @@ namespace Engine::Rendering::Vulkan
 
 	bool GBuffer::Rebuild(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator,
 		const glm::uvec2& size, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
-		const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap, bool rebuildPipeline)
+		const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap)
 	{
 		m_depthImageView.reset();
 		m_depthImage.reset();
@@ -328,68 +220,13 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		std::array<vk::DescriptorImageInfo, 1> samplerInfos =
-		{
-			vk::DescriptorImageInfo(m_sampler->Get(), nullptr, vk::ImageLayout::eShaderReadOnlyOptimal)
-		};
-
-		std::array<vk::DescriptorImageInfo, 1> shadowSamplerInfos =
-		{
-			vk::DescriptorImageInfo(m_shadowSampler->Get(), nullptr, vk::ImageLayout::eShaderReadOnlyOptimal)
-		};
-
-		std::vector<vk::DescriptorImageInfo> imageInfos;
-		imageInfos.resize(4);
-
-		for (uint32_t i = 0; i < 4; ++i)
-		{
-			imageInfos[i] = vk::DescriptorImageInfo(nullptr, m_gBufferImageViews[i]->Get(), vk::ImageLayout::eShaderReadOnlyOptimal);
-		}
-
-		uint32_t cascades = shadowMap.GetCascadeCount();
-		std::vector<vk::DescriptorImageInfo> shadowImageInfo(cascades);
-		for (uint32_t i = 0; i < cascades; ++i)
-		{
-			shadowImageInfo[i] = vk::DescriptorImageInfo(nullptr, shadowMap.GetShadowImageView(i).Get(), vk::ImageLayout::eShaderReadOnlyOptimal);
-		}
-
-		for (uint32_t i = 0; i < m_concurrentFrames; ++i)
-		{
-			std::array<vk::DescriptorBufferInfo, 1> frameBufferInfos =
-			{
-				vk::DescriptorBufferInfo(frameInfoBuffers[i]->Get(), 0, sizeof(FrameInfoUniformBuffer))
-			};
-
-			std::array<vk::DescriptorBufferInfo, 1> lightBufferInfos =
-			{
-				vk::DescriptorBufferInfo(lightBuffers[i]->Get(), 0, sizeof(LightUniformBuffer))
-			};
-
-			std::array<vk::WriteDescriptorSet, 6> writeDescriptorSets =
-			{
-				vk::WriteDescriptorSet(m_descriptorSets[i], 0, 0, vk::DescriptorType::eUniformBuffer, nullptr, frameBufferInfos),
-				vk::WriteDescriptorSet(m_descriptorSets[i], 1, 0, vk::DescriptorType::eUniformBuffer, nullptr, lightBufferInfos),
-				vk::WriteDescriptorSet(m_descriptorSets[i], 2, 0, vk::DescriptorType::eSampler, samplerInfos),
-				vk::WriteDescriptorSet(m_descriptorSets[i], 3, 0, vk::DescriptorType::eSampledImage, imageInfos),
-				vk::WriteDescriptorSet(m_descriptorSets[i], 4, 0, vk::DescriptorType::eSampler, shadowSamplerInfos),
-				vk::WriteDescriptorSet(m_descriptorSets[i], 5, 0, vk::DescriptorType::eSampledImage, shadowImageInfo)
-			};
-
-			device.Get().updateDescriptorSets(writeDescriptorSets, nullptr);
-		}
-
-		if (rebuildPipeline)
-		{
-			std::vector<vk::Format> attachmentFormats = { OutputImageFormat };
-
-			std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = { m_descriptorSetLayout.get() };
-
-			PipelineLayout* pipelineLayout = static_cast<PipelineLayout*>(m_combineShader.get());
-			if (!pipelineLayout->Rebuild(physicalDevice, device, attachmentFormats, vk::Format::eUndefined, descriptorSetLayouts))
-			{
-				return false;
-			}
-		}
+		if (!m_combineShader->BindUniformBuffers(0, frameInfoBuffers) ||
+			!m_combineShader->BindUniformBuffers(1, lightBuffers) ||
+			!m_combineShader->BindSampler(2, m_sampler) ||
+			!m_combineShader->BindImageViews(3, m_gBufferImageViews) ||
+			!m_combineShader->BindSampler(4, m_shadowSampler) ||
+			!m_combineShader->BindImageViews(5, shadowMap.GetShadowImageViews()))
+			return false;
 
 		return true;
 	}
@@ -436,10 +273,7 @@ namespace Engine::Rendering::Vulkan
 
 	void GBuffer::DrawFinalImage(const vk::CommandBuffer& commandBuffer, uint32_t frameIndex) const
 	{
-		const vk::Pipeline& graphicsPipeline = m_combineShader->GetGraphicsPipeline();
-		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
-
-		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_combineShader->Get(), 0, m_descriptorSets[frameIndex], nullptr);
+		m_combineShader->BindPipeline(commandBuffer, frameIndex);
 		commandBuffer.draw(3, 1, 0, 0);
 	}
 }

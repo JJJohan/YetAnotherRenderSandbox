@@ -67,6 +67,7 @@ namespace Engine::Rendering::Vulkan
 	bool Buffer::Initialise(uint64_t size, vk::BufferUsageFlags bufferUsage,
 		VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode)
 	{
+		m_size = size;
 		vk::BufferCreateInfo bufferInfo(vk::BufferCreateFlags(), size, bufferUsage, sharingMode);
 
 		VmaAllocationCreateInfo allocCreateInfo = {};

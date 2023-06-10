@@ -27,7 +27,7 @@ namespace Engine::OS
 		void Update();
 		void SetKeyDown(KeyCode keyCode, bool down);
 		void SetMouseButtonDown(MouseButton mouseButton, bool down);
-		void SetMouseDelta(const glm::vec2& delta);
+		void AddMouseDelta(const glm::vec2& delta);
 		void SetMousePos(const glm::vec2& pos);
 		void SetMouseWheelDelta(float mouseWheelDelta);
 

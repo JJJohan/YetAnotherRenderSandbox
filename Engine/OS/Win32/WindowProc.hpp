@@ -94,7 +94,7 @@ namespace Engine::OS
 						}
 						else if ((rawMouse.usFlags & MOUSE_MOVE_RELATIVE) == MOUSE_MOVE_RELATIVE)
 						{
-							window->InputState.SetMouseDelta(glm::vec2(rawMouse.lLastX, rawMouse.lLastY));
+							window->InputState.AddMouseDelta(glm::vec2(rawMouse.lLastX, rawMouse.lLastY));
 						}
 
 						if ((rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN) == RI_MOUSE_LEFT_BUTTON_DOWN)
@@ -130,7 +130,7 @@ namespace Engine::OS
 					}
 				}
 			}
-			return 0;
+			break;
 		}
 		}
 

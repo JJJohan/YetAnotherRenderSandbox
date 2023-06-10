@@ -83,9 +83,9 @@ namespace Engine::OS
 		m_mouseButtonsDown[index] = down;
 	}
 
-	void InputState::SetMouseDelta(const glm::vec2& delta)
+	void InputState::AddMouseDelta(const glm::vec2& delta)
 	{
-		m_mouseDelta = delta;
+		m_mouseDelta += delta;
 	}
 
 	void InputState::SetMousePos(const glm::vec2& pos)

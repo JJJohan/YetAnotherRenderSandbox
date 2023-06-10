@@ -1,0 +1,16 @@
+{
+	"Programs":
+	[
+		{ "Type": "Vertex", "Path": "Shaders/TAA_vert.spv" },
+		{ "Type": "Fragment", "Path": "Shaders/TAA_frag.spv" }
+	],
+
+	"DepthWrite": false,
+	"DepthTest": false,
+
+	"Attachments":
+	[
+		"Swapchain",
+		"R8G8B8A8Unorm"
+	]
+}

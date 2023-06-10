@@ -14,23 +14,24 @@ namespace Engine::Rendering::Vulkan
 	class PhysicalDevice;
 	class ImageView;
 	class RenderImage;
-	class DescriptorPool;
-	class PipelineLayout;
 	class ImageSampler;
 	class Buffer;
 	class ShadowMap;
+	class PipelineManager;
+	class PipelineLayout;
 
 	class GBuffer
 	{
 	public:
-		GBuffer(uint32_t concurrentFrames);
+		GBuffer();
 
-		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator,
+		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device,
+			const PipelineManager& pipelineManager, VmaAllocator allocator,
 			vk::Format depthFormat, const glm::uvec2& size, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
 			const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap);
 		bool Rebuild(const PhysicalDevice& physicalDevice, const Device& device, VmaAllocator allocator,
 			const glm::uvec2& size, const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers,
-			const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap, bool rebuildPipeline);
+			const std::vector<std::unique_ptr<Buffer>>& lightBuffers, const ShadowMap& shadowMap);
 		void TransitionImageLayouts(const Device& device, const vk::CommandBuffer& commandBuffer, vk::ImageLayout newLayout);
 		void TransitionDepthLayout(const Device& device, const vk::CommandBuffer& commandBuffer, vk::ImageLayout newLayout);
 		void DrawFinalImage(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex) const;
@@ -50,10 +51,7 @@ namespace Engine::Rendering::Vulkan
 		bool CreateColorImages(const Device& device, VmaAllocator allocator, const glm::uvec2& size);
 		bool CreateDepthImage(const Device& device, VmaAllocator allocator, const glm::uvec2& size);
 		bool CreateOutputImage(const Device& device, VmaAllocator allocator, const glm::uvec2& size);
-		bool SetupDescriptorSetLayout(const Device& device, uint32_t shadowCascades);
 
-		const uint32_t m_concurrentFrames;
-		std::unique_ptr<PipelineLayout> m_combineShader;
 		std::vector<std::unique_ptr<RenderImage>> m_gBufferImages;
 		std::vector<std::unique_ptr<ImageView>> m_gBufferImageViews;
 		std::vector<vk::Format> m_imageFormats;
@@ -61,11 +59,9 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<ImageView> m_depthImageView;
 		std::unique_ptr<RenderImage> m_outputImage;
 		std::unique_ptr<ImageView> m_outputImageView;
-		std::vector<vk::DescriptorSet> m_descriptorSets;
-		vk::UniqueDescriptorSetLayout m_descriptorSetLayout;
-		std::unique_ptr<DescriptorPool> m_descriptorPool;
 		std::unique_ptr<ImageSampler> m_sampler;
 		std::unique_ptr<ImageSampler> m_shadowSampler;
 		vk::Format m_depthFormat;
+		PipelineLayout* m_combineShader;
 	};
 }

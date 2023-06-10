@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.hpp>
 #include "../SceneManager.hpp"
 #include <memory>
+#include <chrono>
 
 struct VmaAllocator_T;
 typedef struct VmaAllocator_T* VmaAllocator;
@@ -25,11 +26,11 @@ namespace Engine::Rendering::Vulkan
 	class Device;
 	class PhysicalDevice;
 	class CommandBuffer;
-	class DescriptorPool;
 	class RenderImage;
 	class ImageView;
 	class ImageSampler;
 	class VulkanRenderer;
+	class PipelineManager;
 	class PipelineLayout;
 
 	class VulkanSceneManager : public SceneManager
@@ -37,23 +38,15 @@ namespace Engine::Rendering::Vulkan
 	public:
 		VulkanSceneManager(VulkanRenderer& renderer);
 
-		bool Initialise(const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat);
+		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, const PipelineManager& pipelineManager);
 
 		virtual bool Build(ChunkData* chunkData, AsyncData& asyncData) override;
 
 		void Draw(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex);
 		void DrawShadows(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex);
 
-		bool RebuildShader(const PhysicalDevice& physicalDevice, const Device& device,
-			const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat);
-
 	private:
-		bool SetupPBRDescriptorSetLayout(const Device& device, uint32_t imageCount);
-		bool SetupShadowDescriptorSetLayout(const Device& device, uint32_t imageCount);
-		bool InitPBRShaderResources(const PhysicalDevice& physicalDevice, const Device& device, uint32_t concurrentFrames,
-			const std::vector<vk::Format>& gBufferFormats, vk::Format depthFormat, VmaAllocator allocator);
-		bool InitShadowShaderResources(const PhysicalDevice& physicalDevice, const Device& device, uint32_t concurrentFrames,
-			vk::Format depthFormat, VmaAllocator allocator);
+		void PostBuild(std::chrono::steady_clock::time_point& startTime);
 
 		bool SetupIndirectDrawBuffer(const Device& device, const vk::CommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator);
@@ -79,14 +72,7 @@ namespace Engine::Rendering::Vulkan
 			std::vector<std::unique_ptr<Buffer>>& copyBufferCollection);
 
 		VulkanRenderer& m_renderer;
-
-		std::vector<vk::Format> m_lastKnownColorFormats;
-		vk::Format m_lastKnownDepthFormat;
-
-		std::shared_ptr<RenderImage> m_blankImage;
-		std::shared_ptr<ImageView> m_blankImageView;
 		std::unique_ptr<ImageSampler> m_sampler;
-
 		std::unique_ptr<Buffer> m_indirectDrawBuffer;
 		std::vector<std::unique_ptr<Buffer>> m_vertexBuffers;
 		std::unique_ptr<Buffer> m_indexBuffer;
@@ -99,15 +85,7 @@ namespace Engine::Rendering::Vulkan
 		std::vector<uint32_t> m_indexCounts;
 
 		std::vector<vk::DrawIndexedIndirectCommand> m_indirectDrawCommands;
-
-		vk::UniqueDescriptorSetLayout m_pbrDescriptorSetLayout;
-		std::unique_ptr<DescriptorPool> m_pbrDescriptorPool;
-		std::vector<vk::DescriptorSet> m_pbrDescriptorSets;
-		std::unique_ptr<PipelineLayout> m_pbrShader;
-
-		vk::UniqueDescriptorSetLayout m_shadowDescriptorSetLayout;
-		std::unique_ptr<DescriptorPool> m_shadowDescriptorPool;
-		std::vector<vk::DescriptorSet> m_shadowDescriptorSets;
-		std::unique_ptr<PipelineLayout> m_shadowShader;
+		PipelineLayout* m_pbrShader;
+		PipelineLayout* m_shadowShader;
 	};
 }

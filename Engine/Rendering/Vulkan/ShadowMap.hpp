@@ -38,7 +38,7 @@ namespace Engine::Rendering::Vulkan
 		ShadowCascadeData UpdateCascades(const Camera& camera, const glm::vec3& lightDir);
 
 		inline RenderImage& GetShadowImage(uint32_t index) const { return *m_shadowImages[index]; }
-		inline const ImageView& GetShadowImageView(uint32_t index) const { return *m_shadowImageViews[index]; }
+		inline const std::vector<std::unique_ptr<ImageView>>& GetShadowImageViews() const { return m_shadowImageViews; }
 		inline ShadowCascadeData GetShadowCascadeData() const { return ShadowCascadeData(m_cascadeSplits, m_cascadeMatrices); }
 		inline uint32_t GetCascadeCount() const { return m_cascadeCount; }
 

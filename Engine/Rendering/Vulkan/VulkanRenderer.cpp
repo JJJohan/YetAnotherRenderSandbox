@@ -21,6 +21,7 @@
 #include "ImageSampler.hpp"
 #include "PipelineLayout.hpp"
 #include "FrameInfoUniformBuffer.hpp"
+#include "PipelineManager.hpp"
 #include "LightUniformBuffer.hpp"
 #include "GBuffer.hpp"
 #include "ShadowMap.hpp"
@@ -77,6 +78,7 @@ namespace Engine::Rendering::Vulkan
 		, m_shadowMap()
 		, m_postProcessing()
 		, m_renderStats()
+		, m_pipelineManager()
 		, m_uiManager(std::make_unique<VulkanUIManager>(window, *this))
 	{
 	}
@@ -97,6 +99,7 @@ namespace Engine::Rendering::Vulkan
 		m_sceneManager.reset();
 		m_postProcessing.reset();
 		m_renderStats.reset();
+		m_pipelineManager.reset();
 
 		m_frameInfoBuffers.clear();
 		m_lightBuffers.clear();
@@ -620,10 +623,11 @@ namespace Engine::Rendering::Vulkan
 		m_renderCommandPool = std::make_unique<CommandPool>();
 		m_Debug = std::make_unique<Debug>();
 		m_sceneManager = std::make_unique<VulkanSceneManager>(*this);
-		m_gBuffer = std::make_unique<GBuffer>(m_maxConcurrentFrames);
+		m_gBuffer = std::make_unique<GBuffer>();
 		m_shadowMap = std::make_unique<ShadowMap>();
-		m_postProcessing = std::make_unique<PostProcessing>(*m_gBuffer, m_maxConcurrentFrames);
+		m_postProcessing = std::make_unique<PostProcessing>(*m_gBuffer);
 		m_renderStats = std::make_unique<VulkanRenderStats>(*m_gBuffer, *m_shadowMap);
+		m_pipelineManager = std::make_unique<PipelineManager>();
 
 		if (!m_instance->Initialise(title, *m_Debug, m_debug)
 			|| !m_surface->Initialise(*m_instance, m_window)
@@ -640,14 +644,14 @@ namespace Engine::Rendering::Vulkan
 			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, m_hdr)
 			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eTransient)
 			|| !m_renderCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
+			|| !m_pipelineManager->Initialise(*m_physicalDevice, *m_device, m_maxConcurrentFrames, m_swapChain->GetFormat(), depthFormat)
 			|| !CreateSyncObjects()
 			|| !CreateFrameInfoUniformBuffer()
 			|| !CreateLightUniformBuffer()
 			|| !m_shadowMap->Rebuild(*m_device, m_allocator, depthFormat)
-			|| !m_gBuffer->Initialise(*m_physicalDevice, *m_device, m_allocator,
+			|| !m_gBuffer->Initialise(*m_physicalDevice, *m_device, *m_pipelineManager, m_allocator,
 				depthFormat, size, m_frameInfoBuffers, m_lightBuffers, *m_shadowMap)
-			|| !m_postProcessing->Initialise(*m_physicalDevice, *m_device, m_allocator,
-				m_swapChain->GetFormat(), size))
+			|| !m_postProcessing->Initialise(*m_physicalDevice, *m_device, *m_pipelineManager, m_allocator, size))
 		{
 			return false;
 		}
@@ -695,7 +699,7 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!m_sceneManager->Initialise(m_gBuffer->GetImageFormats(), m_gBuffer->GetDepthFormat()))
+		if (!m_sceneManager->Initialise(*m_physicalDevice, *m_device, *m_pipelineManager))
 		{
 			return false;
 		}
@@ -722,24 +726,25 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		if (!m_gBuffer->Rebuild(*m_physicalDevice, *m_device, m_allocator, size,
-			m_frameInfoBuffers, m_lightBuffers, *m_shadowMap, rebuildPipelines))
+			m_frameInfoBuffers, m_lightBuffers, *m_shadowMap))
 		{
 			return false;
 		}
 
-		if (!m_postProcessing->Rebuild(*m_physicalDevice, *m_device, m_allocator,
-			m_swapChain->GetFormat(), size, rebuildPipelines))
+		if (!m_postProcessing->Rebuild(*m_physicalDevice, *m_device, m_allocator, size))
 		{
 			return false;
 		}
 
 		if (rebuildPipelines)
 		{
-			if (!m_sceneManager->RebuildShader(*m_physicalDevice, *m_device, m_gBuffer->GetImageFormats(), m_gBuffer->GetDepthFormat()))
+			// TODO: Does pipeline manager need to be rebuilt?
+
+			/*if (!m_sceneManager->RebuildShader(*m_physicalDevice, *m_device, m_gBuffer->GetImageFormats(), m_gBuffer->GetDepthFormat()))
 			{
 				Logger::Error("Failed to rebuild scene manager shader.");
 				return false;
-			}
+			}*/
 
 			if (!m_uiManager->Rebuild(m_instance->Get(), *this))
 			{
@@ -825,6 +830,12 @@ namespace Engine::Rendering::Vulkan
 		if (deviceImp.resetFences(1, &m_inFlightFences[m_currentFrame].get()) != vk::Result::eSuccess)
 		{
 			Logger::Error("Failed to reset fences.");
+			return false;
+		}
+
+		if (!m_pipelineManager->Update(*m_physicalDevice, *m_device, m_swapChain->GetFormat(), m_gBuffer->GetDepthFormat()))
+		{
+			Logger::Error("Failed to update pipeline manager.");
 			return false;
 		}
 

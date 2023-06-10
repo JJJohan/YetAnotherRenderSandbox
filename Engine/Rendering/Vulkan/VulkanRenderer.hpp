@@ -40,6 +40,7 @@ namespace Engine::Rendering::Vulkan
 	class PostProcessing;
 	class RenderImage;
 	class ImageView;
+	class PipelineManager;
 
 	class VulkanRenderer : public Renderer
 	{
@@ -109,6 +110,7 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<ShadowMap> m_shadowMap;
 		std::unique_ptr<PostProcessing> m_postProcessing;
 		std::unique_ptr<VulkanRenderStats> m_renderStats;
+		std::unique_ptr<PipelineManager> m_pipelineManager;
 		std::unique_ptr<Engine::UI::Vulkan::VulkanUIManager> m_uiManager;
 		VmaAllocator m_allocator;
 

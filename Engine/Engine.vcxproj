@@ -113,7 +113,7 @@
       <PreprocessorDefinitions>_DEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;IMPLOT_DISABLE_OBSOLETE_FUNCTIONS;KHRONOS_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;$(SolutionDir)Engine\UI\imgui;$(SolutionDir)Engine\UI\implot;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;$(SolutionDir)Engine\UI\imgui;$(SolutionDir)Engine\UI\implot;$(SolutionDir)Dependencies\include\rapidjson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <BuildStlModules>false</BuildStlModules>
@@ -136,7 +136,7 @@
       <PreprocessorDefinitions>NDEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;IMPLOT_DISABLE_OBSOLETE_FUNCTIONS;KHRONOS_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;$(SolutionDir)Engine\UI\imgui;$(SolutionDir)Engine\UI\implot;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;$(SolutionDir)Engine\UI\imgui;$(SolutionDir)Engine\UI\implot;$(SolutionDir)Dependencies\include\rapidjson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <BuildStlModules>false</BuildStlModules>
@@ -157,6 +157,7 @@
   <ItemGroup>
     <ClCompile Include="..\Dependencies\include\bc7enc.cpp" />
     <ClCompile Include="..\Dependencies\include\rgbcx.cpp" />
+    <ClCompile Include="..\Dependencies\include\spirv_reflect.c" />
     <ClCompile Include="Core\AsyncData.cpp" />
     <ClCompile Include="Core\ChunkData.cpp" />
     <ClCompile Include="Core\Colour.cpp" />
@@ -173,10 +174,10 @@
     <ClCompile Include="OS\Window.cpp" />
     <ClCompile Include="Rendering\Camera.cpp" />
     <ClCompile Include="Rendering\GLTFLoader.cpp" />
+    <ClCompile Include="Rendering\Material.cpp" />
     <ClCompile Include="Rendering\RenderStats.cpp" />
     <ClCompile Include="Rendering\SceneManager.cpp" />
     <ClCompile Include="Rendering\Renderer.cpp" />
-    <ClCompile Include="Rendering\Shader.cpp" />
     <ClCompile Include="Rendering\TangentCalculator.cpp" />
     <ClCompile Include="Rendering\VertexData.cpp" />
     <ClCompile Include="Rendering\Vulkan\Buffer.cpp" />
@@ -186,6 +187,7 @@
     <ClCompile Include="Rendering\Vulkan\Device.cpp" />
     <ClCompile Include="Rendering\Vulkan\GBuffer.cpp" />
     <ClCompile Include="Rendering\Vulkan\ImageSampler.cpp" />
+    <ClCompile Include="Rendering\Vulkan\PipelineManager.cpp" />
     <ClCompile Include="Rendering\Vulkan\PostProcessing.cpp" />
     <ClCompile Include="Rendering\Vulkan\RenderImage.cpp" />
     <ClCompile Include="Rendering\Vulkan\ImageView.cpp" />
@@ -229,11 +231,11 @@
     <ClInclude Include="OS\Window.hpp" />
     <ClInclude Include="Rendering\Camera.hpp" />
     <ClInclude Include="Rendering\GLTFLoader.hpp" />
+    <ClInclude Include="Rendering\Material.hpp" />
     <ClInclude Include="Rendering\MeshInfo.hpp" />
     <ClInclude Include="Rendering\RenderStats.hpp" />
     <ClInclude Include="Rendering\SceneManager.hpp" />
     <ClInclude Include="Rendering\Renderer.hpp" />
-    <ClInclude Include="Rendering\Shader.hpp" />
     <ClInclude Include="Rendering\TangentCalculator.hpp" />
     <ClInclude Include="Rendering\VertexData.hpp" />
     <ClInclude Include="Rendering\Vulkan\Buffer.hpp" />
@@ -241,10 +243,12 @@
     <ClInclude Include="Rendering\Vulkan\Debug.hpp" />
     <ClInclude Include="Rendering\Vulkan\DescriptorPool.hpp" />
     <ClInclude Include="Rendering\Vulkan\Device.hpp" />
+    <ClInclude Include="Rendering\Vulkan\VulkanFormatInterop.hpp" />
     <ClInclude Include="Rendering\Vulkan\FrameInfoUniformBuffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\GBuffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\ImageSampler.hpp" />
     <ClInclude Include="Rendering\Vulkan\LightUniformBuffer.hpp" />
+    <ClInclude Include="Rendering\Vulkan\PipelineManager.hpp" />
     <ClInclude Include="Rendering\Vulkan\PostProcessing.hpp" />
     <ClInclude Include="Rendering\Vulkan\RenderImage.hpp" />
     <ClInclude Include="Rendering\Vulkan\ImageView.hpp" />

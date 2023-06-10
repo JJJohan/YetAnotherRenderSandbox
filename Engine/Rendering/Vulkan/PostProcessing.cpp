@@ -3,11 +3,11 @@
 #include "RenderImage.hpp"
 #include "ImageView.hpp"
 #include "ImageSampler.hpp"
-#include "DescriptorPool.hpp"
 #include "Device.hpp"
 #include "GBuffer.hpp"
 #include "PhysicalDevice.hpp"
 #include "PipelineLayout.hpp"
+#include "PipelineManager.hpp"
 #include "OS/Files.hpp"
 
 using namespace Engine::Logging;
@@ -15,25 +15,21 @@ using namespace Engine::OS;
 
 namespace Engine::Rendering::Vulkan
 {
-	PostProcessing::PostProcessing(GBuffer& gBuffer, uint32_t concurrentFrames)
-		: m_concurrentFrames(concurrentFrames)
-		, m_linearSampler()
+	PostProcessing::PostProcessing(GBuffer& gBuffer)
+		: m_linearSampler()
 		, m_nearestSampler()
 		, m_enabled(true)
 		, m_taaJitterOffsets()
-		, m_taaShader()
 		, m_taaPreviousImages()
 		, m_taaPreviousImageViews()
-		, m_taaDescriptorSets()
-		, m_taaDescriptorSetLayout()
-		, m_taaDescriptorPool()
 		, m_taaFrameIndex(0)
 		, m_gBuffer(gBuffer)
+		, m_taaShader(nullptr)
 	{
 	}
 
 	bool PostProcessing::Initialise(const PhysicalDevice& physicalDevice, const Device& device,
-		VmaAllocator allocator, vk::Format swapChainFormat, const glm::uvec2& size)
+		const PipelineManager& pipelineManager, VmaAllocator allocator, const glm::uvec2& size)
 	{
 		m_linearSampler = std::make_unique<ImageSampler>();
 		if (!m_linearSampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear,
@@ -49,82 +45,12 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!InitialiseTAA(physicalDevice, device, allocator, swapChainFormat, size))
+		if (!pipelineManager.TryGetPipelineLayout("TAA", &m_taaShader))
 		{
 			return false;
 		}
 
-		if (!Rebuild(physicalDevice, device, allocator, swapChainFormat, size, false))
-		{
-			return false;
-		}
-
-		return true;
-	}
-
-	bool PostProcessing::InitialiseTAA(const PhysicalDevice& physicalDevice, const Device& device,
-		VmaAllocator allocator, vk::Format swapChainFormat, const glm::uvec2& size)
-	{
-		if (!SetupTAADescriptorSetLayout(device))
-		{
-			return false;
-		}
-
-		std::vector<vk::DescriptorPoolSize> poolSizes =
-		{
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampler, 1),
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampler, 1),
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 1),
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 1),
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 1),
-			vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 1)
-		};
-
-		m_taaDescriptorPool = std::make_unique<DescriptorPool>();
-		if (!m_taaDescriptorPool->Initialise(device, m_concurrentFrames, poolSizes))
-		{
-			return false;
-		}
-
-		std::vector<vk::DescriptorSetLayout> layouts;
-		for (uint32_t i = 0; i < m_concurrentFrames; ++i)
-		{
-			layouts.push_back(m_taaDescriptorSetLayout.get());
-		}
-
-		m_taaDescriptorSets = m_taaDescriptorPool->CreateDescriptorSets(device, layouts);
-
-		std::string vertFilePath = "Shaders/TAA_vert.spv";
-		std::vector<uint8_t> vertData;
-		if (!Files::TryReadFile(vertFilePath, vertData))
-		{
-			Logger::Error("Failed to read shader program at path '{}'.", vertFilePath);
-			return false;
-		}
-
-		std::string fragFilePath = "Shaders/TAA_frag.spv";
-		std::vector<uint8_t> fragData;
-		if (!Files::TryReadFile(fragFilePath, fragData))
-		{
-			Logger::Error("Failed to read shader program at path '{}'.", fragFilePath);
-			return false;
-		}
-
-		auto programs = std::unordered_map<vk::ShaderStageFlagBits, std::vector<uint8_t>>{
-			{ vk::ShaderStageFlagBits::eVertex, vertData },
-			{ vk::ShaderStageFlagBits::eFragment, fragData }
-		};
-
-		std::vector<vk::VertexInputBindingDescription> bindingDescriptions = {};
-		std::vector<vk::VertexInputAttributeDescription> attributeDescriptions = {};
-		std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = { m_taaDescriptorSetLayout.get() };
-		std::vector<vk::PushConstantRange> pushConstantRanges = { vk::PushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(uint32_t)) };
-
-		std::vector<vk::Format> attachmentFormats = { swapChainFormat, vk::Format::eR8G8B8A8Unorm };
-
-		m_taaShader = std::make_unique<PipelineLayout>();
-		if (!m_taaShader->Initialise(physicalDevice, device, "TAA", programs, bindingDescriptions,
-			attributeDescriptions, attachmentFormats, vk::Format::eUndefined, descriptorSetLayouts, pushConstantRanges))
+		if (!Rebuild(physicalDevice, device, allocator, size))
 		{
 			return false;
 		}
@@ -133,9 +59,9 @@ namespace Engine::Rendering::Vulkan
 	}
 
 	bool PostProcessing::Rebuild(const PhysicalDevice& physicalDevice, const Device& device,
-		VmaAllocator allocator, vk::Format swapChainFormat, const glm::uvec2& size, bool rebuildPipeline)
+		VmaAllocator allocator, const glm::uvec2& size)
 	{
-		if (!RebuildTAA(physicalDevice, device, allocator, swapChainFormat, m_gBuffer.GetOutputImageView(), size, rebuildPipeline))
+		if (!RebuildTAA(physicalDevice, device, allocator, m_gBuffer.GetOutputImageView(), size))
 		{
 			return false;
 		}
@@ -159,7 +85,7 @@ namespace Engine::Rendering::Vulkan
 	}
 
 	bool PostProcessing::RebuildTAA(const PhysicalDevice& physicalDevice, const Device& device,
-		VmaAllocator allocator, vk::Format swapChainFormat, const ImageView& inputImageView, const glm::uvec2& size, bool rebuildPipeline)
+		VmaAllocator allocator, const ImageView& inputImageView, const glm::uvec2& size)
 	{
 		m_taaPreviousImages[0].reset();
 		m_taaPreviousImages[1].reset();
@@ -167,12 +93,8 @@ namespace Engine::Rendering::Vulkan
 		m_taaPreviousImageViews[1].reset();
 
 		// Populate TAA jitter offsets with quasi-random sequence.
-		//const float goldenRatio = 1.32471795724474602596f;
-		//const glm::vec2 a = glm::vec2(1.0f / goldenRatio, 1.0f / (goldenRatio * goldenRatio));
 		for (size_t i = 0; i < m_taaJitterOffsets.size(); ++i)
 		{
-			//m_taaJitterOffsets[i].x = (fmodf(0.5f + a.x * i, 1.0f) - 0.5f) / size.x;
-			//m_taaJitterOffsets[i].y = (fmodf(0.5f + a.y * i, 1.0f) - 0.5f) / size.y;
 			m_taaJitterOffsets[i].x = (2.0f * Halton(i + 1, 2) - 1.0f) / size.x;
 			m_taaJitterOffsets[i].y = (2.0f * Halton(i + 1, 3) - 1.0f) / size.y;
 		}
@@ -182,64 +104,13 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		std::array<vk::DescriptorImageInfo, 1> linearSamplerInfos =
-		{
-			vk::DescriptorImageInfo(m_linearSampler->Get(), nullptr, vk::ImageLayout::eShaderReadOnlyOptimal)
-		};
-
-		std::array<vk::DescriptorImageInfo, 1> nearestSamplerInfos =
-		{
-			vk::DescriptorImageInfo(m_nearestSampler->Get(), nullptr, vk::ImageLayout::eShaderReadOnlyOptimal)
-		};
-
-		std::array<vk::DescriptorImageInfo, 1> inputImageInfos =
-		{
-			 vk::DescriptorImageInfo(nullptr, inputImageView.Get(), vk::ImageLayout::eShaderReadOnlyOptimal)
-		};
-
-		std::array<vk::DescriptorImageInfo, 1> prevImageInfos =
-		{
-			 vk::DescriptorImageInfo(nullptr, m_taaPreviousImageViews[0]->Get(), vk::ImageLayout::eShaderReadOnlyOptimal)
-		};
-
-		std::array<vk::DescriptorImageInfo, 1> velocityImageInfos =
-		{
-			 vk::DescriptorImageInfo(nullptr, m_gBuffer.GetVelocityImageView().Get(), vk::ImageLayout::eShaderReadOnlyOptimal)
-		};
-
-		std::array<vk::DescriptorImageInfo, 1> depthImageInfos =
-		{
-			 vk::DescriptorImageInfo(nullptr, m_gBuffer.GetDepthImageView().Get(), vk::ImageLayout::eShaderReadOnlyOptimal)
-		};
-
-		for (uint32_t i = 0; i < m_concurrentFrames; ++i)
-		{
-			std::array<vk::WriteDescriptorSet, 6> writeDescriptorSets =
-			{
-				vk::WriteDescriptorSet(m_taaDescriptorSets[i], 0, 0, vk::DescriptorType::eSampler, linearSamplerInfos),
-				vk::WriteDescriptorSet(m_taaDescriptorSets[i], 1, 0, vk::DescriptorType::eSampler, nearestSamplerInfos),
-				vk::WriteDescriptorSet(m_taaDescriptorSets[i], 2, 0, vk::DescriptorType::eSampledImage, inputImageInfos),
-				vk::WriteDescriptorSet(m_taaDescriptorSets[i], 3, 0, vk::DescriptorType::eSampledImage, prevImageInfos),
-				vk::WriteDescriptorSet(m_taaDescriptorSets[i], 4, 0, vk::DescriptorType::eSampledImage, velocityImageInfos),
-				vk::WriteDescriptorSet(m_taaDescriptorSets[i], 5, 0, vk::DescriptorType::eSampledImage, depthImageInfos)
-			};
-
-			device.Get().updateDescriptorSets(writeDescriptorSets, nullptr);
-		}
-
-		if (rebuildPipeline)
-		{
-			std::vector<vk::Format> attachmentFormats = { swapChainFormat, m_taaPreviousImages[0]->GetFormat() };
-
-			std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = { m_taaDescriptorSetLayout.get() };
-			std::vector<vk::PushConstantRange> pushConstantRanges = { vk::PushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(uint32_t)) };
-
-			PipelineLayout* pipelineLayout = static_cast<PipelineLayout*>(m_taaShader.get());
-			if (!pipelineLayout->Rebuild(physicalDevice, device, attachmentFormats, vk::Format::eUndefined, descriptorSetLayouts, pushConstantRanges))
-			{
-				return false;
-			}
-		}
+		if (!m_taaShader->BindSampler(0, m_linearSampler) ||
+			!m_taaShader->BindSampler(1, m_nearestSampler) ||
+			!m_taaShader->BindImageView(2, inputImageView) ||
+			!m_taaShader->BindImageView(3, m_taaPreviousImageViews[0]) ||
+			!m_taaShader->BindImageView(4, m_gBuffer.GetVelocityImageView()) ||
+			!m_taaShader->BindImageView(5, m_gBuffer.GetDepthImageView()))
+			return false;
 
 		return true;
 	}
@@ -273,31 +144,6 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool PostProcessing::SetupTAADescriptorSetLayout(const Device& device)
-	{
-		std::array<vk::DescriptorSetLayoutBinding, 6> layoutBindings =
-		{
-			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eSampler, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment),
-			vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eSampledImage, 1, vk::ShaderStageFlagBits::eFragment)
-		};
-
-		vk::DescriptorSetLayoutCreateInfo layoutInfo(vk::DescriptorSetLayoutCreateFlags(), layoutBindings);
-
-		const vk::Device& deviceImp = device.Get();
-		m_taaDescriptorSetLayout = deviceImp.createDescriptorSetLayoutUnique(layoutInfo);
-		if (!m_taaDescriptorSetLayout.get())
-		{
-			Logger::Error("Failed to create descriptor set layout.");
-			return false;
-		}
-
-		return true;
-	}
-
 	void PostProcessing::TransitionTAAImageLayouts(const Device& device, const vk::CommandBuffer& commandBuffer) const
 	{
 		m_taaPreviousImages[0]->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
@@ -324,12 +170,10 @@ namespace Engine::Rendering::Vulkan
 
 	void PostProcessing::Draw(const vk::CommandBuffer& commandBuffer, uint32_t frameIndex) const
 	{
-		const vk::Pipeline& graphicsPipeline = m_taaShader->GetGraphicsPipeline();
-		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
+		m_taaShader->BindPipeline(commandBuffer, frameIndex);
 
 		uint32_t enabled = m_enabled ? 1 : 0;
 		commandBuffer.pushConstants(m_taaShader->Get(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(uint32_t), &enabled);
-		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_taaShader->Get(), 0, m_taaDescriptorSets[frameIndex], nullptr);
 		commandBuffer.draw(3, 1, 0, 0);
 	}
 }

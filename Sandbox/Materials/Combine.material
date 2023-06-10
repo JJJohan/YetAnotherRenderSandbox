@@ -1,0 +1,15 @@
+{
+	"Programs":
+	[
+		{ "Type": "Vertex", "Path": "Shaders/Combine_vert.spv" },
+		{ "Type": "Fragment", "Path": "Shaders/Combine_frag.spv" }
+	],
+
+	"DepthWrite": false,
+	"DepthTest": false,
+
+	"Attachments":
+	[
+		"R8G8B8A8Unorm"
+	]
+}

@@ -178,7 +178,7 @@ int main()
 {
 	Logger::SetLogOutputLevel(LogLevel::VERBOSE);
 
-	std::unique_ptr<Window> window = Window::Create("Test", glm::uvec2(1280, 720), false);
+	std::unique_ptr<Window> window = Window::Create("Sandbox", glm::uvec2(1280, 720), false);
 	std::unique_ptr<Renderer> renderer = Renderer::Create(RendererType::VULKAN, *window, debug);
 	g_renderer = renderer.get();
 	g_window = window.get();
@@ -198,11 +198,8 @@ int main()
 
 	Camera& camera = renderer->GetCamera();
 
-	static auto startTime = std::chrono::high_resolution_clock::now();
-	static auto lastRenderTime = std::chrono::high_resolution_clock::now();
-	static auto prevTime = startTime;
-
-	//window->SetCursorVisible(false);
+	float totalTime = 0.0f;
+	static auto prevTime = std::chrono::high_resolution_clock::now();
 
 	bool drawUI = false;
 	while (!window->IsClosed())
@@ -214,8 +211,8 @@ int main()
 
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevTime).count();
-		float totalTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-		float deltaRenderTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastRenderTime).count();
+		prevTime = currentTime;
+		totalTime += deltaTime;
 
 		if (window->InputState.KeyDown(KeyCode::Escape))
 		{
@@ -235,7 +232,7 @@ int main()
 
 		if (!drawUI)
 		{
-			float speed = 100.0f * deltaTime;
+			float speed = 10.0f * deltaTime;
 			if (window->InputState.KeyPressed(KeyCode::Shift))
 			{
 				speed *= 2.0f;
@@ -258,7 +255,7 @@ int main()
 				camera.TranslateLocal(glm::vec3(-speed, 0.0f, 0.0f));
 			}
 
-			const float mouseSensitivity = 0.02f;
+			const float mouseSensitivity = 0.005f;
 			const glm::vec2& mouseDelta = window->InputState.GetMouseDelta();
 			if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f)
 			{
@@ -266,19 +263,12 @@ int main()
 			}
 		}
 
-		if (deltaRenderTime > (1.0f / 144.0f))
-		{
-			if (!renderer->Render())
-			{
-				return 1;
-			}
-
-			lastRenderTime = std::chrono::high_resolution_clock::now();
-		}
-
 		window->Poll();
 
-		prevTime = std::chrono::high_resolution_clock::now();
+		if (!renderer->Render())
+		{
+			return 1;
+		}
 	}
 
 	g_sceneLoad.Abort();
