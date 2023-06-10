@@ -104,7 +104,7 @@ void main()
 	vec3 normal = texture(sampler2D(textures[1], samp), fragUv).rgb;
 	vec4 worldPosAndViewDepth = texture(sampler2D(textures[2], samp), fragUv);
 	vec2 metalRoughness = texture(sampler2D(textures[3], samp), fragUv).rg;
-	vec3 worldPos = worldPosAndViewDepth.xyz;
+	vec3 worldPos = worldPosAndViewDepth.xyz - frameInfo.viewPos.xyz;
 	float viewDepth = worldPosAndViewDepth.w;
 
 	vec3 f0 = vec3(0.04);

@@ -67,13 +67,13 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		// Normals
-		if (!CreateImageAndView(device, allocator, size, vk::Format::eR32G32B32A32Sfloat))
+		if (!CreateImageAndView(device, allocator, size, vk::Format::eR16G16B16A16Sfloat))
 		{
 			return false;
 		}
 
 		// WorldPos
-		if (!CreateImageAndView(device, allocator, size, vk::Format::eR32G32B32A32Sfloat))
+		if (!CreateImageAndView(device, allocator, size, vk::Format::eR16G16B16A16Sfloat))
 		{
 			return false;
 		}

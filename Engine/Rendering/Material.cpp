@@ -104,6 +104,11 @@ namespace Engine::Rendering
 			attachmentFormat = AttachmentFormat::R16G16Sfloat;
 			return true;
 		}
+		else if (string == "r16g16b16a16sfloat")
+		{
+			attachmentFormat = AttachmentFormat::R16G16B16A16Sfloat;
+			return true;
+		}
 		else if (string == "r32g32b32a32sfloat")
 		{
 			attachmentFormat = AttachmentFormat::R32G32B32A32Sfloat;

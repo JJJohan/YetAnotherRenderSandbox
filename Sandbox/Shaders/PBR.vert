@@ -58,6 +58,7 @@ void main()
     fragNormal = normalize(vec3(infoBuffer.meshInfo[gl_DrawID].normalMatrix * vec4(normal, 0.0)));
 	fragPrevPos = frameInfo.prevViewProj * vec4(fragWorldPosAndViewDepth.xyz, 1.0);
 
+	fragWorldPosAndViewDepth.xyz += frameInfo.viewPos.xyz;
     gl_Position = fragPos = frameInfo.viewProj * transformedPos;
     gl_Position.xy += frameInfo.jitter * fragPos.w; // Apply Jittering
 }

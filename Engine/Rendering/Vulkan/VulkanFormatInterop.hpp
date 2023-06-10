@@ -47,6 +47,9 @@ namespace Engine::Rendering::Vulkan
 		case AttachmentFormat::R16G16Sfloat:
 			format = vk::Format::eR16G16Sfloat;
 			return true;
+		case AttachmentFormat::R16G16B16A16Sfloat:
+			format = vk::Format::eR16G16B16A16Sfloat;
+			return true;
 		case AttachmentFormat::R32G32B32A32Sfloat:
 			format = vk::Format::eR32G32B32A32Sfloat;
 			return true;

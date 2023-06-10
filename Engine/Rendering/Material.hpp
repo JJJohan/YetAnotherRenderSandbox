@@ -18,6 +18,7 @@ namespace Engine::Rendering
 		R8G8Unorm,
 		R8G8B8A8Unorm,
 		R16G16Sfloat,
+		R16G16B16A16Sfloat,
 		R32G32B32A32Sfloat,
 		Swapchain
 	};
