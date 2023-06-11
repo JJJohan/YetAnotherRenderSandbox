@@ -12,17 +12,45 @@ namespace Engine::OS
 	public:
 		InputState();
 
-		EXPORT bool KeyDown(KeyCode keyCode) const;
-		EXPORT bool KeyPressed(KeyCode keyCode) const;
-		EXPORT bool KeyUp(KeyCode keyCode) const;
+		inline bool KeyDown(KeyCode keyCode) const
+		{
+			int index = static_cast<int>(keyCode);
+			return m_keysDown[index] && !m_keysDownPrevFrame[index];
+		};
 
-		EXPORT bool MouseButtonDown(MouseButton mouseButton) const;
-		EXPORT bool MouseButtonPressed(MouseButton mouseButton) const;
-		EXPORT bool MouseButtonUp(MouseButton mouseButton) const;
+		inline bool KeyPressed(KeyCode keyCode) const
+		{
+			int index = static_cast<int>(keyCode);
+			return m_keysDown[index];
+		};
 
-		EXPORT glm::vec2 GetMousePos() const;
-		EXPORT glm::vec2 GetMouseDelta() const;
-		EXPORT float GetMouseWheelDelta() const;
+		inline bool KeyUp(KeyCode keyCode) const
+		{
+			int index = static_cast<int>(keyCode);
+			return !m_keysDown[index] && m_keysDownPrevFrame[index];
+		};
+
+		inline bool MouseButtonDown(MouseButton mouseButton) const
+		{
+			int index = static_cast<int>(mouseButton);
+			return m_mouseButtonsDown[index] && !m_mouseButtonsDownPrevFrame[index];
+		};
+
+		inline bool MouseButtonPressed(MouseButton mouseButton) const
+		{
+			int index = static_cast<int>(mouseButton);
+			return m_mouseButtonsDown[index];
+		};
+
+		inline bool MouseButtonUp(MouseButton mouseButton) const
+		{
+			int index = static_cast<int>(mouseButton);
+			return !m_mouseButtonsDown[index] && m_mouseButtonsDownPrevFrame[index];
+		};
+
+		inline glm::vec2 GetMousePos() const { return m_mousePos; }
+		inline glm::vec2 GetMouseDelta() const { return m_mouseDelta; }
+		inline float GetMouseWheelDelta() const { return m_mouseWheelDelta; }
 
 		void Update();
 		void SetKeyDown(KeyCode keyCode, bool down);

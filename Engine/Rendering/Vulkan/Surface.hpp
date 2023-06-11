@@ -15,7 +15,8 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		Surface();
-		const vk::SurfaceKHR& Get() const;
+		const vk::SurfaceKHR& Get() const { return m_surface.get(); }
+
 		bool Initialise(const Instance& instance, const Engine::OS::Window& window);
 
 	private:

@@ -241,29 +241,4 @@ namespace Engine::Rendering::Vulkan
 
 		m_layout = newLayout;
 	}
-
-	const VkImage& RenderImage::Get() const
-	{
-		return m_image;
-	}
-
-	const vk::Extent3D& RenderImage::GetDimensions() const
-	{
-		return m_dimensions;
-	}
-
-	const vk::Format& RenderImage::GetFormat() const
-	{
-		return m_format;
-	}
-
-	uint32_t RenderImage::GetMiplevels() const
-	{
-		return m_mipLevels;
-	}
-
-	const vk::ImageLayout& RenderImage::GetLayout() const
-	{
-		return m_layout;
-	}
 }

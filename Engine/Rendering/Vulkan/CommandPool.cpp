@@ -13,11 +13,6 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	const vk::CommandPool& CommandPool::Get() const
-	{
-		return m_commandPool.get();
-	}
-
 	bool CommandPool::Initialise(const PhysicalDevice& physicalDevice, const Device& device, vk::CommandPoolCreateFlagBits flags)
 	{
 		QueueFamilyIndices queueFamilyIndices = physicalDevice.GetQueueFamilyIndices();

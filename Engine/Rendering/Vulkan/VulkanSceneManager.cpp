@@ -803,15 +803,18 @@ namespace Engine::Rendering::Vulkan
 		if (m_vertexBuffers.empty() || m_creating)
 			return;
 
-		m_shadowShader->BindPipeline(commandBuffer, currentFrameIndex);
-
-		std::vector<vk::DeviceSize> vertexBufferOffsets;
-		vertexBufferOffsets.resize(2);
-		std::vector<vk::Buffer> vertexBufferViews = { m_vertexBuffers[0]->Get(), m_vertexBuffers[1]->Get() };
-
 		commandBuffer.pushConstants(m_shadowShader->Get(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(uint32_t), &cascadeIndex);
-		commandBuffer.bindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
-		commandBuffer.bindIndexBuffer(m_indexBuffer->Get(), 0, vk::IndexType::eUint32);
+
+		if (cascadeIndex == 0)
+		{
+			std::vector<vk::DeviceSize> vertexBufferOffsets;
+			vertexBufferOffsets.resize(2);
+			std::vector<vk::Buffer> vertexBufferViews = { m_vertexBuffers[0]->Get(), m_vertexBuffers[1]->Get() };
+
+			m_shadowShader->BindPipeline(commandBuffer, currentFrameIndex);
+			commandBuffer.bindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
+			commandBuffer.bindIndexBuffer(m_indexBuffer->Get(), 0, vk::IndexType::eUint32);
+		}
 
 		uint32_t drawCount = m_meshCapacity; // TODO: Compute counted, after culling, etc.
 		commandBuffer.drawIndexedIndirect(m_indirectDrawBuffer->Get(), 0, drawCount, sizeof(vk::DrawIndexedIndirectCommand));

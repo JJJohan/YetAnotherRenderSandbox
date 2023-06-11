@@ -17,7 +17,10 @@ namespace Engine
 			return R == other.R && G == other.G && B == other.B && A == other.A;
 		}
 
-		glm::vec4 GetVec4() const;
+		inline glm::vec4 GetVec4() const
+		{
+			return glm::vec4(static_cast<float>(R) / 255.0f, static_cast<float>(G) / 255.0f, static_cast<float>(B) / 255.0f, static_cast<float>(A) / 255.0f);
+		}
 
 		uint8_t R;
 		uint8_t G;

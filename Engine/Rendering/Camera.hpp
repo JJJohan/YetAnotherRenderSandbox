@@ -11,33 +11,58 @@ namespace Engine::Rendering
 	public:
 		EXPORT Camera();
 
-		EXPORT void SetNearFar(const glm::vec2& nearFar);
-		EXPORT const glm::vec2& GetNearFar() const;
+		inline void SetNearFar(const glm::vec2& nearFar)
+		{
+			m_nearFar = nearFar;
+			m_projDirty = true;
+		}
+
+		inline const glm::vec2& GetNearFar() const { return m_nearFar; }
 
 		EXPORT void TranslateLocal(const glm::vec3& translation);
 		EXPORT void RotateEuler(const glm::vec3& eulerAngles);
 		EXPORT void Rotate(const glm::quat& rotation);
 		EXPORT void RotateFPS(float pitch, float yaw);
 
-		EXPORT void SetPosition(const glm::vec3& position);
-		EXPORT const glm::vec3& GetPosition() const;
+		inline void SetPosition(const glm::vec3& position)
+		{
+			m_position = position;
+			m_viewDirty = true;
+		}
 
-		EXPORT void ClampPitch(const glm::vec2& minMaxPitch);
+		inline const glm::vec3& GetPosition() const { return m_position; }
 
-		EXPORT void SetRotation(const glm::quat& rotation);
-		EXPORT const glm::quat& GetRotation() const;
+		inline void ClampPitch(const glm::vec2& minMaxPitch) { m_pitchClamp = minMaxPitch; }
 
-		EXPORT void SetRotationEuler(const glm::vec3& eulerAngles);
-		EXPORT glm::vec3 GetRotationEuler() const;
+		inline void SetRotation(const glm::quat& rotation)
+		{
+			m_rotation = rotation;
+			m_viewDirty = true;
+		}
 
-		EXPORT void SetFOV(float fov);
-		EXPORT float GetFOV() const;
+		inline const glm::quat& GetRotation() const { return m_rotation; }
 
-		EXPORT void SetView(const glm::mat4& view);
-		EXPORT const glm::mat4& GetView() const;
+		inline void SetRotationEuler(const glm::vec3& eulerAngles)
+		{
+			m_rotation = glm::quat(eulerAngles);
+			m_viewDirty = true;
+		}
 
-		EXPORT const glm::mat4& GetProjection() const;
-		EXPORT const glm::mat4& GetViewProjection() const;
+		inline glm::vec3 GetRotationEuler() const { return glm::eulerAngles(m_rotation); }
+
+		inline void SetFOV(float fov)
+		{
+			m_fov = fov;
+			m_projDirty = true;
+		}
+
+		inline float GetFOV() const { return m_fov; }
+
+		inline void SetView(const glm::mat4& view) { m_view = view; }
+		inline const glm::mat4& GetView() const { return m_view; }
+
+		inline const glm::mat4& GetProjection() const { return m_proj; }
+		inline const glm::mat4& GetViewProjection() const { return m_viewProj; }
 
 		void Update(const glm::uvec2& dimensions);
 

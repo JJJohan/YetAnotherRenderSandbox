@@ -21,11 +21,6 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	const vk::Instance& Instance::Get() const
-	{
-		return m_instance.get();
-	}
-
 	bool CheckRequiredExtensionsSupport(const std::vector<const char*>& requestedExtensions)
 	{
 		std::vector<vk::ExtensionProperties> properties = vk::enumerateInstanceExtensionProperties(nullptr);
@@ -64,7 +59,7 @@ namespace Engine::Rendering::Vulkan
 		const std::vector<const char*> validationLayers =
 		{
 			"VK_LAYER_KHRONOS_validation"
-		};
+	};
 
 		vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
 		if (useDebug)
@@ -109,5 +104,5 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		return true;
-	}
+}
 }

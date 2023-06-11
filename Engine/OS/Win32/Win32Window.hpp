@@ -13,7 +13,7 @@ namespace Engine::OS
 		Win32Window(const std::string& title, const glm::uvec2& size, bool fullscreen);
 		~Win32Window();
 
-		virtual void* GetHandle() const override;
+		inline virtual void* GetHandle() const override { return m_hWnd; }
 		virtual void* GetInstance() const override;
 
 		void OnSizeEvent(uint64_t sizeEventFlag);

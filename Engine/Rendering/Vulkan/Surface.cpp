@@ -13,11 +13,6 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	const vk::SurfaceKHR& Surface::Get() const
-	{
-		return m_surface.get();
-	}
-
 	bool Surface::Initialise(const Instance& instance, const Window& window)
 	{
 #ifdef WIN32

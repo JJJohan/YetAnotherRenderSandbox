@@ -20,11 +20,12 @@ namespace Engine::Rendering::Vulkan
 		bool UpdateContents(const void* data, vk::DeviceSize size);
 		void TransitionImageLayout(const Device& device, const vk::CommandBuffer& commandBuffer, vk::ImageLayout newLayout);
 		void GenerateMipmaps(const Device& device, const vk::CommandBuffer& commandBuffer);
-		const VkImage& Get() const;
-		const vk::Extent3D& GetDimensions() const;
-		const vk::Format& GetFormat() const;
-		uint32_t GetMiplevels() const;
-		const vk::ImageLayout& GetLayout() const;
+
+		inline const VkImage& Get() const { return m_image; }
+		inline const vk::Extent3D& GetDimensions() const { return m_dimensions; }
+		inline const vk::Format& GetFormat() const { return m_format; }
+		inline uint32_t GetMiplevels() const { return m_mipLevels; }
+		inline const vk::ImageLayout& GetLayout() const { return m_layout; }
 
 		static bool FormatSupported(const PhysicalDevice& physicalDevice, vk::Format format);
 

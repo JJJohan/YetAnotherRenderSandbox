@@ -10,26 +10,6 @@ namespace Engine::Rendering
 	{
 	}
 
-	const void* VertexData::GetData() const
-	{
-		return m_data.data();
-	}
-
-	uint32_t VertexData::GetCount() const
-	{
-		return m_elementCount;
-	}
-
-	uint32_t VertexData::GetElementSize() const
-	{
-		return m_elementSize;
-	}
-
-	uint64_t VertexData::GetHash() const
-	{
-		return m_hash;
-	}
-
 	void VertexData::ReplaceData(const std::vector<uint8_t>& data, uint32_t newCount)
 	{
 		m_data = data;

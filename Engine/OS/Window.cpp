@@ -53,56 +53,6 @@ namespace Engine::OS
 		}
 	}
 
-	const std::string& Window::GetTitle() const
-	{
-		return m_title;
-	}
-
-	const glm::uvec2 Window::GetSize() const
-	{
-		return m_size;
-	}
-
-	bool Window::IsFullscreen() const
-	{
-		return m_fullscreen;
-	}
-
-	bool Window::IsClosed() const
-	{
-		return m_closed;
-	}
-
-	bool Window::IsCursorVisible() const
-	{
-		return m_cursorVisible;
-	}
-
-	void Window::SetCursorVisible(bool visible)
-	{
-		m_cursorVisible = visible;
-	}
-
-	void* Window::GetHandle() const
-	{
-		return nullptr;
-	}
-
-	void* Window::GetInstance() const
-	{
-		return nullptr;
-	}
-
-	void Window::SetTitle(const std::string& title)
-	{
-		m_title = title;
-	}
-
-	void Window::SetFullscreen(bool fullscreen)
-	{
-		m_fullscreen = fullscreen;
-	}
-
 	void Window::RegisterResizeCallback(std::function<void(const glm::uvec2&)> callback)
 	{
 		const auto& target = callback.target<void(const glm::uvec2&)>();

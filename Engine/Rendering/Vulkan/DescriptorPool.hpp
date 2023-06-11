@@ -10,7 +10,7 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		DescriptorPool();
-		const vk::DescriptorPool& Get() const;
+		inline const vk::DescriptorPool& Get() const { return m_descriptorPool.get(); }
 		bool Initialise(const Device& device, uint32_t maxSets, const std::vector<vk::DescriptorPoolSize>& poolSizes, vk::DescriptorPoolCreateFlagBits flags = {});
 
 		std::vector<vk::DescriptorSet> CreateDescriptorSets(const Device& device, const std::vector<vk::DescriptorSetLayout>& layouts);

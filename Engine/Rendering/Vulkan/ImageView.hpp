@@ -10,7 +10,7 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		ImageView();
-		const vk::ImageView& Get() const;
+		inline const vk::ImageView& Get() const { return m_imageView.get(); }
 		bool Initialise(const Device& device, const vk::Image& image, uint32_t mipLevels, vk::Format format, vk::ImageAspectFlags aspectFlags);
 
 	private:

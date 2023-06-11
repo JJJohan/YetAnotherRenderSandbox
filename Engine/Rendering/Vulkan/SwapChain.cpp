@@ -3,7 +3,6 @@
 #include "PhysicalDevice.hpp"
 #include "Surface.hpp"
 #include "ImageView.hpp"
-#include "RenderImage.hpp"
 #include "OS/Window.hpp"
 #include "Core/Logging/Logger.hpp"
 
@@ -20,16 +19,6 @@ namespace Engine::Rendering::Vulkan
 		, m_swapChainImageViews()
 		, m_hdrSupport()
 	{
-	}
-
-	const vk::SwapchainKHR& SwapChain::Get() const
-	{
-		return m_swapChain.get();
-	}
-
-	bool SwapChain::IsHDRCapable() const
-	{
-		return m_hdrSupport.has_value() && m_hdrSupport.value();
 	}
 
 	vk::SurfaceFormatKHR SwapChain::ChooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats, bool hdr)
@@ -63,20 +52,6 @@ namespace Engine::Rendering::Vulkan
 		return availableFormats.front();
 	}
 
-	vk::PresentModeKHR ChooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& availablePresentModes)
-	{
-		return vk::PresentModeKHR::eFifo;
-	}
-
-	RenderImage& SwapChain::GetSwapChainImage(uint32_t imageIndex)
-	{
-		return m_swapChainImages[imageIndex];
-	}
-
-	const ImageView& SwapChain::GetSwapChainImageView(uint32_t imageIndex) const
-	{
-		return *m_swapChainImageViews[imageIndex];
-	}
 
 	vk::Extent2D ChooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities, const glm::uvec2& size)
 	{
@@ -95,14 +70,9 @@ namespace Engine::Rendering::Vulkan
 		}
 	}
 
-	const vk::Format& SwapChain::GetFormat() const
+	vk::PresentModeKHR ChooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& availablePresentModes)
 	{
-		return m_swapChainImageFormat;
-	}
-
-	const vk::Extent2D& SwapChain::GetExtent() const
-	{
-		return m_swapChainExtent;
+		return vk::PresentModeKHR::eFifo;
 	}
 
 	bool SwapChain::Initialise(const PhysicalDevice& physicalDevice, const Device& device, const Surface& surface,

@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 #include "SwapChainSupportDetails.hpp"
+#include "RenderImage.hpp"
 #include <glm/glm.hpp>
 #include <optional>
 
@@ -19,20 +20,19 @@ namespace Engine::Rendering::Vulkan
 	class PhysicalDevice;
 	class Surface;
 	class ImageView;
-	class RenderImage;
 
 	class SwapChain
 	{
 	public:
 		SwapChain();
 
-		const vk::Format& GetFormat() const;
-		const vk::Extent2D& GetExtent() const;
-		const vk::SwapchainKHR& Get() const;
+		inline const vk::Format& GetFormat() const { return m_swapChainImageFormat; }
+		inline const vk::Extent2D& GetExtent() const { return m_swapChainExtent; }
+		inline const vk::SwapchainKHR& Get() const { return m_swapChain.get(); }
 
-		RenderImage& GetSwapChainImage(uint32_t imageIndex);
-		const ImageView& GetSwapChainImageView(uint32_t imageIndex) const;
-		bool IsHDRCapable() const;
+		inline RenderImage& GetSwapChainImage(uint32_t imageIndex) { return m_swapChainImages[imageIndex]; }
+		inline const ImageView& GetSwapChainImageView(uint32_t imageIndex) const { return *m_swapChainImageViews[imageIndex]; }
+		inline bool IsHDRCapable() const { return m_hdrSupport.has_value() && m_hdrSupport.value(); }
 
 		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, const Surface& surface,
 			const Engine::OS::Window& window, VmaAllocator allocator, const glm::uvec2& size, bool hdr);

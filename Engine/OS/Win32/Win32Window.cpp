@@ -60,11 +60,6 @@ namespace Engine::OS
 	{
 	}
 
-	void* Win32Window::GetHandle() const
-	{
-		return m_hWnd;
-	}
-
 	void* Win32Window::GetInstance() const
 	{
 		return GetModuleHandle(nullptr);

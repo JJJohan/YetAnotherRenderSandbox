@@ -263,12 +263,12 @@ int main()
 			}
 		}
 
-		window->Poll();
-
 		if (!renderer->Render())
 		{
 			return 1;
 		}
+
+		window->Poll();
 	}
 
 	g_sceneLoad.Abort();

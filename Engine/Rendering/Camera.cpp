@@ -41,11 +41,6 @@ namespace Engine::Rendering
 		}
 	}
 
-	void Camera::ClampPitch(const glm::vec2& minMaxPitch)
-	{
-		m_pitchClamp = minMaxPitch;
-	}
-
 	void Camera::Update(const glm::uvec2& dimensions)
 	{
 		m_projDirty = m_projDirty || m_dimensions != dimensions;
@@ -84,80 +79,5 @@ namespace Engine::Rendering
 
 		m_rotation = glm::normalize(qPitch * qYaw);
 		m_viewDirty = true;
-	}
-
-	void Camera::SetPosition(const glm::vec3& position)
-	{
-		m_position = position;
-		m_viewDirty = true;
-	}
-
-	const glm::vec3& Camera::GetPosition() const
-	{
-		return m_position;
-	}
-
-	void Camera::SetRotation(const glm::quat& rotation)
-	{
-		m_rotation = rotation;
-		m_viewDirty = true;
-	}
-
-	void Camera::SetRotationEuler(const glm::vec3& eulerAngles)
-	{
-		m_rotation = glm::quat(eulerAngles);
-		m_viewDirty = true;
-	}
-
-	const glm::quat& Camera::GetRotation() const
-	{
-		return m_rotation;
-	}
-
-	glm::vec3 Camera::GetRotationEuler() const
-	{
-		return glm::eulerAngles(m_rotation);
-	}
-
-	void Camera::SetNearFar(const glm::vec2& nearFar)
-	{
-		m_nearFar = nearFar;
-		m_projDirty = true;
-	}
-
-	const glm::vec2& Camera::GetNearFar() const
-	{
-		return m_nearFar;
-	}
-
-	void Camera::SetFOV(float fov)
-	{
-		m_fov = fov;
-		m_projDirty = true;
-	}
-
-	float Camera::GetFOV() const
-	{
-		return m_fov;
-	}
-
-	void Camera::SetView(const glm::mat4& view)
-	{
-		m_view = view;
-	}
-
-	const glm::mat4& Camera::GetView() const
-	{
-		return m_view;
-	}
-
-	const glm::mat4& Camera::GetProjection() const
-	{
-		return m_proj;
-	}
-
-	const glm::mat4& Camera::GetViewProjection() const
-	{
-		return m_viewProj;
 	}
 }

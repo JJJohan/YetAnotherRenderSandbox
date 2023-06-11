@@ -27,17 +27,17 @@ namespace Engine::OS
 		EXPORT static std::unique_ptr<Window> Create(const std::string& title, const glm::uvec2& size, bool fullscreen);
 		EXPORT virtual ~Window();
 
-		EXPORT bool IsCursorVisible() const;
-		EXPORT const std::string& GetTitle() const;
-		EXPORT const glm::uvec2 GetSize() const;
-		EXPORT bool IsFullscreen() const;
-		EXPORT bool IsClosed() const;
-		EXPORT virtual void* GetHandle() const;
-		EXPORT virtual void* GetInstance() const;
+		inline bool IsCursorVisible() const { return m_cursorVisible; }
+		inline const std::string& GetTitle() const { return m_title; }
+		inline const glm::uvec2 GetSize() const { return m_size; }
+		inline bool IsFullscreen() const { return m_fullscreen; }
+		inline bool IsClosed() const { return m_closed; }
+		inline virtual void* GetHandle() const { return nullptr; }
+		inline virtual void* GetInstance() const { return nullptr; }
 
-		EXPORT virtual void SetCursorVisible(bool visible);
-		EXPORT virtual void SetTitle(const std::string& title);
-		EXPORT virtual void SetFullscreen(bool fullscreen);
+		inline virtual void SetCursorVisible(bool visible) { m_cursorVisible = visible; }
+		inline virtual void SetTitle(const std::string& title) { m_title = title; }
+		inline virtual void SetFullscreen(bool fullscreen) { m_fullscreen = fullscreen; }
 		EXPORT virtual void Resize(const glm::uvec2& size);
 		EXPORT virtual void Close();
 		EXPORT virtual void Poll();

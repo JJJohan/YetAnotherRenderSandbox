@@ -10,8 +10,8 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		Instance();
+		inline const vk::Instance& Get() const { return m_instance.get(); }
 		bool Initialise(std::string name, Debug& debug, bool useDebug);
-		const vk::Instance& Get() const;
 
 	private:
 		vk::UniqueInstance m_instance;

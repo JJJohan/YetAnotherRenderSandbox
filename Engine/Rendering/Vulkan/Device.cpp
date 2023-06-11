@@ -14,21 +14,6 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	const vk::Device& Device::Get() const
-	{
-		return m_device.get();
-	}
-
-	const vk::Queue& Device::GetGraphicsQueue() const
-	{
-		return m_graphicsQueue;
-	}
-
-	const vk::Queue& Device::GetPresentQueue() const
-	{
-		return m_presentQueue;
-	}
-
 	bool Device::Initialise(const PhysicalDevice& physicalDevice)
 	{
 		QueueFamilyIndices indices = physicalDevice.GetQueueFamilyIndices();

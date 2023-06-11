@@ -84,9 +84,4 @@ namespace Engine::Rendering::Vulkan
 
 		return true;
 	}
-
-	const VkBuffer& Buffer::Get() const
-	{
-		return m_buffer;
-	}
 }

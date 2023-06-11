@@ -11,11 +11,6 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	const vk::Sampler& ImageSampler::Get() const
-	{
-		return m_sampler.get();
-	}
-
 	bool ImageSampler::Initialise(const Device& device, vk::Filter magFilter, vk::Filter minFilter, vk::SamplerMipmapMode mipMapMode,
 		vk::SamplerAddressMode addressMode, float maxAnisotropy)
 	{

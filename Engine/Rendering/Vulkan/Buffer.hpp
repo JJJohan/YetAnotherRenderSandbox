@@ -19,7 +19,9 @@ namespace Engine::Rendering::Vulkan
 		bool UpdateContents(const void* data, vk::DeviceSize size);
 		void Copy(const Device& device, const vk::CommandBuffer& commandBuffer, const Buffer& destination, vk::DeviceSize size) const;
 		void CopyToImage(const Device& device, uint32_t mipLevel, const vk::CommandBuffer& commandBuffer, const RenderImage& destination) const;
-		const VkBuffer& Get() const;
+
+
+		inline const VkBuffer& Get() const { return m_buffer; }
 		inline uint64_t Size() const { return m_size; }
 
 		template <typename T>

@@ -10,9 +10,9 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		Device();
-		const vk::Queue& GetGraphicsQueue() const;
-		const vk::Queue& GetPresentQueue() const;
-		const vk::Device& Get() const;
+		inline const vk::Device& Get() const { return m_device.get(); }
+		inline const vk::Queue& GetGraphicsQueue() const { return m_graphicsQueue; }
+		inline const vk::Queue& GetPresentQueue() const { return m_presentQueue; }
 		bool Initialise(const PhysicalDevice& physicalDevice);
 
 	private:
