@@ -13,7 +13,5 @@ namespace Engine::Rendering
 		glm::vec4 viewPos;
 		glm::vec2 viewSize;
 		glm::vec2 jitter;
-		uint32_t debugMode;
-		glm::vec3 padding;
 	};
 }

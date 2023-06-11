@@ -10,7 +10,6 @@ layout(binding = 0) uniform FrameInfo
 	vec4 viewPos;
 	vec2 viewSize;
 	vec2 jitter;
-	uint debugMode;
 } frameInfo;
 
 layout(binding = 1) uniform LightData
@@ -34,6 +33,8 @@ layout(location = 0) in vec2 fragUv;
 
 layout(location = 0) out vec4 outColor;
 
+layout (constant_id = 0) const uint debugMode = 0U;
+
 const mat4 biasMat = mat4(
 	0.5, 0.0, 0.0, 0.0,
 	0.0, 0.5, 0.0, 0.0,
@@ -43,12 +44,10 @@ const mat4 biasMat = mat4(
 
 float textureProj(vec4 shadowCoord, vec2 offset, uint cascadeIndex)
 {
-	float bias = 0.005;
-
 	if (shadowCoord.z > -1.0 && shadowCoord.z < 1.0)
 	{
 		float dist = texture(sampler2D(shadowMap[cascadeIndex], shadowSampler), shadowCoord.st + offset).r;
-		if (shadowCoord.w > 0 && dist < shadowCoord.z - bias)
+		if (shadowCoord.w > 0 && dist < shadowCoord.z)
 		{
 			return 1.0;
 		}
@@ -175,7 +174,7 @@ void main()
 	//color += getIBLContribution(pbrInputs, n, reflection);
 	color += baseColor.rgb * 0.1; // static ambient
 
-	switch (frameInfo.debugMode)
+	switch (debugMode)
 	{
 		case 1: // Albedo
 			outColor = vec4(baseColor.rgb, 1);

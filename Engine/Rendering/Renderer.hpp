@@ -46,7 +46,7 @@ namespace Engine::Rendering
 		inline virtual void SetTemporalAAState(bool enabled) { m_temporalAA = enabled; };
 		inline bool GetTemporalAAState(bool enabled) const { return m_temporalAA; };
 
-		inline void SetDebugMode(uint32_t mode) { m_debugMode = mode; };
+		inline virtual void SetDebugMode(uint32_t mode) { m_debugMode = mode; };
 		inline uint32_t GetDebugMode() const { return m_debugMode; };
 
 		inline virtual void SetMultiSampleCount(uint32_t multiSampleCount);;

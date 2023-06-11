@@ -9,7 +9,6 @@ layout(binding = 0) uniform FrameInfo
 	vec4 viewPos;
 	vec2 viewSize;
 	vec2 jitter;
-	uint debugMode;
 } frameInfo;
 
 struct MeshInfo

@@ -13,6 +13,7 @@ namespace Engine::Rendering::Vulkan
 {
 	PipelineManager::PipelineManager()
 		: m_pipelineLayouts()
+		, m_pipelineCache()
 	{
 	}
 
@@ -60,7 +61,26 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
+		std::vector<uint8_t> cacheData;
+		Files::TryReadBinaryFile("pipelines.cache", cacheData);
+
+		vk::PipelineCacheCreateInfo createInfo(vk::PipelineCacheCreateFlags(), cacheData.size(), cacheData.data());
+		m_pipelineCache = device.Get().createPipelineCacheUnique(createInfo);
+
 		return true;
+	}
+
+	bool PipelineManager::CheckDirty() const
+	{
+		for (const auto& pipeline : m_pipelineLayouts)
+		{
+			if (pipeline.second->IsDirty())
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	bool PipelineManager::Update(const PhysicalDevice& physicalDevice, const Device& device,
@@ -68,12 +88,22 @@ namespace Engine::Rendering::Vulkan
 	{
 		for (const auto& pipeline : m_pipelineLayouts)
 		{
-			if (!pipeline.second->Update(physicalDevice, device, swapchainFormat, depthFormat))
+			if (!pipeline.second->Update(physicalDevice, device, m_pipelineCache.get(), swapchainFormat, depthFormat))
 			{
 				return false;
 			}
 		}
 
 		return true;
+	}
+
+	void PipelineManager::WritePipelineCache(const Device& device) const
+	{
+		std::vector<uint8_t> cacheData = device.Get().getPipelineCacheData(m_pipelineCache.get());
+
+		if (!Files::TryWriteBinaryFile("pipelines.cache", cacheData))
+		{
+			Logger::Error("Failed to write pipeline cache to disk.");
+		}
 	}
 }

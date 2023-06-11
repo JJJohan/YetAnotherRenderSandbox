@@ -28,7 +28,8 @@ namespace Engine::Rendering::Vulkan
 		const vk::Pipeline& GetGraphicsPipeline() const;
 
 		bool Initialise(const Device& device, uint32_t concurrentFrames);
-		bool Update(const PhysicalDevice& physicalDevice, const Device& device, vk::Format swapchainFormat, vk::Format depthFormat);
+		bool Update(const PhysicalDevice& physicalDevice, const Device& device, const vk::PipelineCache& pipelineCache,
+			vk::Format swapchainFormat, vk::Format depthFormat);
 
 		inline bool BindImageView(uint32_t binding, const std::unique_ptr<ImageView>& imageView)
 		{
@@ -92,7 +93,11 @@ namespace Engine::Rendering::Vulkan
 			return BindUniformBuffersImp(binding, uniformBufferPtrs);
 		}
 
+		bool SetSpecialisationConstant(std::string name, int32_t value);
+
 		void BindPipeline(const vk::CommandBuffer& commandBuffer, uint32_t frameIndex) const;
+
+		inline bool IsDirty() const { return m_specConstantsDirty || !m_writeDescriptorSets.empty(); };
 
 	private:
 		struct ReflectionData
@@ -114,6 +119,13 @@ namespace Engine::Rendering::Vulkan
 			std::unordered_map<uint32_t, DescriptorBindingInfo> BindingInfos;
 		};
 
+		struct SpecialisationConstantInfo
+		{
+			vk::ShaderStageFlags stageFlags;
+			vk::SpecializationMapEntry entry;
+			int32_t value;
+		};
+
 		bool ValidateInputsOutputs(std::unordered_map<vk::ShaderStageFlagBits, ReflectionData>& reflectionData);
 
 		bool ValidateBufferBlockBinding(uint32_t binding, const std::vector<const Buffer*>& buffers,
@@ -122,7 +134,8 @@ namespace Engine::Rendering::Vulkan
 		bool PerformReflection(vk::ShaderStageFlagBits stage, const std::vector<uint8_t>& data,
 			SpvReflectShaderModule& module, ReflectionData& reflectionData);
 
-		bool Rebuild(const PhysicalDevice& physicalDevice, const Device& device, vk::Format swapchainFormat, vk::Format depthFormat);
+		bool Rebuild(const PhysicalDevice& physicalDevice, const Device& device, const vk::PipelineCache& pipelineCache,
+			vk::Format swapchainFormat, vk::Format depthFormat);
 
 		bool CreateDescriptorSetLayout(const Device& device);
 
@@ -132,7 +145,8 @@ namespace Engine::Rendering::Vulkan
 		bool BindUniformBuffersImp(uint32_t binding, const std::vector<const Buffer*>& uniformBuffers);
 
 		template <typename T>
-		inline DescriptorBindingInfo* GetBindingInfo(uint32_t binding, const std::vector<T>& bindingData, vk::DescriptorType expectedType, const char* typeName)
+		inline DescriptorBindingInfo* GetBindingInfo(uint32_t binding, const std::vector<T>& bindingData,
+			vk::DescriptorType expectedType, const char* typeName)
 		{
 			auto& setInfo = m_descriptorSetInfos[0];
 			const auto& bindingInfoSearch = setInfo.BindingInfos.find(binding);
@@ -160,6 +174,7 @@ namespace Engine::Rendering::Vulkan
 
 		uint32_t m_concurrentFrames;
 		const Material& m_material;
+		bool m_specConstantsDirty;
 		vk::UniquePipelineLayout m_pipelineLayout;
 		vk::UniquePipeline m_graphicsPipeline;
 		std::vector<std::pair<vk::ShaderStageFlagBits, vk::UniqueShaderModule>> m_shaderModules;
@@ -175,5 +190,6 @@ namespace Engine::Rendering::Vulkan
 		std::unordered_map<uint32_t, DescriptorSetInfo> m_descriptorSetInfos;
 		std::vector<std::vector<vk::DescriptorBufferInfo>> m_descriptorBufferInfos;
 		std::vector<std::vector<vk::DescriptorImageInfo>> m_descriptorImageInfos;
+		std::unordered_map<std::string, SpecialisationConstantInfo> m_specialisationConstants;
 	};
 }

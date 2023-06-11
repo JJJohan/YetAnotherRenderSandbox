@@ -22,6 +22,9 @@ namespace Engine::Rendering::Vulkan
 		bool Update(const PhysicalDevice& physicalDevice, const Device& device, vk::Format swapchainFormat,
 			vk::Format depthFormat) const;
 
+		bool CheckDirty() const;
+		void WritePipelineCache(const Device& device) const;
+
 		inline bool TryGetPipelineLayout(const std::string& name, PipelineLayout** pipelineLayout) const
 		{
 			const auto& find = m_pipelineLayouts.find(name);
@@ -42,5 +45,6 @@ namespace Engine::Rendering::Vulkan
 
 		std::unordered_map<std::string, std::unique_ptr<PipelineLayout>> m_pipelineLayouts;
 		std::vector<Material> m_materials;
+		vk::UniquePipelineCache m_pipelineCache;
 	};
 }

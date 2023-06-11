@@ -60,6 +60,7 @@ namespace Engine::Rendering::Vulkan
 
 		virtual void SetTemporalAAState(bool enabled) override;
 
+		virtual void SetDebugMode(uint32_t mode);
 		virtual void SetHDRState(bool enable) override;
 		inline virtual bool IsHDRSupported() const override { return m_swapChain->IsHDRCapable(); };
 

@@ -36,6 +36,8 @@ namespace Engine::Rendering::Vulkan
 		, m_descriptorBufferInfos()
 		, m_descriptorImageInfos()
 		, m_concurrentFrames(0)
+		, m_specialisationConstants()
+		, m_specConstantsDirty(false)
 	{
 	}
 
@@ -49,21 +51,41 @@ namespace Engine::Rendering::Vulkan
 		return m_graphicsPipeline.get();
 	}
 
-	bool PipelineLayout::Rebuild(const PhysicalDevice& physicalDevice, const Device& device, vk::Format swapchainFormat, vk::Format depthFormat)
+	bool PipelineLayout::Rebuild(const PhysicalDevice& physicalDevice, const Device& device, const vk::PipelineCache& pipelineCache,
+		vk::Format swapchainFormat, vk::Format depthFormat)
 	{
 		m_graphicsPipeline.reset();
 		m_pipelineLayout.reset();
 
 		const vk::Device& deviceImp = device.Get();
 
+		m_specConstantsDirty = false;
+		std::vector<int32_t> specialisationData;
+		vk::SpecializationInfo specialisationInfo{};
+		std::vector<vk::SpecializationMapEntry> specialisationMapEntries;
 		std::vector<vk::PipelineShaderStageCreateInfo> shaderStageInfos;
 		shaderStageInfos.reserve(m_shaderModules.size());
 		for (const auto& module : m_shaderModules)
 		{
-			vk::PipelineShaderStageCreateInfo& vertShaderStageInfo = shaderStageInfos.emplace_back(vk::PipelineShaderStageCreateInfo());
-			vertShaderStageInfo.stage = module.first;
-			vertShaderStageInfo.module = module.second.get();
-			vertShaderStageInfo.pName = "main";
+			vk::PipelineShaderStageCreateInfo& shaderStageInfo = shaderStageInfos.emplace_back(vk::PipelineShaderStageCreateInfo());
+			shaderStageInfo.stage = module.first;
+			shaderStageInfo.module = module.second.get();
+			shaderStageInfo.pName = "main";
+			shaderStageInfo.pSpecializationInfo = &specialisationInfo;
+
+			for (const auto& entry : m_specialisationConstants)
+			{
+				if ((entry.second.stageFlags & module.first) == module.first)
+				{
+					specialisationMapEntries.emplace_back(entry.second.entry);
+					specialisationData.emplace_back(entry.second.value);
+				}
+			}
+
+			specialisationInfo.mapEntryCount = static_cast<uint32_t>(specialisationMapEntries.size());
+			specialisationInfo.pMapEntries = specialisationMapEntries.data();
+			specialisationInfo.dataSize = static_cast<uint32_t>(specialisationData.size() * sizeof(uint32_t));
+			specialisationInfo.pData = specialisationData.data();
 		}
 
 		std::vector<vk::DynamicState> dynamicStates =
@@ -173,7 +195,7 @@ namespace Engine::Rendering::Vulkan
 		pipelineInfo.basePipelineIndex = -1; // Optional
 		pipelineInfo.pNext = &pipelineRenderingCreateInfo;
 
-		vk::ResultValue<vk::UniquePipeline> result = deviceImp.createGraphicsPipelineUnique(nullptr, pipelineInfo);
+		vk::ResultValue<vk::UniquePipeline> result = deviceImp.createGraphicsPipelineUnique(pipelineCache, pipelineInfo);
 		if (result.result != vk::Result::eSuccess)
 		{
 			Logger::Error("Failed to create graphics pipeline.");
@@ -291,8 +313,10 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool PipelineLayout::Update(const PhysicalDevice& physicalDevice, const Device& device, vk::Format swapchainFormat, vk::Format depthFormat)
+	bool PipelineLayout::Update(const PhysicalDevice& physicalDevice, const Device& device, const vk::PipelineCache& pipelineCache,
+		vk::Format swapchainFormat, vk::Format depthFormat)
 	{
+		bool rebuild = m_specConstantsDirty;
 		if (!m_writeDescriptorSets.empty())
 		{
 			if (!CreateDescriptorSetLayout(device))
@@ -312,9 +336,28 @@ namespace Engine::Rendering::Vulkan
 			m_writeDescriptorSets.clear();
 			m_descriptorBufferInfos.clear();
 			m_descriptorImageInfos.clear();
+			rebuild = true;
+		}
 
-			if (!Rebuild(physicalDevice, device, swapchainFormat, depthFormat))
-				return false;
+		if (rebuild && !Rebuild(physicalDevice, device, pipelineCache, swapchainFormat, depthFormat))
+			return false;
+
+		return true;
+	}
+
+	bool PipelineLayout::SetSpecialisationConstant(std::string name, int32_t value)
+	{
+		const auto& it = m_specialisationConstants.find(name);
+		if (it == m_specialisationConstants.end())
+		{
+			Logger::Error("Specialisation constant '{}' not found in pipeline layout '{}'.", name, m_material.GetName());
+			return false;
+		}
+
+		if (it->second.value != value)
+		{
+			it->second.value = value;
+			m_specConstantsDirty = true;
 		}
 
 		return true;
@@ -548,7 +591,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		uint32_t pushConstantRangeCount = 0;
-		result = spvReflectEnumeratePushConstantBlocks(&module, &pushConstantRangeCount, NULL);
+		result = spvReflectEnumeratePushConstantBlocks(&module, &pushConstantRangeCount, nullptr);
 		if (result != SPV_REFLECT_RESULT_SUCCESS)
 		{
 			return false;
@@ -589,6 +632,48 @@ namespace Engine::Rendering::Vulkan
 					continue;
 
 				m_pushConstantRanges[i] = vk::PushConstantRange(stage, spvPushConstant.offset, spvPushConstant.size);
+			}
+		}
+
+		uint32_t specialisationConstantCount = 0;
+		spvReflectEnumerateSpecializationConstants(&module, &specialisationConstantCount, nullptr);
+		if (result != SPV_REFLECT_RESULT_SUCCESS)
+		{
+			return false;
+		}
+
+		if (specialisationConstantCount > 0)
+		{
+			std::vector<SpvReflectSpecializationConstant*> specialisationConstants(specialisationConstantCount);
+			result = spvReflectEnumerateSpecializationConstants(&module, &specialisationConstantCount, specialisationConstants.data());
+			if (result != SPV_REFLECT_RESULT_SUCCESS)
+			{
+				return false;
+			}
+
+			for (uint32_t i = 0; i < specialisationConstantCount; ++i)
+			{
+				const SpvReflectSpecializationConstant& spvSpecialisationConstant = *(specialisationConstants[i]);
+
+				if (spvSpecialisationConstant.type->op != SpvOpTypeInt)
+				{
+					Logger::Error("Currently only integer specialisation constants are supported.");
+					return false;
+				}
+
+				const auto& existingSearch = m_specialisationConstants.find(spvSpecialisationConstant.name);
+				if (existingSearch != m_specialisationConstants.end())
+				{
+					existingSearch->second.stageFlags |= stage;
+				}
+				else
+				{
+					SpecialisationConstantInfo constantInfo;
+					constantInfo.stageFlags = stage;
+					constantInfo.entry = vk::SpecializationMapEntry(spvSpecialisationConstant.constant_id, 0, sizeof(uint32_t));
+					constantInfo.value = spvSpecialisationConstant.default_value.value.sint32_value;
+					m_specialisationConstants.emplace(spvSpecialisationConstant.name, constantInfo);
+				}
 			}
 		}
 

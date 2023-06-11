@@ -271,6 +271,11 @@ namespace Engine::Rendering::Vulkan
 		return depthAttachmentInfo;
 	}
 
+	void GBuffer::SetDebugMode(uint32_t value) const
+	{
+		m_combineShader->SetSpecialisationConstant("debugMode", static_cast<int32_t>(value));
+	}
+
 	void GBuffer::DrawFinalImage(const vk::CommandBuffer& commandBuffer, uint32_t frameIndex) const
 	{
 		m_combineShader->BindPipeline(commandBuffer, frameIndex);

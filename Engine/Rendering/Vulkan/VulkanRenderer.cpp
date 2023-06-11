@@ -92,6 +92,8 @@ namespace Engine::Rendering::Vulkan
 
 		Logger::Verbose("Shutting down Vulkan renderer...");
 
+		m_pipelineManager->WritePipelineCache(*m_device);
+
 		const vk::Device& deviceImp = m_device->Get();
 		deviceImp.waitIdle(); // Shutdown warrants stalling GPU pipeline.
 
@@ -143,7 +145,6 @@ namespace Engine::Rendering::Vulkan
 		FrameInfoUniformBuffer* frameInfo = m_frameInfoBufferData[m_currentFrame];
 		frameInfo->view = m_camera.GetView();
 		frameInfo->viewPos = glm::vec4(m_camera.GetPosition(), 1.0f);
-		frameInfo->debugMode = m_debugMode;
 		frameInfo->prevViewProj = frameInfo->viewProj;
 		frameInfo->viewSize = size;
 		frameInfo->viewProj = m_camera.GetViewProjection();
@@ -371,6 +372,14 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
+	void VulkanRenderer::SetDebugMode(uint32_t mode)
+	{
+		if (!m_gBuffer.get())
+			return;
+
+		m_gBuffer->SetDebugMode(mode);
+		Renderer::SetDebugMode(mode);
+	}
 
 	bool VulkanRenderer::RecordUICommandBuffer(const vk::CommandBuffer& commandBuffer, RenderImage& colorImage, const ImageView& imageView)
 	{
@@ -812,6 +821,22 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
+		if (m_pipelineManager->CheckDirty())
+		{
+			// Wait for both fences.
+			if (deviceImp.waitForFences(1, &m_inFlightFences[(m_currentFrame + 1) % m_maxConcurrentFrames].get(), true, UINT64_MAX) != vk::Result::eSuccess)
+			{
+				Logger::Error("Failed to wait for fences.");
+				return false;
+			}
+
+			if (!m_pipelineManager->Update(*m_physicalDevice, *m_device, m_swapChain->GetFormat(), m_gBuffer->GetDepthFormat()))
+			{
+				Logger::Error("Failed to update pipeline manager.");
+				return false;
+			}
+		}
+
 		const vk::SwapchainKHR& swapchainImp = m_swapChain->Get();
 
 		uint32_t imageIndex;
@@ -830,12 +855,6 @@ namespace Engine::Rendering::Vulkan
 		if (deviceImp.resetFences(1, &m_inFlightFences[m_currentFrame].get()) != vk::Result::eSuccess)
 		{
 			Logger::Error("Failed to reset fences.");
-			return false;
-		}
-
-		if (!m_pipelineManager->Update(*m_physicalDevice, *m_device, m_swapChain->GetFormat(), m_gBuffer->GetDepthFormat()))
-		{
-			Logger::Error("Failed to update pipeline manager.");
 			return false;
 		}
 

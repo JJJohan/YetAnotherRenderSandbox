@@ -36,6 +36,7 @@ namespace Engine::Rendering::Vulkan
 		void TransitionDepthLayout(const Device& device, const vk::CommandBuffer& commandBuffer, vk::ImageLayout newLayout);
 		void DrawFinalImage(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex) const;
 		uint64_t GetMemoryUsage() const;
+		void SetDebugMode(uint32_t value) const;
 
 		std::vector<vk::RenderingAttachmentInfo> GetRenderAttachments() const;
 		vk::RenderingAttachmentInfo GetDepthAttachment() const;
