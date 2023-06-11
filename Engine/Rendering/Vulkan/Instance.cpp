@@ -69,7 +69,6 @@ namespace Engine::Rendering::Vulkan
 		vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
 		if (useDebug)
 		{
-			extensionNames.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 			extensionNames.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
 			if (debug.CheckValidationLayerSupport(validationLayers))
