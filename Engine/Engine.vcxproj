@@ -110,10 +110,10 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>_DEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;IMPLOT_DISABLE_OBSOLETE_FUNCTIONS;KHRONOS_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;IMPLOT_DISABLE_OBSOLETE_FUNCTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;$(SolutionDir)Engine\UI\imgui;$(SolutionDir)Engine\UI\implot;$(SolutionDir)Dependencies\include\rapidjson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;$(SolutionDir)Engine\UI\imgui;$(SolutionDir)Engine\UI\implot;$(SolutionDir)Engine\UI\imgui-node-editor;$(SolutionDir)Dependencies\include\rapidjson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <BuildStlModules>false</BuildStlModules>
@@ -133,10 +133,10 @@
       <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NDEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;IMPLOT_DISABLE_OBSOLETE_FUNCTIONS;KHRONOS_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;IMPLOT_DISABLE_OBSOLETE_FUNCTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;$(SolutionDir)Engine\UI\imgui;$(SolutionDir)Engine\UI\implot;$(SolutionDir)Dependencies\include\rapidjson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;$(SolutionDir)Engine\UI\imgui;$(SolutionDir)Engine\UI\implot;$(SolutionDir)Engine\UI\imgui-node-editor;$(SolutionDir)Dependencies\include\rapidjson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <BuildStlModules>false</BuildStlModules>
@@ -201,14 +201,20 @@
     <ClCompile Include="Rendering\Vulkan\Surface.cpp" />
     <ClCompile Include="Rendering\Vulkan\SwapChain.cpp" />
     <ClCompile Include="UI\Drawer.cpp" />
+    <ClCompile Include="UI\imgui-node-editor\imgui_canvas.cpp" />
+    <ClCompile Include="UI\imgui-node-editor\imgui_node_editor.cpp" />
+    <ClCompile Include="UI\imgui-node-editor\imgui_node_editor_api.cpp" />
     <ClCompile Include="UI\imgui\backends\imgui_impl_vulkan.cpp" />
     <ClCompile Include="UI\imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="UI\imgui\imgui.cpp" />
     <ClCompile Include="UI\imgui\imgui_draw.cpp" />
+    <ClCompile Include="UI\imgui\imgui_stacklayout.cpp" />
     <ClCompile Include="UI\imgui\imgui_tables.cpp" />
     <ClCompile Include="UI\imgui\imgui_widgets.cpp" />
     <ClCompile Include="UI\implot\implot.cpp" />
     <ClCompile Include="UI\implot\implot_items.cpp" />
+    <ClCompile Include="UI\NodeBuilder.cpp" />
+    <ClCompile Include="UI\NodeManager.cpp" />
     <ClCompile Include="UI\ScrollingGraphBuffer.cpp" />
     <ClCompile Include="UI\UIManager.cpp" />
     <ClCompile Include="UI\Vulkan\VulkanUIManager.cpp" />
@@ -265,16 +271,25 @@
     <ClInclude Include="Rendering\Vulkan\SwapChain.hpp" />
     <ClInclude Include="Rendering\Vulkan\SwapChainSupportDetails.hpp" />
     <ClInclude Include="UI\Drawer.hpp" />
+    <ClInclude Include="UI\imgui-node-editor\imgui_bezier_math.h" />
+    <ClInclude Include="UI\imgui-node-editor\imgui_canvas.h" />
+    <ClInclude Include="UI\imgui-node-editor\imgui_extra_math.h" />
+    <ClInclude Include="UI\imgui-node-editor\imgui_node_editor.h" />
+    <ClInclude Include="UI\imgui-node-editor\imgui_node_editor_internal.h" />
     <ClInclude Include="UI\imgui\backends\imgui_impl_vulkan.h" />
     <ClInclude Include="UI\imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="UI\imgui\imconfig.h" />
     <ClInclude Include="UI\imgui\imgui.h" />
     <ClInclude Include="UI\imgui\imgui_internal.h" />
+    <ClInclude Include="UI\imgui\imgui_stacklayout.h" />
+    <ClInclude Include="UI\imgui\imgui_stacklayout_internal.h" />
     <ClInclude Include="UI\imgui\imstb_rectpack.h" />
     <ClInclude Include="UI\imgui\imstb_textedit.h" />
     <ClInclude Include="UI\imgui\imstb_truetype.h" />
     <ClInclude Include="UI\implot\implot.h" />
     <ClInclude Include="UI\implot\implot_internal.h" />
+    <ClInclude Include="UI\NodeBuilder.hpp" />
+    <ClInclude Include="UI\NodeManager.hpp" />
     <ClInclude Include="UI\ScrollingGraphBuffer.hpp" />
     <ClInclude Include="UI\UIManager.hpp" />
     <ClInclude Include="UI\Vulkan\VulkanUIManager.hpp" />

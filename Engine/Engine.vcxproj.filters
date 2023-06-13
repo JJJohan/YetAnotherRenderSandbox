@@ -37,6 +37,9 @@
     <Filter Include="UI\implot">
       <UniqueIdentifier>{57a30aa0-5328-4051-ba8b-58e9a037a9ff}</UniqueIdentifier>
     </Filter>
+    <Filter Include="UI\imgui-node-editor">
+      <UniqueIdentifier>{ecfc4154-ea20-4e57-baed-8bd252293f71}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
@@ -207,6 +210,24 @@
     </ClCompile>
     <ClCompile Include="..\Dependencies\include\spirv_reflect.c">
       <Filter>Dependencies</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\NodeManager.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\NodeBuilder.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\imgui\imgui_stacklayout.cpp">
+      <Filter>UI\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\imgui-node-editor\imgui_canvas.cpp">
+      <Filter>UI\imgui-node-editor</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\imgui-node-editor\imgui_node_editor.cpp">
+      <Filter>UI\imgui-node-editor</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\imgui-node-editor\imgui_node_editor_api.cpp">
+      <Filter>UI\imgui-node-editor</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -401,6 +422,33 @@
     </ClInclude>
     <ClInclude Include="Rendering\Vulkan\VulkanFormatInterop.hpp">
       <Filter>Rendering\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\NodeManager.hpp">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\NodeBuilder.hpp">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui\imgui_stacklayout.h">
+      <Filter>UI\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui\imgui_stacklayout_internal.h">
+      <Filter>UI\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui-node-editor\imgui_bezier_math.h">
+      <Filter>UI\imgui-node-editor</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui-node-editor\imgui_canvas.h">
+      <Filter>UI\imgui-node-editor</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui-node-editor\imgui_extra_math.h">
+      <Filter>UI\imgui-node-editor</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui-node-editor\imgui_node_editor.h">
+      <Filter>UI\imgui-node-editor</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\imgui-node-editor\imgui_node_editor_internal.h">
+      <Filter>UI\imgui-node-editor</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

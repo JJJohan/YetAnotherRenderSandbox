@@ -4,3 +4,7 @@ url=https://github.com/JJJohan/imgui.git
 [submodule "Engine/UI/implot"]
 	path = Engine/UI/implot
 	url = https://github.com/epezent/implot.git
+[submodule "Engine/UI/imgui-node-editor"]
+	path = Engine/UI/imgui-node-editor
+	url = https://github.com/thedmd/imgui-node-editor.git
+	branch = develop
