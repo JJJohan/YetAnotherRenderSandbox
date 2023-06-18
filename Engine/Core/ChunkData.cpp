@@ -245,7 +245,7 @@ namespace Engine
 		return false;
 	}
 
-	void ChunkData::SetVertexData(VertexBufferType type, const std::vector<uint8_t>& data)
+	void ChunkData::SetVertexData(VertexBufferType type, const std::span<uint8_t>& data)
 	{
 		if (m_vertexDataMap.contains(type))
 		{
@@ -269,7 +269,7 @@ namespace Engine
 		return false;
 	}
 
-	void ChunkData::SetGenericData(uint32_t identifier, const std::vector<uint8_t>& data)
+	void ChunkData::SetGenericData(uint32_t identifier, const std::span<uint8_t>& data)
 	{
 		if (m_genericDataMap.contains(identifier))
 		{

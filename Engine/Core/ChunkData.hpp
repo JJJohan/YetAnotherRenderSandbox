@@ -57,10 +57,10 @@ namespace Engine
 		bool Parse(const std::filesystem::path& path, AsyncData* asyncData);
 
 		bool GetVertexData(VertexBufferType type, ChunkMemoryEntry& data);
-		void SetVertexData(VertexBufferType type, const std::vector<uint8_t>& data);
+		void SetVertexData(VertexBufferType type, const std::span<uint8_t>& data);
 
 		bool GetGenericData(uint32_t identifier, ChunkMemoryEntry& data);
-		void SetGenericData(uint32_t identifier, const std::vector<uint8_t>& data);
+		void SetGenericData(uint32_t identifier, const std::span<uint8_t>& data);
 
 		bool GetImageData(std::vector<ImageData>** imageData);
 		void AddImageData(const ImageHeader& image, const std::vector<std::vector<uint8_t>>& mipMaps);

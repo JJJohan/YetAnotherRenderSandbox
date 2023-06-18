@@ -10,7 +10,7 @@
 #include "../Resources/ICommandBuffer.hpp"
 #include "../Material.hpp"
 #include "VulkanRenderer.hpp"
-#include "RenderMeshInfo.hpp"
+#include "../RenderMeshInfo.hpp"
 #include "../GBuffer.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "Core/ChunkData.hpp"
@@ -135,9 +135,7 @@ namespace Engine::Rendering::Vulkan
 
 		if (chunkData)
 		{
-			// TODO: Cast?
-			std::vector<uint8_t> cacheData(totalSize);
-			memcpy(cacheData.data(), indirectBufferData.data(), totalSize);
+			std::span<uint8_t> cacheData(reinterpret_cast<uint8_t*>(indirectBufferData.data()), totalSize);
 			chunkData->SetGenericData(static_cast<uint32_t>(CachedDataType::IndirectDrawBuffer), cacheData);
 		}
 
