@@ -1,9 +1,11 @@
 #include "VulkanRenderStats.hpp"
 #include "Device.hpp"
 #include "PhysicalDevice.hpp"
-#include "GBuffer.hpp"
-#include "ShadowMap.hpp"
+#include "../GBuffer.hpp"
+#include "../ShadowMap.hpp"
 #include "Core/Logging/Logger.hpp"
+#include "CommandBuffer.hpp"
+#include "VulkanTypesInterop.hpp"
 
 using namespace Engine::Logging;
 
@@ -76,28 +78,32 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	void VulkanRenderStats::Begin(const vk::CommandBuffer& commandBuffer)
+	void VulkanRenderStats::Begin(const ICommandBuffer& commandBuffer)
 	{
+		const vk::CommandBuffer& vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
+
 		if (m_timestampSupported)
 		{
-			commandBuffer.resetQueryPool(m_timestampQueryPool.get(), m_renderPassIndex * 2, 2);
-			commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eTopOfPipe, m_timestampQueryPool.get(), m_renderPassIndex * 2);
+			vkCommandBuffer.resetQueryPool(m_timestampQueryPool.get(), m_renderPassIndex * 2, 2);
+			vkCommandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eTopOfPipe, m_timestampQueryPool.get(), m_renderPassIndex * 2);
 		}
 
 		if (m_statisticsSupported)
 		{
-			commandBuffer.resetQueryPool(m_statisticsQueryPool.get(), m_renderPassIndex, 1);
-			commandBuffer.beginQuery(m_statisticsQueryPool.get(), m_renderPassIndex, vk::QueryControlFlags());
+			vkCommandBuffer.resetQueryPool(m_statisticsQueryPool.get(), m_renderPassIndex, 1);
+			vkCommandBuffer.beginQuery(m_statisticsQueryPool.get(), m_renderPassIndex, vk::QueryControlFlags());
 		}
 	}
 
-	void VulkanRenderStats::End(const vk::CommandBuffer& commandBuffer)
+	void VulkanRenderStats::End(const ICommandBuffer& commandBuffer)
 	{
+		const vk::CommandBuffer& vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
+
 		if (m_timestampSupported)
-			commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, m_timestampQueryPool.get(), m_renderPassIndex * 2 + 1);
+			vkCommandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, m_timestampQueryPool.get(), m_renderPassIndex * 2 + 1);
 
 		if (m_statisticsSupported)
-			commandBuffer.endQuery(m_statisticsQueryPool.get(), m_renderPassIndex);
+			vkCommandBuffer.endQuery(m_statisticsQueryPool.get(), m_renderPassIndex);
 
 		++m_renderPassIndex;
 	}

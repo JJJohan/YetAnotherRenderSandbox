@@ -4,6 +4,7 @@
 #include "Core/Colour.hpp"
 #include <vector>
 #include "ScrollingGraphBuffer.hpp"
+#include <memory>
 
 namespace Engine
 {
@@ -12,6 +13,8 @@ namespace Engine
 
 namespace Engine::UI
 {
+	class NodeManager;
+
 	class Drawer
 	{
 	public:
@@ -38,7 +41,17 @@ namespace Engine::UI
 		EXPORT void PlotGraphs(const char* label, const std::vector<ScrollingGraphBuffer>& buffers, const glm::vec2& size = glm::vec2(-1, 0)) const;
 		EXPORT glm::vec2 GetContentRegionAvailable() const;
 
+		EXPORT bool BeginNodeEditor(const char* label) const;
+		EXPORT void NodeSetupLink(const char* outputNodeName, const char* outputPinName, const char* inputNodeName, const char* inputPinName) const;
+		EXPORT void DrawNode(const char* label, const glm::vec2& pos, const std::vector<const char*>& inputs, 
+			const std::vector<const char*>& outputs, const Colour& colour = {0.5f, 0.5f, 0.5f}) const;
+		EXPORT void EndNodeEditor() const;
+		EXPORT void NodeEditorZoomToContent() const;
+
 		EXPORT void BeginDisabled(bool disabled = true) const;
 		EXPORT void EndDisabled() const;
+
+	private:
+		std::unique_ptr<NodeManager> m_nodeManager;
 	};
 }

@@ -1,27 +1,20 @@
 #include "VulkanSceneManager.hpp"
-#include "PhysicalDevice.hpp"
-#include "Device.hpp"
-#include "CommandBuffer.hpp"
-#include "Buffer.hpp"
-#include "RenderImage.hpp"
-#include "ImageView.hpp"
-#include "ImageSampler.hpp"
+#include "../Resources/IPhysicalDevice.hpp"
+#include "../Resources/IDevice.hpp"
+#include "../Resources/IBuffer.hpp"
+#include "../Resources/IRenderImage.hpp"
+#include "../Resources/IImageView.hpp"
+#include "../Resources/IImageSampler.hpp"
+#include "../Resources/IResourceFactory.hpp"
+#include "../Resources/IMaterialManager.hpp"
+#include "../Resources/ICommandBuffer.hpp"
+#include "../Material.hpp"
 #include "VulkanRenderer.hpp"
-#include "CommandPool.hpp"
-#include "FrameInfoUniformBuffer.hpp"
-#include "LightUniformBuffer.hpp"
 #include "RenderMeshInfo.hpp"
-#include "GBuffer.hpp"
-#include "PipelineLayout.hpp"
-#include "PipelineManager.hpp"
+#include "../GBuffer.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "Core/ChunkData.hpp"
 #include "Core/AsyncData.hpp"
-#include "OS/Files.hpp"
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <vma/vk_mem_alloc.h>
-#include <algorithm>
 #include <execution>
 
 using namespace Engine::Logging;
@@ -42,24 +35,24 @@ namespace Engine::Rendering::Vulkan
 		, m_vertexOffsets()
 		, m_indexOffsets()
 		, m_indexCounts()
-		, m_shadowShader(nullptr)
-		, m_pbrShader(nullptr)
+		, m_shadowMaterial(nullptr)
+		, m_pbrMaterial(nullptr)
 	{
 	}
 
-	bool VulkanSceneManager::Initialise(const PhysicalDevice& physicalDevice, const Device& device,
-		const PipelineManager& pipelineManager)
+	bool VulkanSceneManager::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device,
+		const IResourceFactory& resourceFactory, const IMaterialManager& materialManager)
 	{
-		m_sampler = std::make_unique<ImageSampler>();
-		bool samplerInitialised = m_sampler->Initialise(device, vk::Filter::eLinear, vk::Filter::eLinear,
-			vk::SamplerMipmapMode::eLinear, vk::SamplerAddressMode::eRepeat, physicalDevice.GetLimits().maxSamplerAnisotropy);
+		m_sampler = std::move(resourceFactory.CreateImageSampler());
+		bool samplerInitialised = m_sampler->Initialise(device, Filter::Linear, Filter::Linear,
+			SamplerMipmapMode::Linear, SamplerAddressMode::Repeat, physicalDevice.GetMaxAnisotropy());
 		if (!samplerInitialised)
 		{
 			return false;
 		}
 
-		if (!pipelineManager.TryGetPipelineLayout("PBR", &m_pbrShader) ||
-			!pipelineManager.TryGetPipelineLayout("Shadow", &m_shadowShader))
+		if (!materialManager.TryGetMaterial("PBR", &m_pbrMaterial) ||
+			!materialManager.TryGetMaterial("Shadow", &m_shadowMaterial))
 		{
 			return false;
 		}
@@ -67,13 +60,13 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupIndirectDrawBuffer(const Device& device, const vk::CommandBuffer& commandBuffer,
-		ChunkData* chunkData, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator)
+	bool VulkanSceneManager::SetupIndirectDrawBuffer(const ICommandBuffer& commandBuffer,
+		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
 		{
 			ChunkMemoryEntry entry;
-			if (!chunkData->GetGenericData(2, entry))
+			if (!chunkData->GetGenericData(static_cast<uint32_t>(CachedDataType::IndirectDrawBuffer), entry))
 			{
 				return false;
 			}
@@ -81,22 +74,22 @@ namespace Engine::Rendering::Vulkan
 			std::vector<uint8_t> decompressBuffer;
 			chunkData->Decompress(entry, decompressBuffer);
 
-			m_indirectDrawBuffer = std::make_unique<Buffer>(allocator);
-			Buffer* buffer = m_indirectDrawBuffer.get();
+			m_indirectDrawBuffer = std::move(resourceFactory.CreateBuffer());
+			IBuffer* buffer = m_indirectDrawBuffer.get();
 
 			size_t totalSize = decompressBuffer.size();
 			bool initialised = buffer->Initialise(totalSize,
-				vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndirectBuffer,
-				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-				0,
-				vk::SharingMode::eExclusive);
+				BufferUsageFlags::TransferDst | BufferUsageFlags::IndirectBuffer,
+				MemoryUsage::AutoPreferDevice,
+				AllocationCreateFlags::None,
+				SharingMode::Exclusive);
 
 			if (!initialised)
 			{
 				return false;
 			}
 
-			if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, decompressBuffer.data(),
+			if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, decompressBuffer.data(),
 				totalSize, temporaryBuffers))
 				return false;
 
@@ -121,22 +114,22 @@ namespace Engine::Rendering::Vulkan
 			indirectBufferData.emplace_back(indirectCommand);
 		}
 
-		m_indirectDrawBuffer = std::make_unique<Buffer>(allocator);
-		Buffer* buffer = m_indirectDrawBuffer.get();
+		m_indirectDrawBuffer = std::move(resourceFactory.CreateBuffer());
+		IBuffer* buffer = m_indirectDrawBuffer.get();
 
 		size_t totalSize = indirectBufferData.size() * sizeof(vk::DrawIndexedIndirectCommand);
 		bool initialised = buffer->Initialise(totalSize,
-			vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndirectBuffer,
-			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-			0,
-			vk::SharingMode::eExclusive);
+			BufferUsageFlags::TransferDst | BufferUsageFlags::IndirectBuffer,
+			MemoryUsage::AutoPreferDevice,
+			AllocationCreateFlags::None,
+			SharingMode::Exclusive);
 
 		if (!initialised)
 		{
 			return false;
 		}
 
-		if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, indirectBufferData.data(),
+		if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, indirectBufferData.data(),
 			totalSize, temporaryBuffers))
 			return false;
 
@@ -145,14 +138,14 @@ namespace Engine::Rendering::Vulkan
 			// TODO: Cast?
 			std::vector<uint8_t> cacheData(totalSize);
 			memcpy(cacheData.data(), indirectBufferData.data(), totalSize);
-			chunkData->SetGenericData(2, cacheData);
+			chunkData->SetGenericData(static_cast<uint32_t>(CachedDataType::IndirectDrawBuffer), cacheData);
 		}
 
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupVertexBuffers(const Device& device, const vk::CommandBuffer& commandBuffer,
-		ChunkData* chunkData, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator)
+	bool VulkanSceneManager::SetupVertexBuffers(const ICommandBuffer& commandBuffer,
+		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
 		{
@@ -168,24 +161,24 @@ namespace Engine::Rendering::Vulkan
 			m_vertexBuffers.resize(cacheEntries.size());
 			for (size_t i = 0; i < cacheEntries.size(); ++i)
 			{
-				m_vertexBuffers[i] = std::make_unique<Buffer>(allocator);
-				Buffer* buffer = m_vertexBuffers[i].get();
+				m_vertexBuffers[i] = std::move(resourceFactory.CreateBuffer());
+				IBuffer* buffer = m_vertexBuffers[i].get();
 
 				chunkData->Decompress(cacheEntries[i], decompressBuffer);
 				const std::span<const uint8_t> span(decompressBuffer.begin(), cacheEntries[i].UncompressedSize);
 
 				bool initialised = buffer->Initialise(span.size(),
-					vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
-					VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-					0,
-					vk::SharingMode::eExclusive);
+					BufferUsageFlags::TransferDst | BufferUsageFlags::VertexBuffer,
+					MemoryUsage::AutoPreferDevice,
+					AllocationCreateFlags::None,
+					SharingMode::Exclusive);
 
 				if (!initialised)
 				{
 					return false;
 				}
 
-				if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, span.data(),
+				if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, span.data(),
 					span.size(), temporaryBuffers))
 					return false;
 			}
@@ -243,21 +236,21 @@ namespace Engine::Rendering::Vulkan
 					throw;
 			}
 
-			m_vertexBuffers[vertexBit] = std::make_unique<Buffer>(allocator);
-			Buffer* buffer = m_vertexBuffers[vertexBit].get();
+			m_vertexBuffers[vertexBit] = std::move(resourceFactory.CreateBuffer());
+			IBuffer* buffer = m_vertexBuffers[vertexBit].get();
 
 			bool initialised = buffer->Initialise(totalSize,
-				vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
-				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-				0,
-				vk::SharingMode::eExclusive);
+				BufferUsageFlags::TransferDst | BufferUsageFlags::VertexBuffer,
+				MemoryUsage::AutoPreferDevice,
+				AllocationCreateFlags::None,
+				SharingMode::Exclusive);
 
 			if (!initialised)
 			{
 				return false;
 			}
 
-			if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, vertexBufferData.data(),
+			if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, vertexBufferData.data(),
 				totalSize, temporaryBuffers))
 				return false;
 		}
@@ -265,13 +258,13 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupIndexBuffer(const Device& device, const vk::CommandBuffer& commandBuffer,
-		ChunkData* chunkData, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator)
+	bool VulkanSceneManager::SetupIndexBuffer(const ICommandBuffer& commandBuffer,
+		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
 		{
 			ChunkMemoryEntry entry;
-			if (!chunkData->GetGenericData(0, entry))
+			if (!chunkData->GetGenericData(static_cast<uint32_t>(CachedDataType::IndexBuffer), entry))
 			{
 				return false;
 			}
@@ -279,21 +272,21 @@ namespace Engine::Rendering::Vulkan
 			std::vector<uint8_t> decompressBuffer;
 			chunkData->Decompress(entry, decompressBuffer);
 
-			m_indexBuffer = std::make_unique<Buffer>(allocator);
-			Buffer* buffer = m_indexBuffer.get();
+			m_indexBuffer = std::move(resourceFactory.CreateBuffer());
+			IBuffer* buffer = m_indexBuffer.get();
 
 			bool initialised = buffer->Initialise(decompressBuffer.size(),
-				vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
-				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-				0,
-				vk::SharingMode::eExclusive);
+				BufferUsageFlags::TransferDst | BufferUsageFlags::IndexBuffer,
+				MemoryUsage::AutoPreferDevice,
+				AllocationCreateFlags::None,
+				SharingMode::Exclusive);
 
 			if (!initialised)
 			{
 				return false;
 			}
 
-			if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, decompressBuffer.data(),
+			if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, decompressBuffer.data(),
 				decompressBuffer.size(), temporaryBuffers))
 				return false;
 
@@ -333,39 +326,38 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		if (chunkData)
-			chunkData->SetGenericData(0, indexBufferData);
+			chunkData->SetGenericData(static_cast<uint32_t>(CachedDataType::IndexBuffer), indexBufferData);
 
-		m_indexBuffer = std::make_unique<Buffer>(allocator);
-		Buffer* buffer = m_indexBuffer.get();
+		m_indexBuffer = std::move(resourceFactory.CreateBuffer());
+		IBuffer* buffer = m_indexBuffer.get();
 
 		bool initialised = buffer->Initialise(totalSize,
-			vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
-			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-			0,
-			vk::SharingMode::eExclusive);
+			BufferUsageFlags::TransferDst | BufferUsageFlags::IndexBuffer,
+			MemoryUsage::AutoPreferDevice,
+			AllocationCreateFlags::None,
+			SharingMode::Exclusive);
 
 		if (!initialised)
 		{
 			return false;
 		}
 
-		if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, indexBufferData.data(),
+		if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, indexBufferData.data(),
 			totalSize, temporaryBuffers))
 			return false;
 
 		return true;
 	}
 
-	bool VulkanSceneManager::CreateStagingBuffer(VmaAllocator allocator, const Device& device,
-		const vk::CommandBuffer& commandBuffer, const Buffer* destinationBuffer, const void* data, uint64_t size,
-		std::vector<std::unique_ptr<Buffer>>& copyBufferCollection)
+	bool VulkanSceneManager::CreateStagingBuffer(const IResourceFactory& resourceFactory,
+		const ICommandBuffer& commandBuffer, const IBuffer* destinationBuffer, const void* data, uint64_t size,
+		std::vector<std::unique_ptr<IBuffer>>& copyBufferCollection)
 	{
-		Buffer* stagingBuffer = copyBufferCollection.emplace_back(std::make_unique<Buffer>(allocator)).get();
+		IBuffer* stagingBuffer = copyBufferCollection.emplace_back(std::move(resourceFactory.CreateBuffer())).get();
 		if (!stagingBuffer->Initialise(size,
-			vk::BufferUsageFlagBits::eTransferSrc,
-			VMA_MEMORY_USAGE_AUTO,
-			VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-			vk::SharingMode::eExclusive))
+			BufferUsageFlags::TransferSrc, MemoryUsage::Auto,
+			AllocationCreateFlags::HostAccessSequentialWrite | AllocationCreateFlags::Mapped,
+			SharingMode::Exclusive))
 		{
 			return false;
 		}
@@ -373,21 +365,20 @@ namespace Engine::Rendering::Vulkan
 		if (!stagingBuffer->UpdateContents(data, size))
 			return false;
 
-		stagingBuffer->Copy(device, commandBuffer, *destinationBuffer, size);
+		stagingBuffer->Copy(commandBuffer, *destinationBuffer, size);
 
 		return true;
 	}
 
-	bool VulkanSceneManager::CreateImageStagingBuffer(VmaAllocator allocator, const Device& device,
-		const vk::CommandBuffer& commandBuffer, const RenderImage* destinationImage, uint32_t mipLevel, const void* data, uint64_t size,
-		std::vector<std::unique_ptr<Buffer>>& copyBufferCollection)
+	bool VulkanSceneManager::CreateImageStagingBuffer(const IResourceFactory& resourceFactory,
+		const ICommandBuffer& commandBuffer, const IRenderImage* destinationImage, uint32_t mipLevel, const void* data, uint64_t size,
+		std::vector<std::unique_ptr<IBuffer>>& copyBufferCollection)
 	{
-		Buffer* stagingBuffer = copyBufferCollection.emplace_back(std::make_unique<Buffer>(allocator)).get();
+		IBuffer* stagingBuffer = copyBufferCollection.emplace_back(std::move(resourceFactory.CreateBuffer())).get();
 		if (!stagingBuffer->Initialise(size,
-			vk::BufferUsageFlagBits::eTransferSrc,
-			VMA_MEMORY_USAGE_AUTO,
-			VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-			vk::SharingMode::eExclusive))
+			BufferUsageFlags::TransferSrc, MemoryUsage::Auto,
+			AllocationCreateFlags::HostAccessSequentialWrite | AllocationCreateFlags::Mapped,
+			SharingMode::Exclusive))
 		{
 			return false;
 		}
@@ -395,15 +386,15 @@ namespace Engine::Rendering::Vulkan
 		if (!stagingBuffer->UpdateContents(data, size))
 			return false;
 
-		stagingBuffer->CopyToImage(device, mipLevel, commandBuffer, *destinationImage);
+		stagingBuffer->CopyToImage(mipLevel, commandBuffer, *destinationImage);
 
 
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupRenderImage(AsyncData* asyncData, const Device& device, const PhysicalDevice& physicalDevice,
-		const vk::CommandBuffer& commandBuffer, ChunkData* chunkData, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers,
-		VmaAllocator allocator, float maxAnisotropy, uint32_t& imageCount)
+	bool VulkanSceneManager::SetupRenderImage(AsyncData* asyncData, const IDevice& device, const IPhysicalDevice& physicalDevice,
+		const ICommandBuffer& commandBuffer, ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers,
+		const IResourceFactory& resourceFactory, float maxAnisotropy, uint32_t& imageCount)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
 		{
@@ -423,8 +414,8 @@ namespace Engine::Rendering::Vulkan
 			for (auto it = cachedImageData->begin(); it != cachedImageData->end(); ++it)
 			{
 				const ImageData& imageData = *it;
-				vk::Format format = static_cast<vk::Format>(imageData.Header.Format);
-				vk::Extent3D dimensions(imageData.Header.Width, imageData.Header.Height, 1);
+				Format format = static_cast<Format>(imageData.Header.Format);
+				glm::uvec3 dimensions(imageData.Header.Width, imageData.Header.Height, 1);
 
 				chunkData->Decompress(imageData.Entry, decompressBuffer);
 
@@ -438,35 +429,35 @@ namespace Engine::Rendering::Vulkan
 					size /= 4;
 				}
 
-				std::unique_ptr<RenderImage>& renderImage = m_imageArray.emplace_back(std::make_unique<RenderImage>(allocator));
-				bool imageInitialised = renderImage->Initialise(vk::ImageType::e2D, format, dimensions, imageData.Header.MipLevels, vk::ImageTiling::eOptimal,
-					vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-					VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-					0,
-					vk::SharingMode::eExclusive);
+				std::unique_ptr<IRenderImage>& renderImage = m_imageArray.emplace_back(std::move(resourceFactory.CreateRenderImage()));
+				bool imageInitialised = renderImage->Initialise(ImageType::e2D, format, dimensions, imageData.Header.MipLevels, ImageTiling::Optimal,
+					ImageUsageFlags::TransferSrc | ImageUsageFlags::TransferDst | ImageUsageFlags::Sampled,
+					MemoryUsage::AutoPreferDevice,
+					AllocationCreateFlags::None,
+					SharingMode::Exclusive);
 
 				if (!imageInitialised)
 				{
 					return false;
 				}
 
-				std::unique_ptr<ImageView>& imageView = m_imageArrayView.emplace_back(std::make_unique<ImageView>());
-				bool imageViewInitialised = imageView->Initialise(device, renderImage->Get(), renderImage->GetMiplevels(), renderImage->GetFormat(), vk::ImageAspectFlagBits::eColor);
+				std::unique_ptr<IImageView>& imageView = m_imageArrayView.emplace_back(std::move(resourceFactory.CreateImageView()));
+				bool imageViewInitialised = imageView->Initialise(device, *renderImage, renderImage->GetMiplevels(), renderImage->GetFormat(), ImageAspectFlags::Color);
 				if (!imageViewInitialised)
 				{
 					return false;
 				}
 
-				renderImage->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eTransferDstOptimal);
+				renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferDst);
 
 				for (uint32_t i = 0; i < imageData.Header.MipLevels; ++i)
 				{
-					if (!CreateImageStagingBuffer(allocator, device, commandBuffer, renderImage.get(), i, spans[i].data(),
+					if (!CreateImageStagingBuffer(resourceFactory, commandBuffer, renderImage.get(), i, spans[i].data(),
 						spans[i].size(), temporaryBuffers))
 						return false;
 				}
 
-				renderImage->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+				renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
 
 				if (asyncData != nullptr)
 					asyncData->AddSubProgress(subTicks);
@@ -480,8 +471,7 @@ namespace Engine::Rendering::Vulkan
 		imageCount = 0;
 
 		bool compress = false;
-		const vk::PhysicalDeviceFeatures& features = physicalDevice.GetFeatures();
-		if (features.textureCompressionBC && RenderImage::FormatSupported(physicalDevice, vk::Format::eBc7SrgbBlock))
+		if (physicalDevice.SupportsBCTextureCompression() && physicalDevice.FormatSupported(Format::Bc7SrgbBlock))
 		{
 			compress = true;
 		}
@@ -536,21 +526,21 @@ namespace Engine::Rendering::Vulkan
 			}
 
 			uint32_t componentCount = image->GetComponentCount();
-			vk::Format format;
+			Format format;
 			if (image->IsNormalMap() || image->IsMetallicRoughnessMap())
 			{
-				format = image->IsCompressed() ? vk::Format::eBc5UnormBlock : vk::Format::eR8G8B8A8Unorm;
+				format = image->IsCompressed() ? Format::Bc5UnormBlock : Format::R8G8B8A8Unorm;
 			}
 			else if (componentCount == 4)
 			{
 				bool srgb = image->IsSRGB();
 				if (image->IsCompressed())
 				{
-					format = srgb ? vk::Format::eBc7SrgbBlock : vk::Format::eBc7UnormBlock;
+					format = srgb ? Format::Bc7SrgbBlock : Format::Bc7UnormBlock;
 				}
 				else
 				{
-					format = srgb ? vk::Format::eR8G8B8A8Srgb : vk::Format::eR8G8B8A8Unorm;
+					format = srgb ? Format::R8G8B8A8Srgb : Format::R8G8B8A8Unorm;
 				}
 			}
 			else
@@ -561,32 +551,32 @@ namespace Engine::Rendering::Vulkan
 
 			const std::vector<std::vector<uint8_t>>& pixels = image->GetPixels();
 			const glm::uvec2& size = image->GetSize();
-			vk::Extent3D dimensions(size.x, size.y, 1);
+			glm::uvec3 dimensions(size.x, size.y, 1);
 
-			std::unique_ptr<RenderImage>& renderImage = m_imageArray.emplace_back(std::make_unique<RenderImage>(allocator));
-			bool imageInitialised = renderImage->Initialise(vk::ImageType::e2D, format, dimensions, static_cast<uint32_t>(pixels.size()), vk::ImageTiling::eOptimal,
-				vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-				0,
-				vk::SharingMode::eExclusive);
+			std::unique_ptr<IRenderImage>& renderImage = m_imageArray.emplace_back(std::move(resourceFactory.CreateRenderImage()));
+			bool imageInitialised = renderImage->Initialise(ImageType::e2D, format, dimensions, static_cast<uint32_t>(pixels.size()), ImageTiling::Optimal,
+				ImageUsageFlags::TransferSrc | ImageUsageFlags::TransferDst | ImageUsageFlags::Sampled,
+				MemoryUsage::AutoPreferDevice,
+				AllocationCreateFlags::None,
+				SharingMode::Exclusive);
 
 			if (!imageInitialised)
 			{
 				return false;
 			}
 
-			std::unique_ptr<ImageView>& imageView = m_imageArrayView.emplace_back(std::make_unique<ImageView>());
-			bool imageViewInitialised = imageView->Initialise(device, renderImage->Get(), renderImage->GetMiplevels(), renderImage->GetFormat(), vk::ImageAspectFlagBits::eColor);
+			std::unique_ptr<IImageView>& imageView = m_imageArrayView.emplace_back(std::move(resourceFactory.CreateImageView()));
+			bool imageViewInitialised = imageView->Initialise(device, *renderImage, renderImage->GetMiplevels(), renderImage->GetFormat(), ImageAspectFlags::Color);
 			if (!imageViewInitialised)
 			{
 				return false;
 			}
 
-			renderImage->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eTransferDstOptimal);
+			renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferDst);
 
 			for (size_t i = 0; i < pixels.size(); ++i)
 			{
-				if (!CreateImageStagingBuffer(allocator, device, commandBuffer, renderImage.get(), static_cast<uint32_t>(i),
+				if (!CreateImageStagingBuffer(resourceFactory, commandBuffer, renderImage.get(), static_cast<uint32_t>(i),
 					pixels[i].data(), pixels[i].size(), temporaryBuffers))
 					return false;
 			}
@@ -600,7 +590,7 @@ namespace Engine::Rendering::Vulkan
 				chunkData->AddImageData(header, pixels);
 			}
 
-			renderImage->TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+			renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
 
 			++imageCount;
 
@@ -610,13 +600,13 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupMeshInfoBuffer(const Device& device, const vk::CommandBuffer& commandBuffer,
-		ChunkData* chunkData, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers, VmaAllocator allocator)
+	bool VulkanSceneManager::SetupMeshInfoBuffer(const ICommandBuffer& commandBuffer,
+		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
 		{
 			ChunkMemoryEntry entry;
-			if (!chunkData->GetGenericData(1, entry))
+			if (!chunkData->GetGenericData(static_cast<uint32_t>(CachedDataType::MeshInfo), entry))
 			{
 				return false;
 			}
@@ -624,21 +614,21 @@ namespace Engine::Rendering::Vulkan
 			std::vector<uint8_t> decompressBuffer;
 			chunkData->Decompress(entry, decompressBuffer);
 
-			m_meshInfoBuffer = std::make_unique<Buffer>(allocator);
-			Buffer* buffer = m_meshInfoBuffer.get();
+			m_meshInfoBuffer = std::move(resourceFactory.CreateBuffer());
+			IBuffer* buffer = m_meshInfoBuffer.get();
 
 			bool initialised = buffer->Initialise(decompressBuffer.size(),
-				vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
-				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-				0,
-				vk::SharingMode::eExclusive);
+				BufferUsageFlags::TransferDst | BufferUsageFlags::StorageBuffer,
+				MemoryUsage::AutoPreferDevice,
+				AllocationCreateFlags::None,
+				SharingMode::Exclusive);
 
 			if (!initialised)
 			{
 				return false;
 			}
 
-			if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, decompressBuffer.data(),
+			if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, decompressBuffer.data(),
 				decompressBuffer.size(), temporaryBuffers))
 				return false;
 
@@ -676,23 +666,23 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		if (chunkData)
-			chunkData->SetGenericData(1, uniformBufferData);
+			chunkData->SetGenericData(static_cast<uint32_t>(CachedDataType::MeshInfo), uniformBufferData);
 
-		m_meshInfoBuffer = std::make_unique<Buffer>(allocator);
-		Buffer* buffer = m_meshInfoBuffer.get();
+		m_meshInfoBuffer = std::move(resourceFactory.CreateBuffer());
+		IBuffer* buffer = m_meshInfoBuffer.get();
 
 		bool initialised = buffer->Initialise(totalSize,
-			vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
-			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-			0,
-			vk::SharingMode::eExclusive);
+			BufferUsageFlags::TransferDst | BufferUsageFlags::StorageBuffer,
+			MemoryUsage::AutoPreferDevice,
+			AllocationCreateFlags::None,
+			SharingMode::Exclusive);
 
 		if (!initialised)
 		{
 			return false;
 		}
 
-		if (!CreateStagingBuffer(allocator, device, commandBuffer, buffer, uniformBufferData.data(),
+		if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, uniformBufferData.data(),
 			totalSize, temporaryBuffers))
 			return false;
 
@@ -713,34 +703,33 @@ namespace Engine::Rendering::Vulkan
 
 		auto startTime = std::chrono::high_resolution_clock::now();
 
-		return m_renderer.SubmitResourceCommand([this, chunkData, &asyncData](const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers)
+		return m_renderer.SubmitResourceCommand([this, chunkData, &asyncData](const IDevice& device, const IPhysicalDevice& physicalDevice, 
+			const ICommandBuffer& commandBuffer, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers)
 			{
-				const Device& device = m_renderer.GetDevice();
 				const GBuffer& gBuffer = m_renderer.GetGBuffer();
 				uint32_t concurrentFrames = m_renderer.GetConcurrentFrameCount();
-				VmaAllocator allocator = m_renderer.GetAllocator();
-				PhysicalDevice physicalDevice = m_renderer.GetPhysicalDevice();
-				const std::vector<std::unique_ptr<Buffer>>& frameInfoBuffers = m_renderer.GetFrameInfoBuffers();
-				const std::vector<std::unique_ptr<Buffer>>& lightBuffers = m_renderer.GetLightBuffers();
+				const IResourceFactory& resourceFactory = m_renderer.GetResourceFactory();
+				const std::vector<std::unique_ptr<IBuffer>>& frameInfoBuffers = m_renderer.GetFrameInfoBuffers();
+				const std::vector<std::unique_ptr<IBuffer>>& lightBuffers = m_renderer.GetLightBuffers();
 
 				uint32_t imageCount;
-				if (!SetupVertexBuffers(device, commandBuffer, chunkData, temporaryBuffers, allocator))
+				if (!SetupVertexBuffers(commandBuffer, chunkData, temporaryBuffers, resourceFactory))
 				{
 					return false;
 				}
 
 				asyncData.AddSubProgress(50.0f);
 
-				if (!SetupIndexBuffer(device, commandBuffer, chunkData, temporaryBuffers, allocator))
+				if (!SetupIndexBuffer(commandBuffer, chunkData, temporaryBuffers, resourceFactory))
 				{
 					return false;
 				}
 
 				asyncData.AddSubProgress(50.0f);
 
-				if (!SetupRenderImage(&asyncData, device, physicalDevice, commandBuffer, chunkData, temporaryBuffers, allocator, physicalDevice.GetLimits().maxSamplerAnisotropy, imageCount)
-					|| !SetupMeshInfoBuffer(device, commandBuffer, chunkData, temporaryBuffers, allocator)
-					|| !SetupIndirectDrawBuffer(device, commandBuffer, chunkData, temporaryBuffers, allocator))
+				if (!SetupRenderImage(&asyncData, device, physicalDevice, commandBuffer, chunkData, temporaryBuffers, resourceFactory, physicalDevice.GetMaxAnisotropy(), imageCount)
+					|| !SetupMeshInfoBuffer(commandBuffer, chunkData, temporaryBuffers, resourceFactory)
+					|| !SetupIndirectDrawBuffer(commandBuffer, chunkData, temporaryBuffers, resourceFactory))
 				{
 					if (asyncData.State != AsyncState::Cancelled)
 						asyncData.State = AsyncState::Failed;
@@ -752,17 +741,17 @@ namespace Engine::Rendering::Vulkan
 					return false;
 				}
 
-				if (!m_pbrShader->BindUniformBuffers(0, frameInfoBuffers) ||
-					!m_pbrShader->BindStorageBuffer(1, m_meshInfoBuffer) ||
-					!m_pbrShader->BindSampler(2, m_sampler) ||
-					!m_pbrShader->BindImageViews(3, m_imageArrayView))
+				if (!m_pbrMaterial->BindUniformBuffers(0, frameInfoBuffers) ||
+					!m_pbrMaterial->BindStorageBuffer(1, m_meshInfoBuffer) ||
+					!m_pbrMaterial->BindSampler(2, m_sampler) ||
+					!m_pbrMaterial->BindImageViews(3, m_imageArrayView))
 					return false;
 
-				if (!m_shadowShader->BindUniformBuffers(0, frameInfoBuffers) ||
-					!m_shadowShader->BindUniformBuffers(1, lightBuffers) ||
-					!m_shadowShader->BindStorageBuffer(2, m_meshInfoBuffer) ||
-					!m_shadowShader->BindSampler(3, m_sampler) ||
-					!m_shadowShader->BindImageViews(4, m_imageArrayView))
+				if (!m_shadowMaterial->BindUniformBuffers(0, frameInfoBuffers) ||
+					!m_shadowMaterial->BindUniformBuffers(1, lightBuffers) ||
+					!m_shadowMaterial->BindStorageBuffer(2, m_meshInfoBuffer) ||
+					!m_shadowMaterial->BindSampler(3, m_sampler) ||
+					!m_shadowMaterial->BindImageViews(4, m_imageArrayView))
 					return false;
 
 				return true;
@@ -774,49 +763,49 @@ namespace Engine::Rendering::Vulkan
 				});
 	}
 
-	void VulkanSceneManager::Draw(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex)
+	void VulkanSceneManager::Draw(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex)
 	{
 		if (m_vertexBuffers.empty() || m_creating)
 			return;
 
-		m_pbrShader->BindPipeline(commandBuffer, currentFrameIndex);
+		m_pbrMaterial->BindMaterial(commandBuffer, currentFrameIndex);
 		uint32_t vertexBufferCount = static_cast<uint32_t>(m_vertexBuffers.size());
 
-		std::vector<vk::DeviceSize> vertexBufferOffsets;
+		std::vector<size_t> vertexBufferOffsets;
 		vertexBufferOffsets.resize(vertexBufferCount);
-		std::vector<vk::Buffer> vertexBufferViews;
+		std::vector<IBuffer*> vertexBufferViews;
 		vertexBufferViews.reserve(vertexBufferCount);
 		for (const auto& buffer : m_vertexBuffers)
 		{
-			vertexBufferViews.emplace_back(buffer->Get());
+			vertexBufferViews.emplace_back(buffer.get());
 		}
 
-		commandBuffer.bindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
-		commandBuffer.bindIndexBuffer(m_indexBuffer->Get(), 0, vk::IndexType::eUint32);
+		commandBuffer.BindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
+		commandBuffer.BindIndexBuffer(*m_indexBuffer, 0, IndexType::Uint32);
 
 		uint32_t drawCount = m_meshCapacity; // TODO: Compute counted, after culling, etc.
-		commandBuffer.drawIndexedIndirect(m_indirectDrawBuffer->Get(), 0, drawCount, sizeof(vk::DrawIndexedIndirectCommand));
+		commandBuffer.DrawIndexedIndirect(*m_indirectDrawBuffer, 0, drawCount, sizeof(vk::DrawIndexedIndirectCommand));
 	}
 
-	void VulkanSceneManager::DrawShadows(const vk::CommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex)
+	void VulkanSceneManager::DrawShadows(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex)
 	{
 		if (m_vertexBuffers.empty() || m_creating)
 			return;
 
-		commandBuffer.pushConstants(m_shadowShader->Get(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(uint32_t), &cascadeIndex);
+		commandBuffer.PushConstants(m_shadowMaterial, ShaderStageFlags::Vertex, 0, sizeof(uint32_t), &cascadeIndex);
 
 		if (cascadeIndex == 0)
 		{
-			std::vector<vk::DeviceSize> vertexBufferOffsets;
+			std::vector<size_t> vertexBufferOffsets;
 			vertexBufferOffsets.resize(2);
-			std::vector<vk::Buffer> vertexBufferViews = { m_vertexBuffers[0]->Get(), m_vertexBuffers[1]->Get() };
+			std::vector<IBuffer*> vertexBufferViews = { m_vertexBuffers[0].get(), m_vertexBuffers[1].get()};
 
-			m_shadowShader->BindPipeline(commandBuffer, currentFrameIndex);
-			commandBuffer.bindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
-			commandBuffer.bindIndexBuffer(m_indexBuffer->Get(), 0, vk::IndexType::eUint32);
+			m_shadowMaterial->BindMaterial(commandBuffer, currentFrameIndex);
+			commandBuffer.BindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
+			commandBuffer.BindIndexBuffer(*m_indexBuffer, 0, IndexType::Uint32);
 		}
 
 		uint32_t drawCount = m_meshCapacity; // TODO: Compute counted, after culling, etc.
-		commandBuffer.drawIndexedIndirect(m_indirectDrawBuffer->Get(), 0, drawCount, sizeof(vk::DrawIndexedIndirectCommand));
+		commandBuffer.DrawIndexedIndirect(*m_indirectDrawBuffer, 0, drawCount, sizeof(vk::DrawIndexedIndirectCommand));
 	}
 }

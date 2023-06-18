@@ -1,10 +1,8 @@
 #include "Renderer.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "Vulkan/VulkanRenderer.hpp"
-#include "SceneManager.hpp"
 #include "OS/Window.hpp"
-#include "OS/Files.hpp"
-#include "UI/UIManager.hpp"
+#include "Resources/IResourceFactory.hpp"
 
 using namespace Engine::OS;
 using namespace Engine::UI;
@@ -25,6 +23,7 @@ namespace Engine::Rendering
 		, m_sunIntensity(1.0f)
 		, m_debugMode(0)
 		, m_hdr(false)
+		, m_resourceFactory(nullptr)
 	{
 	}
 

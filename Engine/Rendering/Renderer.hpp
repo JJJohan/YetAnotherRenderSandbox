@@ -23,6 +23,7 @@ namespace Engine::Rendering
 {
 	class SceneManager;
 	class Camera;
+	class IResourceFactory;
 
 	enum class RendererType
 	{
@@ -63,6 +64,8 @@ namespace Engine::Rendering
 		inline void SetCamera(const Camera& camera) { m_camera = camera; };
 		inline Camera& GetCamera() { return m_camera; };
 
+		inline const IResourceFactory& GetResourceFactory() { return *m_resourceFactory; }
+
 		inline virtual SceneManager& GetSceneManager() const { throw; };
 		inline virtual Engine::UI::UIManager& GetUIManager() const { throw; };
 
@@ -81,5 +84,6 @@ namespace Engine::Rendering
 		bool m_hdr;
 		Camera m_camera;
 		glm::vec4 m_clearColour;
+		std::unique_ptr<IResourceFactory> m_resourceFactory;
 	};
 }

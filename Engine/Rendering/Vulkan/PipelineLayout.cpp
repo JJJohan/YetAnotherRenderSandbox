@@ -2,14 +2,14 @@
 #include "Device.hpp"
 #include "PhysicalDevice.hpp"
 #include "DescriptorPool.hpp"
+#include "CommandBuffer.hpp"
 #include "ImageSampler.hpp"
+#include "Core/Logging/Logger.hpp"
+#include "OS/Files.hpp"
+#include "VulkanTypesInterop.hpp"
+#include <spirv_reflect.h>
 #include "ImageView.hpp"
 #include "Buffer.hpp"
-#include "OS/Files.hpp"
-#include "VulkanFormatInterop.hpp"
-#include <filesystem>
-#include <glm/glm.hpp>
-#include <spirv_reflect.h>
 #include <algorithm>
 
 using namespace Engine::Logging;
@@ -18,9 +18,8 @@ using namespace Engine::Rendering;
 
 namespace Engine::Rendering::Vulkan
 {
-	PipelineLayout::PipelineLayout(const Material& material)
-		: m_material(material)
-		, m_attachmentFormats()
+	PipelineLayout::PipelineLayout()
+		: m_attachmentFormats()
 		, m_swapchainFormatIndices()
 		, m_pipelineLayout(nullptr)
 		, m_graphicsPipeline(nullptr)
@@ -51,13 +50,13 @@ namespace Engine::Rendering::Vulkan
 		return m_graphicsPipeline.get();
 	}
 
-	bool PipelineLayout::Rebuild(const PhysicalDevice& physicalDevice, const Device& device, const vk::PipelineCache& pipelineCache,
-		vk::Format swapchainFormat, vk::Format depthFormat)
+	bool PipelineLayout::Rebuild(const IPhysicalDevice& physicalDevice, const IDevice& device, const vk::PipelineCache& pipelineCache,
+		Format swapchainFormat, Format depthFormat)
 	{
 		m_graphicsPipeline.reset();
 		m_pipelineLayout.reset();
 
-		const vk::Device& deviceImp = device.Get();
+		const vk::Device& deviceImp = static_cast<const Device&>(device).Get();
 
 		m_specConstantsDirty = false;
 		std::vector<int32_t> specialisationData;
@@ -115,7 +114,7 @@ namespace Engine::Rendering::Vulkan
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = vk::CullModeFlagBits::eBack;
 		rasterizer.frontFace = vk::FrontFace::eCounterClockwise;
-		rasterizer.depthClampEnable = physicalDevice.GetFeatures().depthBiasClamp;
+		rasterizer.depthClampEnable = static_cast<const PhysicalDevice&>(physicalDevice).GetFeatures().depthBiasClamp;
 
 		// Multisampling state
 		vk::PipelineMultisampleStateCreateInfo multisampling{};
@@ -129,8 +128,8 @@ namespace Engine::Rendering::Vulkan
 		// Depth and stencil state
 		vk::PipelineDepthStencilStateCreateInfo depthStencil{};
 		depthStencil.depthCompareOp = vk::CompareOp::eLess;
-		depthStencil.depthWriteEnable = m_material.DepthWrite();
-		depthStencil.depthTestEnable = m_material.DepthTest();
+		depthStencil.depthWriteEnable = DepthWrite();
+		depthStencil.depthTestEnable = DepthTest();
 		depthStencil.stencilTestEnable = VK_FALSE;
 
 		// Color blend attachment state
@@ -174,9 +173,12 @@ namespace Engine::Rendering::Vulkan
 			m_attachmentFormats[index] = swapchainFormat;
 
 		vk::PipelineRenderingCreateInfo pipelineRenderingCreateInfo{};
-		pipelineRenderingCreateInfo.colorAttachmentCount = static_cast<uint32_t>(m_attachmentFormats.size());
-		pipelineRenderingCreateInfo.pColorAttachmentFormats = m_attachmentFormats.data();
-		pipelineRenderingCreateInfo.depthAttachmentFormat = depthFormat;
+		std::vector<vk::Format> vulkanFormats(m_attachmentFormats.size());
+		for (size_t i = 0; i < m_attachmentFormats.size(); ++i)
+			vulkanFormats[i] = GetVulkanFormat(m_attachmentFormats[i]);
+		pipelineRenderingCreateInfo.colorAttachmentCount = static_cast<uint32_t>(vulkanFormats.size());
+		pipelineRenderingCreateInfo.pColorAttachmentFormats = vulkanFormats.data();
+		pipelineRenderingCreateInfo.depthAttachmentFormat = GetVulkanFormat(depthFormat);
 
 		vk::GraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.stageCount = static_cast<uint32_t>(shaderStageInfos.size());
@@ -206,7 +208,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool PipelineLayout::BindImageViewsImp(uint32_t binding, const std::vector<const ImageView*>& imageViews)
+	bool PipelineLayout::BindImageViewsImp(uint32_t binding, const std::vector<const IImageView*>& imageViews)
 	{
 		DescriptorBindingInfo* bindingInfo = GetBindingInfo(binding, imageViews, vk::DescriptorType::eSampledImage, "sampled image");
 		if (!bindingInfo)
@@ -214,7 +216,7 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<vk::DescriptorImageInfo>& imageInfos = m_descriptorImageInfos.emplace_back(std::vector<vk::DescriptorImageInfo>(imageViews.size()));
 		for (size_t i = 0; i < imageViews.size(); ++i)
-			imageInfos[i] = vk::DescriptorImageInfo(nullptr, imageViews[i]->Get(), vk::ImageLayout::eShaderReadOnlyOptimal);
+			imageInfos[i] = vk::DescriptorImageInfo(nullptr, static_cast<const ImageView&>(*imageViews[i]).Get(), vk::ImageLayout::eShaderReadOnlyOptimal);
 
 		if (m_writeDescriptorSets.empty())
 			m_writeDescriptorSets.resize(m_concurrentFrames);
@@ -225,7 +227,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool PipelineLayout::BindSamplersImp(uint32_t binding, const std::vector<const ImageSampler*>& samplers)
+	bool PipelineLayout::BindSamplersImp(uint32_t binding, const std::vector<const IImageSampler*>& samplers)
 	{
 		DescriptorBindingInfo* bindingInfo = GetBindingInfo(binding, samplers, vk::DescriptorType::eSampler, "sampler");
 		if (!bindingInfo)
@@ -233,7 +235,7 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<vk::DescriptorImageInfo>& samplerInfos = m_descriptorImageInfos.emplace_back(std::vector<vk::DescriptorImageInfo>(samplers.size()));
 		for (size_t i = 0; i < samplers.size(); ++i)
-			samplerInfos[i] = vk::DescriptorImageInfo(samplers[i]->Get(), nullptr, vk::ImageLayout::eShaderReadOnlyOptimal);
+			samplerInfos[i] = vk::DescriptorImageInfo(static_cast<const ImageSampler&>(*samplers[i]).Get(), nullptr, vk::ImageLayout::eShaderReadOnlyOptimal);
 
 		if (m_writeDescriptorSets.empty())
 			m_writeDescriptorSets.resize(m_concurrentFrames);
@@ -245,7 +247,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool PipelineLayout::ValidateBufferBlockBinding(uint32_t binding, const std::vector<const Buffer*>& buffers, const DescriptorBindingInfo& bindingInfo) const
+	bool PipelineLayout::ValidateBufferBlockBinding(uint32_t binding, const std::vector<const IBuffer*>& buffers, const DescriptorBindingInfo& bindingInfo) const
 	{
 		size_t size = buffers.front()->Size();
 		for (size_t i = 1; i < buffers.size(); ++i)
@@ -253,7 +255,7 @@ namespace Engine::Rendering::Vulkan
 			if (buffers[i]->Size() != size)
 			{
 				Logger::Error("Binding at index {} for material '{}' has buffers with inconsistent sizes ({} != {}).",
-					binding, m_material.GetName(), bindingInfo.BlockSize, size);
+					binding, GetName(), bindingInfo.BlockSize, size);
 				return false;
 			}
 		}
@@ -261,7 +263,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool PipelineLayout::BindStorageBuffersImp(uint32_t binding, const std::vector<const Buffer*>& storageBuffers)
+	bool PipelineLayout::BindStorageBuffersImp(uint32_t binding, const std::vector<const IBuffer*>& storageBuffers)
 	{
 		DescriptorBindingInfo* bindingInfo = GetBindingInfo(binding, storageBuffers, vk::DescriptorType::eStorageBuffer, "storage buffer");
 		if (!bindingInfo)
@@ -272,7 +274,7 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<vk::DescriptorBufferInfo>& bufferInfos = m_descriptorBufferInfos.emplace_back(std::vector<vk::DescriptorBufferInfo>(storageBuffers.size()));
 		for (size_t i = 0; i < storageBuffers.size(); ++i)
-			bufferInfos[i] = vk::DescriptorBufferInfo(storageBuffers[i]->Get(), 0, storageBuffers[i]->Size());
+			bufferInfos[i] = vk::DescriptorBufferInfo(static_cast<const Buffer&>(*storageBuffers[i]).Get(), 0, storageBuffers[i]->Size());
 
 		if (m_writeDescriptorSets.empty())
 			m_writeDescriptorSets.resize(m_concurrentFrames);
@@ -284,7 +286,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool PipelineLayout::BindUniformBuffersImp(uint32_t binding, const std::vector<const Buffer*>& uniformBuffers)
+	bool PipelineLayout::BindUniformBuffersImp(uint32_t binding, const std::vector<const IBuffer*>& uniformBuffers)
 	{
 		DescriptorBindingInfo* bindingInfo = GetBindingInfo(binding, uniformBuffers, vk::DescriptorType::eUniformBuffer, "uniform buffer");
 		if (!bindingInfo)
@@ -306,15 +308,15 @@ namespace Engine::Rendering::Vulkan
 		for (uint32_t i = 0; i < m_concurrentFrames; ++i)
 		{
 			std::vector<vk::DescriptorBufferInfo>& bufferInfos = m_descriptorBufferInfos.emplace_back(std::vector<vk::DescriptorBufferInfo>());
-			bufferInfos.emplace_back(vk::DescriptorBufferInfo(uniformBuffers[i]->Get(), 0, uniformBuffers[i]->Size()));
+			bufferInfos.emplace_back(vk::DescriptorBufferInfo(static_cast<const Buffer&>(*uniformBuffers[i]).Get(), 0, uniformBuffers[i]->Size()));
 			m_writeDescriptorSets[i].emplace_back(vk::WriteDescriptorSet(nullptr, binding, 0, vk::DescriptorType::eUniformBuffer, nullptr, bufferInfos));
 		}
 
 		return true;
 	}
 
-	bool PipelineLayout::Update(const PhysicalDevice& physicalDevice, const Device& device, const vk::PipelineCache& pipelineCache,
-		vk::Format swapchainFormat, vk::Format depthFormat)
+	bool PipelineLayout::Update(const IPhysicalDevice& physicalDevice, const IDevice& device, const vk::PipelineCache& pipelineCache,
+		Format swapchainFormat, Format depthFormat)
 	{
 		bool rebuild = m_specConstantsDirty;
 		if (!m_writeDescriptorSets.empty())
@@ -322,6 +324,7 @@ namespace Engine::Rendering::Vulkan
 			if (!CreateDescriptorSetLayout(device))
 				return false;
 
+			vk::Device deviceImp = static_cast<const Device&>(device).Get();
 			for (size_t i = 0; i < m_writeDescriptorSets.size(); ++i)
 			{
 				uint32_t descriptorCount = 0;
@@ -331,7 +334,7 @@ namespace Engine::Rendering::Vulkan
 					writeDescriptor.dstSet = m_descriptorSets[i];
 					descriptorCount += writeDescriptor.descriptorCount;
 				}
-				device.Get().updateDescriptorSets(writeDescriptorSet, nullptr);
+				deviceImp.updateDescriptorSets(writeDescriptorSet, nullptr);
 			}
 			m_writeDescriptorSets.clear();
 			m_descriptorBufferInfos.clear();
@@ -350,7 +353,7 @@ namespace Engine::Rendering::Vulkan
 		const auto& it = m_specialisationConstants.find(name);
 		if (it == m_specialisationConstants.end())
 		{
-			Logger::Error("Specialisation constant '{}' not found in pipeline layout '{}'.", name, m_material.GetName());
+			Logger::Error("Specialisation constant '{}' not found in pipeline layout '{}'.", name, GetName());
 			return false;
 		}
 
@@ -363,10 +366,11 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	void PipelineLayout::BindPipeline(const vk::CommandBuffer& commandBuffer, uint32_t frameIndex) const
+	void PipelineLayout::BindMaterial(const ICommandBuffer& commandBuffer, uint32_t frameIndex) const
 	{
-		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphicsPipeline.get());
-		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout.get(), 0, m_descriptorSets[frameIndex], nullptr);
+		vk::CommandBuffer vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
+		vkCommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphicsPipeline.get());
+		vkCommandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout.get(), 0, m_descriptorSets[frameIndex], nullptr);
 	}
 
 	inline bool IsMatchingStage(vk::ShaderStageFlagBits stage, SpvReflectShaderStageFlagBits spvStage)
@@ -380,7 +384,7 @@ namespace Engine::Rendering::Vulkan
 		return false;
 	}
 
-	bool PipelineLayout::CreateDescriptorSetLayout(const Device& device)
+	bool PipelineLayout::CreateDescriptorSetLayout(const IDevice& device)
 	{
 		m_descriptorSetLayout.reset();
 		m_descriptorSets.clear();
@@ -404,12 +408,13 @@ namespace Engine::Rendering::Vulkan
 					poolSizes.emplace_back(vk::DescriptorPoolSize(binding.descriptorType, binding.descriptorCount));
 			}
 
+			const Device& vkDevice = static_cast<const Device&>(device);
 			m_descriptorPool = std::make_unique<DescriptorPool>();
-			if (!m_descriptorPool->Initialise(device, m_concurrentFrames, poolSizes))
+			if (!m_descriptorPool->Initialise(vkDevice, m_concurrentFrames, poolSizes))
 				return false;
 
 			vk::DescriptorSetLayoutCreateInfo createInfo(vk::DescriptorSetLayoutCreateFlags(), bindings);
-			m_descriptorSetLayout = device.Get().createDescriptorSetLayoutUnique(createInfo);
+			m_descriptorSetLayout = vkDevice.Get().createDescriptorSetLayoutUnique(createInfo);
 			if (!m_descriptorSetLayout.get())
 			{
 				Logger::Error("Failed to create descriptor set layout.");
@@ -422,7 +427,7 @@ namespace Engine::Rendering::Vulkan
 				layouts.push_back(m_descriptorSetLayout.get());
 			}
 
-			m_descriptorSets = m_descriptorPool->CreateDescriptorSets(device, layouts);
+			m_descriptorSets = m_descriptorPool->CreateDescriptorSets(vkDevice, layouts);
 
 			break; // TODO: Handle multiple sets?
 		}
@@ -492,7 +497,7 @@ namespace Engine::Rendering::Vulkan
 				const SpvReflectInterfaceVariable& inputVariable = *(entry.InputVariables[i]);
 
 				vk::Format format = static_cast<vk::Format>(inputVariable.format);
-				uint32_t stride = GetSizeForFormat(format);
+				uint32_t stride = GetSizeForFormat(FromVulkanFormat(format));
 				m_bindingDescriptions.emplace_back(vk::VertexInputBindingDescription(inputVariable.location, stride));
 				m_attributeDescriptions.emplace_back(vk::VertexInputAttributeDescription(inputVariable.location, inputVariable.location, format, 0));
 			}
@@ -692,7 +697,7 @@ namespace Engine::Rendering::Vulkan
 			uint32_t attachmentCount = static_cast<uint32_t>(m_attachmentFormats.size());
 			if (fragmentOutputCount != attachmentCount)
 			{
-				Logger::Error("Material '{}' has an output attachment mismatch. Material contains {} outputs but fragment shader contains {}.", m_material.GetName(), attachmentCount, fragmentOutputCount);
+				Logger::Error("Material '{}' has an output attachment mismatch. Material contains {} outputs but fragment shader contains {}.", GetName(), attachmentCount, fragmentOutputCount);
 				return false;
 			}
 
@@ -705,7 +710,7 @@ namespace Engine::Rendering::Vulkan
 				uint32_t fragmentInputCount = static_cast<uint32_t>(fragmentData.InputVariables.size());
 				if (vertexOutputCount != fragmentInputCount)
 				{
-					Logger::Error("Shader '{}' contains {} vertex outputs but {} fragment inputs.", m_material.GetName(), vertexOutputCount, fragmentInputCount);
+					Logger::Error("Shader '{}' contains {} vertex outputs but {} fragment inputs.", GetName(), vertexOutputCount, fragmentInputCount);
 					return false;
 				}
 
@@ -716,14 +721,14 @@ namespace Engine::Rendering::Vulkan
 				{
 					if (vertexData.OutputVariables[i]->format != fragmentData.InputVariables[i]->format)
 					{
-						Logger::Error("Shader '{}' vertex output {} does not match type of fragment input {}.", m_material.GetName(), i, i);
+						Logger::Error("Shader '{}' vertex output {} does not match type of fragment input {}.", GetName(), i, i);
 						return false;
 					}
 				}
 			}
 			else
 			{
-				Logger::Error("Failed to match fragment program with vertex program for shader '{}'.", m_material.GetName());
+				Logger::Error("Failed to match fragment program with vertex program for shader '{}'.", GetName());
 				return false;
 			}
 		}
@@ -731,23 +736,18 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool PipelineLayout::Initialise(const Device& device, uint32_t concurrentFrames)
+	bool PipelineLayout::Initialise(const IDevice& device, uint32_t concurrentFrames)
 	{
-		const vk::Device& deviceImp = device.Get();
+		const vk::Device& deviceImp = static_cast<const Device&>(device).Get();
 
 		m_concurrentFrames = concurrentFrames;
-		m_shaderModules.reserve(m_material.GetProgramData().size());
+		m_shaderModules.reserve(GetProgramData().size());
 		std::unordered_map<vk::ShaderStageFlagBits, ReflectionData> reflectionData;
 		std::vector<SpvReflectShaderModule> modules;
-		reflectionData.reserve(m_material.GetProgramData().size());
-		for (const auto& program : m_material.GetProgramData())
+		reflectionData.reserve(GetProgramData().size());
+		for (const auto& program : GetProgramData())
 		{
-			vk::ShaderStageFlagBits stage;
-			if (!TryGetVulkanProgramType(program.first, stage))
-			{
-				Logger::Error("Unhandled program type encountered while building material '{}'.", m_material.GetName());
-				return false;
-			}
+			vk::ShaderStageFlagBits stage = static_cast<vk::ShaderStageFlagBits>(program.first);
 
 			ReflectionData entry = { .Data = program.second };
 			SpvReflectShaderModule module;
@@ -755,7 +755,7 @@ namespace Engine::Rendering::Vulkan
 			{
 				spvReflectDestroyShaderModule(&module);
 
-				Logger::Error("Failed to reflect {} program for shader '{}'.", GetProgramTypeName(stage), m_material.GetName());
+				Logger::Error("Failed to reflect {} program for shader '{}'.", GetProgramTypeName(stage), GetName());
 				return false;
 			}
 
@@ -763,20 +763,13 @@ namespace Engine::Rendering::Vulkan
 			reflectionData.emplace(stage, entry);
 		}
 
-		m_attachmentFormats.reserve(m_material.GetAttachmentFormats().size());
-		for (const AttachmentFormat& format : m_material.GetAttachmentFormats())
+		m_attachmentFormats.reserve(GetAttachmentFormats().size());
+		for (const Format& format : GetAttachmentFormats())
 		{
-			vk::Format vulkanFormat;
-			if (!TryGetVulkanAttachmentFormat(format, vulkanFormat))
-			{
-				Logger::Error("Unhandled attachment format encountered while building material '{}'.", m_material.GetName());
-				return false;
-			}
-
-			if (vulkanFormat == vk::Format::eUndefined)
+			if (format == Format::Swapchain)
 				m_swapchainFormatIndices.push_back(static_cast<uint32_t>(m_attachmentFormats.size()));
 
-			m_attachmentFormats.push_back(vulkanFormat);
+			m_attachmentFormats.push_back(format);
 		}
 
 		bool validInputsOutputs = ValidateInputsOutputs(reflectionData);
@@ -798,7 +791,7 @@ namespace Engine::Rendering::Vulkan
 			vk::UniqueShaderModule shaderModule = deviceImp.createShaderModuleUnique(createInfo);
 			if (!shaderModule.get())
 			{
-				Logger::Error("Failed to create {} program for shader '{}'.", GetProgramTypeName(stage), m_material.GetName());
+				Logger::Error("Failed to create {} program for shader '{}'.", GetProgramTypeName(stage), GetName());
 				return false;
 			}
 

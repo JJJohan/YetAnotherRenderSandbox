@@ -1,12 +1,13 @@
 #include "Drawer.hpp"
 #include "Core/AsyncData.hpp"
-#include <cstdarg>
+#include "NodeManager.hpp"
 #include <imgui.h>
 #include <implot.h>
 
 namespace Engine::UI
 {
 	Drawer::Drawer()
+		: m_nodeManager(std::make_unique<NodeManager>())
 	{
 	}
 
@@ -75,6 +76,32 @@ namespace Engine::UI
 	void Drawer::End() const
 	{
 		ImGui::End();
+	}
+
+	bool Drawer::BeginNodeEditor(const char* label) const
+	{
+		return m_nodeManager->Begin(label);
+	}
+
+	void Drawer::NodeSetupLink(const char* outputNodeName, const char* outputPinName, const char* inputNodeName, const char* inputPinName) const
+	{
+		m_nodeManager->SetupLink(outputNodeName, outputPinName, inputNodeName, inputPinName);
+	}
+
+	void Drawer::NodeEditorZoomToContent() const
+	{
+		m_nodeManager->ZoomToContent();
+	}
+
+	void Drawer::DrawNode(const char* label, const glm::vec2& pos, const std::vector<const char*>& inputs,
+		const std::vector<const char*>& outputs, const Colour& colour) const
+	{
+		m_nodeManager->DrawNode(label, ImVec2(pos.x, pos.y), inputs, outputs, colour);
+	}
+
+	void Drawer::EndNodeEditor() const
+	{
+		m_nodeManager->End();
 	}
 
 	void Drawer::BeginDisabled(bool disabled) const
@@ -147,7 +174,7 @@ namespace Engine::UI
 		const char* subProgressText = progress.SubProgressText.c_str();
 
 		bool hasSubProgress = subProgressText != nullptr;
-		ImVec2 dialogSize(300.0f, hasSubProgress ? 120.0f : 80.0f);
+		ImVec2 dialogSize(300.0f, hasSubProgress ? 128.0f : 88.0f);
 		const ImVec2& center = ImGui::GetIO().DisplaySize;
 		const ImGuiStyle& style = ImGui::GetStyle();
 		float progressWidth = dialogSize.x - style.WindowPadding.x * 2.0f;

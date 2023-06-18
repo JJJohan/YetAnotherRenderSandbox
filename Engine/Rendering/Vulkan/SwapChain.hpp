@@ -5,6 +5,7 @@
 #include "RenderImage.hpp"
 #include <glm/glm.hpp>
 #include <optional>
+#include "../Types.hpp"
 
 struct VmaAllocator_T;
 typedef struct VmaAllocator_T* VmaAllocator;
@@ -26,7 +27,7 @@ namespace Engine::Rendering::Vulkan
 	public:
 		SwapChain();
 
-		inline const vk::Format& GetFormat() const { return m_swapChainImageFormat; }
+		inline const Format& GetFormat() const { return m_swapChainImageFormat; }
 		inline const vk::Extent2D& GetExtent() const { return m_swapChainExtent; }
 		inline const vk::SwapchainKHR& Get() const { return m_swapChain.get(); }
 
@@ -43,7 +44,7 @@ namespace Engine::Rendering::Vulkan
 		vk::SurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats, bool hdr);
 
 		vk::UniqueSwapchainKHR m_swapChain;
-		vk::Format m_swapChainImageFormat;
+		Format m_swapChainImageFormat;
 		vk::Extent2D m_swapChainExtent;
 		std::vector<RenderImage> m_swapChainImages;
 		std::vector<std::unique_ptr<ImageView>> m_swapChainImageViews;

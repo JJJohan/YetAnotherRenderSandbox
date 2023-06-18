@@ -2,13 +2,15 @@
 
 #include <vulkan/vulkan.hpp>
 #include "QueueFamilyIndices.hpp"
+#include "../Resources/IPhysicalDevice.hpp"
+#include "../Types.hpp"
 
 namespace Engine::Rendering::Vulkan
 {
 	class Instance;
 	class Surface;
 
-	class PhysicalDevice
+	class PhysicalDevice : public IPhysicalDevice
 	{
 	public:
 		PhysicalDevice();
@@ -20,8 +22,11 @@ namespace Engine::Rendering::Vulkan
 		const vk::PhysicalDeviceLimits& GetLimits() const;
 		const vk::PhysicalDeviceFeatures& GetFeatures() const;
 		vk::SampleCountFlagBits GetMaxMultiSampleCount() const;
-		vk::Format FindSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
-		vk::Format FindDepthFormat() const;
+		Format FindSupportedFormat(const std::vector<Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
+		Format FindDepthFormat() const;
+		virtual bool FormatSupported(Format format) const override;
+		float GetMaxAnisotropy() const override;
+		bool SupportsBCTextureCompression() const override;
 
 	private:
 

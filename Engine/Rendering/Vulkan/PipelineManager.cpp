@@ -1,9 +1,10 @@
 #include "PipelineManager.hpp"
 #include "Device.hpp"
-#include "PhysicalDevice.hpp"
-#include "PipelineLayout.hpp"
 #include "DescriptorPool.hpp"
+#include "PipelineLayout.hpp"
 #include "OS/Files.hpp"
+#include "../Resources/IPhysicalDevice.hpp"
+#include "../Material.hpp"
 #include <filesystem>
 
 using namespace Engine::Logging;
@@ -12,12 +13,11 @@ using namespace Engine::OS;
 namespace Engine::Rendering::Vulkan
 {
 	PipelineManager::PipelineManager()
-		: m_pipelineLayouts()
-		, m_pipelineCache()
+		: m_pipelineCache()
 	{
 	}
 
-	void PipelineManager::ParseMaterials()
+	bool PipelineManager::BuildMaterials(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t concurrentFrames, Format swapchainFormat, Format depthFormat)
 	{
 		for (const auto& materialPath : std::filesystem::recursive_directory_iterator("materials"))
 		{
@@ -26,36 +26,25 @@ namespace Engine::Rendering::Vulkan
 				const auto& path = materialPath.path();
 				if (path.extension() == ".material")
 				{
-					Material material;
-					if (!material.Parse(path))
+					std::unique_ptr<PipelineLayout> material = std::make_unique<PipelineLayout>();
+					if (!material->Parse(path))
 						continue;
 
-					m_materials.push_back(material);
+					if (!material->Initialise(device, concurrentFrames))
+					{
+						return false;
+					}
+
+					m_materials.emplace(material->GetName(), std::move(material));
 				}
 			}
-		}
-	}
-
-	bool PipelineManager::BuildMaterials(const PhysicalDevice& physicalDevice, const Device& device, uint32_t concurrentFrames, vk::Format swapchainFormat, vk::Format depthFormat)
-	{
-		for (auto& material : m_materials)
-		{
-			std::unique_ptr<PipelineLayout> pipelineLayout = std::make_unique<PipelineLayout>(material);
-			if (!pipelineLayout->Initialise(device, concurrentFrames))
-			{
-				return false;
-			}
-
-			m_pipelineLayouts.emplace(material.GetName(), std::move(pipelineLayout));
 		}
 
 		return true;
 	}
 
-	bool PipelineManager::Initialise(const PhysicalDevice& physicalDevice, const Device& device, uint32_t concurrentFrames, vk::Format swapchainFormat, vk::Format depthFormat)
+	bool PipelineManager::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t concurrentFrames, Format swapchainFormat, Format depthFormat)
 	{
-		ParseMaterials();
-
 		if (!BuildMaterials(physicalDevice, device, concurrentFrames, swapchainFormat, depthFormat))
 		{
 			return false;
@@ -65,16 +54,17 @@ namespace Engine::Rendering::Vulkan
 		Files::TryReadBinaryFile("pipelines.cache", cacheData);
 
 		vk::PipelineCacheCreateInfo createInfo(vk::PipelineCacheCreateFlags(), cacheData.size(), cacheData.data());
-		m_pipelineCache = device.Get().createPipelineCacheUnique(createInfo);
+		m_pipelineCache = static_cast<const Device&>(device).Get().createPipelineCacheUnique(createInfo);
 
 		return true;
 	}
 
 	bool PipelineManager::CheckDirty() const
 	{
-		for (const auto& pipeline : m_pipelineLayouts)
+		for (const auto& material : m_materials)
 		{
-			if (pipeline.second->IsDirty())
+			PipelineLayout* pipeline = static_cast<PipelineLayout*>(material.second.get());
+			if (pipeline->IsDirty())
 			{
 				return true;
 			}
@@ -83,12 +73,13 @@ namespace Engine::Rendering::Vulkan
 		return false;
 	}
 
-	bool PipelineManager::Update(const PhysicalDevice& physicalDevice, const Device& device,
-		vk::Format swapchainFormat, vk::Format depthFormat) const
+	bool PipelineManager::Update(const IPhysicalDevice& physicalDevice, const IDevice& device,
+		Format swapchainFormat, Format depthFormat) const
 	{
-		for (const auto& pipeline : m_pipelineLayouts)
+		for (const auto& material : m_materials)
 		{
-			if (!pipeline.second->Update(physicalDevice, device, m_pipelineCache.get(), swapchainFormat, depthFormat))
+			PipelineLayout* pipeline = static_cast<PipelineLayout*>(material.second.get());
+			if (!pipeline->Update(physicalDevice, device, m_pipelineCache.get(), swapchainFormat, depthFormat))
 			{
 				return false;
 			}
@@ -101,9 +92,9 @@ namespace Engine::Rendering::Vulkan
 	{
 		std::vector<uint8_t> cacheData = device.Get().getPipelineCacheData(m_pipelineCache.get());
 
-		if (!Files::TryWriteBinaryFile("pipelines.cache", cacheData))
+		if (!Files::TryWriteBinaryFile("materials.cache", cacheData))
 		{
-			Logger::Error("Failed to write pipeline cache to disk.");
+			Logger::Error("Failed to write m_materials cache to disk.");
 		}
 	}
 }

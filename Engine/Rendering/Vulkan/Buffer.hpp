@@ -3,42 +3,24 @@
 #include <vulkan/vulkan.hpp>
 #include <vma/vk_mem_alloc.h>
 #include <Core/Logging/Logger.hpp>
+#include "../Resources/IBuffer.hpp"
 
 namespace Engine::Rendering::Vulkan
 {
-	class Device;
-	class RenderImage;
-
-	class Buffer
+	class Buffer : public IBuffer
 	{
 	public:
 		Buffer(VmaAllocator allocator);
 		~Buffer();
-		bool Initialise(uint64_t size, vk::BufferUsageFlags bufferUsage,
-			VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode);
-		bool UpdateContents(const void* data, vk::DeviceSize size);
-		void Copy(const Device& device, const vk::CommandBuffer& commandBuffer, const Buffer& destination, vk::DeviceSize size) const;
-		void CopyToImage(const Device& device, uint32_t mipLevel, const vk::CommandBuffer& commandBuffer, const RenderImage& destination) const;
-
+		virtual bool Initialise(uint64_t size, BufferUsageFlags bufferUsage,
+			MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode) override;
+		virtual bool UpdateContents(const void* data, size_t size) override;
+		virtual void Copy(const ICommandBuffer& commandBuffer, const IBuffer& destination, size_t size) const override;
+		virtual void CopyToImage(uint32_t mipLevel, const ICommandBuffer& commandBuffer, const IRenderImage& destination) const override;
 
 		inline const VkBuffer& Get() const { return m_buffer; }
-		inline uint64_t Size() const { return m_size; }
-
-		template <typename T>
-		bool GetMappedMemory(T** mappedMemory) const
-		{
-			if (m_bufferAllocInfo.pMappedData == nullptr)
-			{
-				Engine::Logging::Logger::Error("Memory is not mapped.");
-				return false;
-			}
-
-			*mappedMemory = static_cast<T*>(m_bufferAllocInfo.pMappedData);
-			return true;
-		}
 
 	private:
-		uint64_t m_size;
 		VkBuffer m_buffer;
 		VmaAllocation m_bufferAlloc;
 		VmaAllocationInfo m_bufferAllocInfo;

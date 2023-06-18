@@ -1,4 +1,4 @@
 .vs/
 **/x64/
 Sandbox/imgui.ini
-Sandbox/pipelines.cache
+Sandbox/materials.cache

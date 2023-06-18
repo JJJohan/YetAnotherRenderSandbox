@@ -10,11 +10,12 @@ namespace Engine::UI
 
 	NodeManager::NodeManager()
 		: m_currentId(0)
-		, m_pinIconSize(24.0f)
-		, m_nodes()
+		, m_nodeMap()
 		, m_links()
+		, m_builder(std::make_unique<NodeBuilder>())
 	{
 		m_editor = ax::NodeEditor::CreateEditor();
+
 		ax::NodeEditor::SetCurrentEditor(m_editor);
 	}
 
@@ -24,48 +25,6 @@ namespace Engine::UI
 		{
 			ax::NodeEditor::DestroyEditor(m_editor);
 			m_editor = nullptr;
-		}
-	}
-
-	bool NodeManager::IsPinLinked(uint32_t id)
-	{
-		if (!id)
-			return false;
-
-		for (auto& link : m_links)
-			if (link.StartPinID == id || link.EndPinID == id)
-				return true;
-
-		return false;
-	}
-
-	NodeManager::Node* NodeManager::SpawnBranchNode()
-	{
-		m_nodes.emplace_back(++m_currentId, "Branch");
-		m_nodes.back().Inputs.emplace_back(++m_currentId, "Test", PinType::Flow);
-		m_nodes.back().Outputs.emplace_back(++m_currentId, "Albedo", PinType::Flow);
-		m_nodes.back().Outputs.emplace_back(++m_currentId, "WorldNormal", PinType::Flow);
-		m_nodes.back().Outputs.emplace_back(++m_currentId, "WorldPos", PinType::Flow);
-		m_nodes.back().Outputs.emplace_back(++m_currentId, "MetalRoughness", PinType::Flow);
-		m_nodes.back().Outputs.emplace_back(++m_currentId, "Velocity", PinType::Flow);
-
-		BuildNode(&m_nodes.back());
-
-		return &m_nodes.back();
-	}
-
-	void NodeManager::BuildNode(Node* node)
-	{
-		for (auto& input : node->Inputs)
-		{
-			input.Node = node;
-			input.Kind = PinKind::Input;
-		}
-
-		for (auto& output : node->Outputs)
-		{
-			output.Node = node;
-			output.Kind = PinKind::Output;
 		}
 	}
 
@@ -90,84 +49,130 @@ namespace Engine::UI
 		ImColor  color = GetIconColor(pin.Type);
 		color.Value.w = alpha / 255.0f;
 
-		DrawIcon(ImVec2(m_pinIconSize, m_pinIconSize), connected, color, ImColor(32, 32, 32, alpha));
+		DrawIcon(ImVec2(24.0f, 24.0f), connected, color, ImColor(32, 32, 32, alpha));
 	};
 
-	void NodeManager::Draw()
+	bool NodeManager::Begin(const char* label)
 	{
-		auto& io = ImGui::GetIO();
+		m_nodeMap.clear();
+		m_links.clear();
 
+		m_currentId = 0;
 		ax::NodeEditor::SetCurrentEditor(m_editor);
+		ax::NodeEditor::Begin(label);
 
-		ax::NodeEditor::Begin("Node editor");
-		{
-			NodeBuilder builder;
+		return true;
+	}
 
-			for (auto& node : m_nodes)
-			{
-				builder.Begin(node.ID);
+	void NodeManager::ZoomToContent()
+	{
+		ax::NodeEditor::NavigateToContent(0.0f);
+	}
 
-				builder.Header(node.Color);
-				ImGui::Spring(0);
-				ImGui::TextUnformatted(node.Name.c_str());
-				ImGui::Spring(1);
-				ImGui::Dummy(ImVec2(0, 28));
-				ImGui::Spring(0);
-				builder.EndHeader();
-
-				for (auto& input : node.Inputs)
-				{
-					float alpha = ImGui::GetStyle().Alpha;
-					builder.Input(input.ID);
-					ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
-					DrawPinIcon(input, IsPinLinked(input.ID), static_cast<uint8_t>(alpha * 255.0f));
-					ImGui::Spring(0);
-					if (!input.Name.empty())
-					{
-						ImGui::TextUnformatted(input.Name.c_str());
-						ImGui::Spring(0);
-					}
-					ImGui::PopStyleVar();
-					builder.EndInput();
-				}
-
-				for (auto& output : node.Outputs)
-				{
-					float alpha = ImGui::GetStyle().Alpha;
-					ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
-					builder.Output(output.ID);
-					if (!output.Name.empty())
-					{
-						ImGui::Spring(0);
-						ImGui::TextUnformatted(output.Name.c_str());
-					}
-					ImGui::Spring(0);
-					DrawPinIcon(output, IsPinLinked(output.ID), static_cast<uint8_t>(alpha * 255.0f));
-					ImGui::PopStyleVar();
-					builder.EndOutput();
-				}
-
-				builder.End();
-			}
-
-			for (auto& link : m_links)
-				ax::NodeEditor::Link(link.ID, link.StartPinID, link.EndPinID, link.Color, 2.0f);
-		}
+	void NodeManager::End()
+	{
+		for (auto& link : m_links)
+			ax::NodeEditor::Link(link.ID, link.StartPinID, link.EndPinID, link.Color, 2.0f);
 
 		ax::NodeEditor::End();
 	}
 
+	NodeManager::Node& NodeManager::GetOrCreateNode(const char* nodeName)
+	{
+		const auto& search = m_nodeMap.find(nodeName);
+		if (search != m_nodeMap.cend())
+		{
+			return search->second;
+		}
+
+		auto& node = m_nodeMap[nodeName] = Node();
+		node.Setup(m_currentId++);
+		return node;
+	}
+
+	NodeManager::Pin& NodeManager::GetOrCreatePin(std::unordered_map<const char*, Pin>& pinMap, const char* pinName)
+	{
+		const auto& search = pinMap.find(pinName);
+		if (search != pinMap.cend())
+		{
+			return search->second;
+		}
+
+		auto& pin = pinMap[pinName] = Pin();
+		pin.Setup(m_currentId++, PinType::Flow);
+		return pin;
+	}
+
+	void NodeManager::SetupLink(const char* outputNodeName, const char* outputPinName, const char* inputNodeName, const char* inputPinName)
+	{
+		Node& outputNode = GetOrCreateNode(outputNodeName);
+		Node& inputNode = GetOrCreateNode(inputNodeName);
+
+		Pin& startPin = GetOrCreatePin(outputNode.Outputs, outputPinName);
+		Pin& endPin = GetOrCreatePin(inputNode.Inputs, inputPinName);
+		startPin.Node = &inputNode;
+		endPin.Node = &outputNode;
+
+		m_links.emplace_back(Link(m_currentId++, startPin.ID, endPin.ID));
+	}
+
+	void NodeManager::DrawNode(const char* label, const ImVec2& pos, const std::vector<const char*>& inputs,
+		const std::vector<const char*>& outputs, const Colour& colour)
+	{
+		Node& node = GetOrCreateNode(label);
+
+		ax::NodeEditor::SetNodePosition(node.ID, pos);
+		m_builder->Begin(node.ID);
+
+		const ImColor nodeColor(colour);
+		m_builder->Header(nodeColor);
+		ImGui::Spring(0);
+		ImGui::TextUnformatted(label);
+		ImGui::Spring(1);
+		ImGui::Dummy(ImVec2(0, 28));
+		ImGui::Spring(0);
+		m_builder->EndHeader();
+
+		for (auto& inputName : inputs)
+		{
+			Pin& input = GetOrCreatePin(node.Inputs, inputName);
+			float alpha = ImGui::GetStyle().Alpha;
+			m_builder->Input(input.ID);
+			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
+			DrawPinIcon(input, input.Node != nullptr, static_cast<uint8_t>(alpha * 255.0f));
+			ImGui::Spring(0);
+			ImGui::TextUnformatted(inputName);
+			ImGui::Spring(0);
+			ImGui::PopStyleVar();
+			m_builder->EndInput();
+		}
+
+		for (auto& outputName : outputs)
+		{
+			Pin& output = GetOrCreatePin(node.Outputs, outputName);
+			float alpha = ImGui::GetStyle().Alpha;
+			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
+			m_builder->Output(output.ID);
+			ImGui::Spring(0);
+			ImGui::TextUnformatted(outputName);
+			ImGui::Spring(0);
+			DrawPinIcon(output, output.Node != nullptr, static_cast<uint8_t>(alpha * 255.0f));
+			ImGui::PopStyleVar();
+			m_builder->EndOutput();
+		}
+
+		m_builder->End();
+	}
+
 	void NodeManager::DrawIcon(const ImVec2& size, bool filled, ImU32 color, ImU32 innerColor)
 	{
-		if (ImGui::IsRectVisible(size))
-			return;
-
 		const ImVec2& a = ImGui::GetCursorScreenPos();
 		const ImVec2& b = a + size;
-
-		ImDrawList* drawList = ImGui::GetWindowDrawList();
+		if (!ImGui::IsRectVisible(a, b))
+			return;
 
 		ImRect rect = ImRect(a, b);
+		ImDrawList* drawList = ImGui::GetWindowDrawList();
 		float rect_x = rect.Min.x;
 		float rect_y = rect.Min.y;
 		float rect_w = rect.Max.x - rect.Min.x;

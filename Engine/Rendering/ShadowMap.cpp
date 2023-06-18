@@ -1,19 +1,15 @@
 #include "ShadowMap.hpp"
 #include "Core/Logging/Logger.hpp"
-#include "DescriptorPool.hpp"
-#include "Device.hpp"
-#include "Rendering/Camera.hpp"
-#include "Buffer.hpp"
-#include "ImageSampler.hpp"
-#include "FrameInfoUniformBuffer.hpp"
-#include "OS/Files.hpp"
-#include "PipelineLayout.hpp"
+#include "Camera.hpp"
+#include "Resources/IDevice.hpp"
+#include "Resources/IImageView.hpp"
+#include "Resources/IRenderImage.hpp"
+#include "Resources/IResourceFactory.hpp"
 #include <glm/gtc/matrix_transform.hpp>
-#include <vma/vk_mem_alloc.h>
 
 using namespace Engine::Logging;
 
-namespace Engine::Rendering::Vulkan
+namespace Engine::Rendering
 {
 	constexpr int DefaultCascadeCount = 4;
 
@@ -117,21 +113,21 @@ namespace Engine::Rendering::Vulkan
 		return GetShadowCascadeData();
 	}
 
-	bool ShadowMap::CreateShadowImages(const Device& device, VmaAllocator allocator, vk::Format depthFormat)
+	bool ShadowMap::CreateShadowImages(const IDevice& device, const IResourceFactory& resourceFactory, Format depthFormat)
 	{
 		for (uint32_t i = 0; i < m_cascadeCount; ++i)
 		{
-			std::unique_ptr<RenderImage>& image = m_shadowImages.emplace_back(std::make_unique<RenderImage>(allocator));
-			if (!image->Initialise(vk::ImageType::e2D, depthFormat, m_extent, 1, vk::ImageTiling::eOptimal,
-				vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eDepthStencilAttachment,
-				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0, vk::SharingMode::eExclusive))
+			std::unique_ptr<IRenderImage>& image = m_shadowImages.emplace_back(std::move(resourceFactory.CreateRenderImage()));
+			if (!image->Initialise(ImageType::e2D, depthFormat, m_extent, 1, ImageTiling::Optimal,
+				ImageUsageFlags::Sampled | ImageUsageFlags::DepthStencilAttachment,
+				MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 			{
 				Logger::Error("Failed to create shadow image.");
 				return false;
 			}
 
-			std::unique_ptr<ImageView>& imageView = m_shadowImageViews.emplace_back(std::make_unique<ImageView>());
-			if (!imageView->Initialise(device, image->Get(), 1, image->GetFormat(), vk::ImageAspectFlagBits::eDepth))
+			std::unique_ptr<IImageView>& imageView = m_shadowImageViews.emplace_back(std::move(resourceFactory.CreateImageView()));
+			if (!imageView->Initialise(device, *image, 1, image->GetFormat(), ImageAspectFlags::Depth))
 			{
 				Logger::Error("Failed to create shadow image view.");
 				return false;
@@ -141,12 +137,12 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool ShadowMap::Rebuild(const Device& device, VmaAllocator allocator, vk::Format depthFormat)
+	bool ShadowMap::Rebuild(const IDevice& device, const IResourceFactory& resourceFactory, Format depthFormat)
 	{
 		m_shadowImageViews.clear();
 		m_shadowImages.clear();
 
-		if (!CreateShadowImages(device, allocator, depthFormat))
+		if (!CreateShadowImages(device, resourceFactory, depthFormat))
 		{
 			return false;
 		}

@@ -3,7 +3,7 @@
 #include "Surface.hpp"
 #include "SwapChain.hpp"
 #include "Core/Logging/Logger.hpp"
-#include "OS/Window.hpp"
+#include "VulkanTypesInterop.hpp"
 
 using namespace Engine::Logging;
 using namespace Engine::OS;
@@ -42,6 +42,15 @@ namespace Engine::Rendering::Vulkan
 		return m_deviceProperties.limits;
 	}
 
+	float PhysicalDevice::GetMaxAnisotropy() const
+	{
+		return m_deviceProperties.limits.maxSamplerAnisotropy;
+	}
+
+	bool PhysicalDevice::SupportsBCTextureCompression() const
+	{
+		return m_deviceFeatures.textureCompressionBC;
+	}
 
 	const vk::PhysicalDeviceFeatures& PhysicalDevice::GetFeatures() const
 	{
@@ -61,11 +70,11 @@ namespace Engine::Rendering::Vulkan
 		return vk::SampleCountFlagBits::e1;
 	}
 
-	vk::Format PhysicalDevice::FindSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const
+	Format PhysicalDevice::FindSupportedFormat(const std::vector<Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const
 	{
-		for (const vk::Format& format : candidates)
+		for (const Format& format : candidates)
 		{
-			vk::FormatProperties props = m_physicalDevice.getFormatProperties(format);
+			vk::FormatProperties props = m_physicalDevice.getFormatProperties(GetVulkanFormat(format));
 			if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features)
 			{
 				return format;
@@ -77,13 +86,20 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		Logger::Error("Failed to find supported image format matching requested input.");
-		return vk::Format::eUndefined;
+		return Format::Undefined;
 	}
 
-	vk::Format PhysicalDevice::FindDepthFormat() const
+	Format PhysicalDevice::FindDepthFormat() const
 	{
-		return FindSupportedFormat({ vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint },
+		return FindSupportedFormat({ Format::D32Sfloat, Format::D32SfloatS8Uint, Format::D24UnormS8Uint },
 			vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+	}
+
+	bool PhysicalDevice::FormatSupported(Format format) const
+	{
+		vk::FormatProperties properties = m_physicalDevice.getFormatProperties(GetVulkanFormat(format));
+		return (properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eTransferDst &&
+			properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImage);
 	}
 
 	bool PhysicalDevice::FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties, uint32_t* memoryType) const

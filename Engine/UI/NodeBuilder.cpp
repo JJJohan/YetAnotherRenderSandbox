@@ -9,7 +9,6 @@
 //------------------------------------------------------------------------------
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "NodeBuilder.hpp"
-#include <imgui_internal.h>
 
 namespace Engine::UI
 {
@@ -17,6 +16,7 @@ namespace Engine::UI
 		: CurrentNodeId(0)
 		, CurrentStage(Stage::Invalid)
 		, HasHeader(false)
+		, HeaderColor(0)
 	{
 	}
 

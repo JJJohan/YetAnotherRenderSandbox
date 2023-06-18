@@ -1,12 +1,13 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
+#include "../Resources/IDevice.hpp"
 
 namespace Engine::Rendering::Vulkan
 {
 	class PhysicalDevice;
 
-	class Device
+	class Device : public IDevice
 	{
 	public:
 		Device();

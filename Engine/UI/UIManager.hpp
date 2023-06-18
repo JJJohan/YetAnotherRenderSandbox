@@ -2,8 +2,8 @@
 
 #include "Core/Macros.hpp"
 #include "Drawer.hpp"
-#include <memory>
 #include <functional>
+#include <vector>
 
 namespace Engine::Rendering
 {
@@ -30,6 +30,8 @@ namespace Engine::UI
 
 	protected:
 		UIManager(const Engine::OS::Window& window, Engine::Rendering::Renderer& renderer);
+		bool Initialise() const;
+		bool Draw(float width, float height) const;
 
 		const Engine::OS::Window& m_window;
 		Engine::Rendering::Renderer& m_renderer;

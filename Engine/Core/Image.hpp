@@ -26,7 +26,7 @@ namespace Engine
 	inline ImageFlags& operator|=(ImageFlags& a, ImageFlags b)
 	{
 		a = static_cast<ImageFlags>(static_cast<int32_t>(a) | static_cast<int32_t>(b));
-		return a;;
+		return a;
 	}
 
 	inline ImageFlags operator|(ImageFlags a, ImageFlags b)

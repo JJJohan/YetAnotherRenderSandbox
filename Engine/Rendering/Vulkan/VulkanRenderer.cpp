@@ -10,23 +10,25 @@
 #include "Debug.hpp"
 #include "Device.hpp"
 #include "Buffer.hpp"
-#include "DescriptorPool.hpp"
 #include "PhysicalDevice.hpp"
 #include "Instance.hpp"
 #include "Surface.hpp"
 #include "SwapChain.hpp"
 #include "CommandPool.hpp"
+#include "CommandBuffer.hpp"
 #include "ImageView.hpp"
-#include "RenderImage.hpp"
 #include "ImageSampler.hpp"
 #include "PipelineLayout.hpp"
+#include "RenderImage.hpp"
 #include "FrameInfoUniformBuffer.hpp"
 #include "PipelineManager.hpp"
 #include "LightUniformBuffer.hpp"
-#include "GBuffer.hpp"
-#include "ShadowMap.hpp"
-#include "PostProcessing.hpp"
+#include "../GBuffer.hpp"
+#include "../ShadowMap.hpp"
+#include "../PostProcessing.hpp"
 #include "VulkanRenderStats.hpp"
+#include "ResourceFactory.hpp"
+#include "VulkanTypesInterop.hpp"
 
 #define DEFAULT_MAX_CONCURRENT_FRAMES 2
 
@@ -151,38 +153,42 @@ namespace Engine::Rendering::Vulkan
 		frameInfo->jitter = m_postProcessing->IsEnabled() ? m_postProcessing->GetTAAJitter(size) : glm::vec2();
 	}
 
-	bool VulkanRenderer::RecordRenderCommandBuffer(const vk::CommandBuffer& commandBuffer)
+	bool VulkanRenderer::RecordRenderCommandBuffer(const ICommandBuffer& commandBuffer)
 	{
+		vk::CommandBuffer vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
 		vk::CommandBufferBeginInfo beginInfo;
-		if (commandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
+		if (vkCommandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
 		{
 			Logger::Error("Failed to begin recording render command buffer.");
 			return false;
 		}
 
-		m_gBuffer->TransitionImageLayouts(*m_device, commandBuffer, vk::ImageLayout::eColorAttachmentOptimal);
-		m_gBuffer->TransitionDepthLayout(*m_device, commandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-		std::vector<vk::RenderingAttachmentInfo> colorAttachments = m_gBuffer->GetRenderAttachments();
-		vk::RenderingAttachmentInfo depthAttachment = m_gBuffer->GetDepthAttachment();
+		m_gBuffer->TransitionImageLayouts(*m_device, commandBuffer, ImageLayout::ColorAttachment);
+		m_gBuffer->TransitionDepthLayout(*m_device, commandBuffer, ImageLayout::DepthStencilAttachment);
+		std::vector<AttachmentInfo> colorAttachments = m_gBuffer->GetRenderAttachments();
+		vk::RenderingAttachmentInfo depthAttachment = GetAttachmentInfo(m_gBuffer->GetDepthAttachment());
+		std::vector<vk::RenderingAttachmentInfo> vkColorAttachments(colorAttachments.size());
+		for (size_t i = 0; i < colorAttachments.size(); ++i)
+			vkColorAttachments[i] = GetAttachmentInfo(colorAttachments[i]);
 
 		vk::RenderingInfo renderingInfo{};
 		renderingInfo.renderArea.offset = vk::Offset2D();
 		renderingInfo.renderArea.extent = m_swapChain->GetExtent();
 		renderingInfo.layerCount = 1;
-		renderingInfo.colorAttachmentCount = static_cast<uint32_t>(colorAttachments.size());
-		renderingInfo.pColorAttachments = colorAttachments.data();
+		renderingInfo.colorAttachmentCount = static_cast<uint32_t>(vkColorAttachments.size());
+		renderingInfo.pColorAttachments = vkColorAttachments.data();
 		renderingInfo.pDepthAttachment = &depthAttachment;
 
 		m_renderStats->Begin(commandBuffer);
-		commandBuffer.beginRendering(renderingInfo);
+		vkCommandBuffer.beginRendering(renderingInfo);
 
 		float width = static_cast<float>(renderingInfo.renderArea.extent.width);
 		float height = static_cast<float>(renderingInfo.renderArea.extent.height);
 		vk::Viewport viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
-		commandBuffer.setViewport(0, 1, &viewport);
+		vkCommandBuffer.setViewport(0, 1, &viewport);
 
 		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
-		commandBuffer.setScissor(0, 1, &scissor);
+		vkCommandBuffer.setScissor(0, 1, &scissor);
 
 		UpdateFrameInfo();
 
@@ -202,82 +208,84 @@ namespace Engine::Rendering::Vulkan
 
 		m_sceneManager->Draw(commandBuffer, m_currentFrame);
 
-		commandBuffer.endRendering();
+		vkCommandBuffer.endRendering();
 		m_renderStats->End(commandBuffer);
 
-		m_gBuffer->TransitionImageLayouts(*m_device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+		m_gBuffer->TransitionImageLayouts(*m_device, commandBuffer, ImageLayout::ShaderReadOnly);
 
-		commandBuffer.end();
+		vkCommandBuffer.end();
 
 		return true;
 	}
 
-	bool VulkanRenderer::RecordShadowCommandBuffer(const vk::CommandBuffer& commandBuffer)
+	bool VulkanRenderer::RecordShadowCommandBuffer(const ICommandBuffer& commandBuffer)
 	{
+		vk::CommandBuffer vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
 		vk::CommandBufferBeginInfo beginInfo;
-		if (commandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
+		if (vkCommandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
 		{
 			Logger::Error("Failed to begin recording shadow command buffer.");
 			return false;
 		}
 
-		vk::Extent3D extents = m_shadowMap->GetShadowImage(0).GetDimensions();
-		float width = static_cast<float>(extents.width);
-		float height = static_cast<float>(extents.height);
+		const glm::uvec3& extents = m_shadowMap->GetShadowImage(0).GetDimensions();
+		float width = static_cast<float>(extents.x);
+		float height = static_cast<float>(extents.y);
 		vk::Viewport viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
-		commandBuffer.setViewport(0, 1, &viewport);
+		vkCommandBuffer.setViewport(0, 1, &viewport);
 
 		vk::RenderingInfo renderingInfo{};
 		renderingInfo.renderArea.offset = vk::Offset2D();
-		renderingInfo.renderArea.extent = vk::Extent2D(extents.width, extents.height);
+		renderingInfo.renderArea.extent = vk::Extent2D(extents.x, extents.y);
 		renderingInfo.layerCount = 1;
 
 		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
-		commandBuffer.setScissor(0, 1, &scissor);
+		vkCommandBuffer.setScissor(0, 1, &scissor);
 
-		// TODO: single pass
+		// TODO: single pass?
 		uint32_t cascadeCount = m_shadowMap->GetCascadeCount();
 		for (uint32_t i = 0; i < cascadeCount; ++i)
 		{
-			RenderImage& shadowImage = m_shadowMap->GetShadowImage(i);
-			shadowImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+			IRenderImage& shadowImage = m_shadowMap->GetShadowImage(i);
+			shadowImage.TransitionImageLayout(*m_device, commandBuffer, ImageLayout::DepthStencilAttachment);
 
-			vk::RenderingAttachmentInfo shadowAttachment = m_shadowMap->GetShadowAttachment(i);
+			vk::RenderingAttachmentInfo shadowAttachment = GetAttachmentInfo(m_shadowMap->GetShadowAttachment(i));
 			renderingInfo.pDepthAttachment = &shadowAttachment;
 
 			m_renderStats->Begin(commandBuffer);
-			commandBuffer.beginRendering(renderingInfo);
+			vkCommandBuffer.beginRendering(renderingInfo);
 
 			m_sceneManager->DrawShadows(commandBuffer, m_currentFrame, i);
 
-			commandBuffer.endRendering();
+			vkCommandBuffer.endRendering();
 			m_renderStats->End(commandBuffer);
 
-			shadowImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+			shadowImage.TransitionImageLayout(*m_device, commandBuffer, ImageLayout::ShaderReadOnly);
 		}
 
-		commandBuffer.end();
+		vkCommandBuffer.end();
 
 		return true;
 	}
 
-	bool VulkanRenderer::RecordPresentCommandBuffer(const vk::CommandBuffer& commandBuffer)
+	bool VulkanRenderer::RecordPresentCommandBuffer(const ICommandBuffer& commandBuffer)
 	{
+		vk::CommandBuffer vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
 		vk::CommandBufferBeginInfo beginInfo;
-		if (commandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
+		if (vkCommandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
 		{
 			Logger::Error("Failed to begin recording present command buffer.");
 			return false;
 		}
 
-		RenderImage& outputImage = m_gBuffer->GetOutputImage();
-		const ImageView& outputImageView = m_gBuffer->GetOutputImageView();
-		outputImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eColorAttachmentOptimal);
+		IRenderImage& outputImage = m_gBuffer->GetOutputImage();
+		const IImageView& outputImageView = m_gBuffer->GetOutputImageView();
+		outputImage.TransitionImageLayout(*m_device, commandBuffer, ImageLayout::ColorAttachment);
 
 		vk::ClearValue clearValue = vk::ClearValue(vk::ClearColorValue(m_clearColour.r, m_clearColour.g, m_clearColour.b, m_clearColour.a));
 
 		vk::RenderingAttachmentInfo colorAttachmentInfo{};
-		colorAttachmentInfo.imageView = outputImageView.Get();
+		colorAttachmentInfo.imageView = static_cast<const ImageView&>(outputImageView).Get();
 		colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
 		colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
 		colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
@@ -291,50 +299,51 @@ namespace Engine::Rendering::Vulkan
 		renderingInfo.pColorAttachments = &colorAttachmentInfo;
 
 		m_renderStats->Begin(commandBuffer);
-		commandBuffer.beginRendering(renderingInfo);
+		vkCommandBuffer.beginRendering(renderingInfo);
 
 		float width = static_cast<float>(renderingInfo.renderArea.extent.width);
 		float height = static_cast<float>(renderingInfo.renderArea.extent.height);
 		vk::Viewport viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
-		commandBuffer.setViewport(0, 1, &viewport);
+		vkCommandBuffer.setViewport(0, 1, &viewport);
 
 		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
-		commandBuffer.setScissor(0, 1, &scissor);
+		vkCommandBuffer.setScissor(0, 1, &scissor);
 
 		m_gBuffer->DrawFinalImage(commandBuffer, m_currentFrame);
 
-		commandBuffer.endRendering();
+		vkCommandBuffer.endRendering();
 		m_renderStats->End(commandBuffer);
 
-		commandBuffer.end();
+		vkCommandBuffer.end();
 
 		return true;
 	}
 
-	bool VulkanRenderer::RecordPostProcessingCommandBuffer(const vk::CommandBuffer& commandBuffer, RenderImage& colorImage, const ImageView& imageView)
+	bool VulkanRenderer::RecordPostProcessingCommandBuffer(const ICommandBuffer& commandBuffer, IRenderImage& colorImage, const IImageView& imageView)
 	{
+		vk::CommandBuffer vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
 		vk::CommandBufferBeginInfo beginInfo;
-		if (commandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
+		if (vkCommandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
 		{
 			Logger::Error("Failed to begin recording post processing command buffer.");
 			return false;
 		}
 
-		const ImageView& taaPrevImageView = m_postProcessing->GetTAAPrevImageView();
+		const IImageView& taaPrevImageView = m_postProcessing->GetTAAPrevImageView();
 
-		colorImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eColorAttachmentOptimal);
+		colorImage.TransitionImageLayout(*m_device, commandBuffer, ImageLayout::ColorAttachment);
 		m_postProcessing->TransitionTAAImageLayouts(*m_device, commandBuffer);
-		m_gBuffer->GetOutputImage().TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
-		m_gBuffer->TransitionDepthLayout(*m_device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+		m_gBuffer->GetOutputImage().TransitionImageLayout(*m_device, commandBuffer, ImageLayout::ShaderReadOnly);
+		m_gBuffer->TransitionDepthLayout(*m_device, commandBuffer, ImageLayout::ShaderReadOnly);
 
 		vk::RenderingAttachmentInfo colorAttachmentInfo{};
-		colorAttachmentInfo.imageView = imageView.Get();
+		colorAttachmentInfo.imageView = static_cast<const ImageView&>(imageView).Get();
 		colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
 		colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eLoad;
 		colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
 
 		vk::RenderingAttachmentInfo previousColorAttachmentInfo = colorAttachmentInfo;
-		previousColorAttachmentInfo.imageView = taaPrevImageView.Get();
+		previousColorAttachmentInfo.imageView = static_cast<const ImageView&>(taaPrevImageView).Get();
 
 		std::array< vk::RenderingAttachmentInfo, 2> attachmentInfos =
 		{
@@ -350,24 +359,24 @@ namespace Engine::Rendering::Vulkan
 		renderingInfo.pColorAttachments = attachmentInfos.data();
 
 		m_renderStats->Begin(commandBuffer);
-		commandBuffer.beginRendering(renderingInfo);
+		vkCommandBuffer.beginRendering(renderingInfo);
 
 		float width = static_cast<float>(renderingInfo.renderArea.extent.width);
 		float height = static_cast<float>(renderingInfo.renderArea.extent.height);
 		vk::Viewport viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
-		commandBuffer.setViewport(0, 1, &viewport);
+		vkCommandBuffer.setViewport(0, 1, &viewport);
 
 		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
-		commandBuffer.setScissor(0, 1, &scissor);
+		vkCommandBuffer.setScissor(0, 1, &scissor);
 
 		m_postProcessing->Draw(commandBuffer, m_currentFrame);
 
-		commandBuffer.endRendering();
+		vkCommandBuffer.endRendering();
 		m_renderStats->End(commandBuffer);
 
 		m_postProcessing->BlitTAA(*m_device, commandBuffer);
 
-		commandBuffer.end();
+		vkCommandBuffer.end();
 
 		return true;
 	}
@@ -381,19 +390,20 @@ namespace Engine::Rendering::Vulkan
 		Renderer::SetDebugMode(mode);
 	}
 
-	bool VulkanRenderer::RecordUICommandBuffer(const vk::CommandBuffer& commandBuffer, RenderImage& colorImage, const ImageView& imageView)
+	bool VulkanRenderer::RecordUICommandBuffer(const ICommandBuffer& commandBuffer, IRenderImage& colorImage, const IImageView& imageView)
 	{
+		vk::CommandBuffer vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
 		vk::CommandBufferBeginInfo beginInfo;
-		if (commandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
+		if (vkCommandBuffer.begin(&beginInfo) != vk::Result::eSuccess)
 		{
 			Logger::Error("Failed to begin recording UI command buffer.");
 			return false;
 		}
 
-		colorImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::eColorAttachmentOptimal);
+		colorImage.TransitionImageLayout(*m_device, commandBuffer, ImageLayout::ColorAttachment);
 
 		vk::RenderingAttachmentInfo colorAttachmentInfo{};
-		colorAttachmentInfo.imageView = imageView.Get();
+		colorAttachmentInfo.imageView = static_cast<const ImageView&>(imageView).Get();
 		colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
 		colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eLoad;
 		colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
@@ -406,35 +416,35 @@ namespace Engine::Rendering::Vulkan
 		renderingInfo.pColorAttachments = &colorAttachmentInfo;
 
 		m_renderStats->Begin(commandBuffer);
-		commandBuffer.beginRendering(renderingInfo);
+		vkCommandBuffer.beginRendering(renderingInfo);
 
 		float width = static_cast<float>(renderingInfo.renderArea.extent.width);
 		float height = static_cast<float>(renderingInfo.renderArea.extent.height);
 		vk::Viewport viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
-		commandBuffer.setViewport(0, 1, &viewport);
+		vkCommandBuffer.setViewport(0, 1, &viewport);
 
 		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
-		commandBuffer.setScissor(0, 1, &scissor);
+		vkCommandBuffer.setScissor(0, 1, &scissor);
 
-		m_uiManager->Draw(commandBuffer, width, height);
+		m_uiManager->Draw(vkCommandBuffer, width, height);
 
-		commandBuffer.endRendering();
+		vkCommandBuffer.endRendering();
 		m_renderStats->End(commandBuffer);
 
-		colorImage.TransitionImageLayout(*m_device, commandBuffer, vk::ImageLayout::ePresentSrcKHR);
+		colorImage.TransitionImageLayout(*m_device, commandBuffer, ImageLayout::PresentSrc);
 
-		commandBuffer.end();
+		vkCommandBuffer.end();
 
 		return true;
 	}
 
-	bool VulkanRenderer::SubmitResourceCommand(std::function<bool(const vk::CommandBuffer&, std::vector<std::unique_ptr<Buffer>>&)> command,
-		std::optional<std::function<void()>> postAction)
+	bool VulkanRenderer::SubmitResourceCommand(std::function<bool(const IDevice& device, const IPhysicalDevice& physicalDevice, const ICommandBuffer&,
+		std::vector<std::unique_ptr<IBuffer>>&)> command, std::optional<std::function<void()>> postAction)
 	{
 		ResourceCommandData resourceData = {};
 		resourceData.commandBuffer = m_resourceCommandPool->BeginResourceCommandBuffer(*m_device);
 
-		if (!command(resourceData.commandBuffer.get(), resourceData.buffers))
+		if (!command(*m_device, *m_physicalDevice, CommandBuffer(resourceData.commandBuffer.get()), resourceData.buffers))
 		{
 			return false;
 		}
@@ -532,11 +542,12 @@ namespace Engine::Rendering::Vulkan
 
 		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
 		{
-			m_frameInfoBuffers[i] = std::make_unique<Buffer>(m_allocator);
-			Buffer& buffer = *m_frameInfoBuffers[i];
+			m_frameInfoBuffers[i] = std::move(std::make_unique<Buffer>(m_allocator));
+			IBuffer& buffer = *m_frameInfoBuffers[i];
 
-			if (!buffer.Initialise(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_AUTO,
-				VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, vk::SharingMode::eExclusive))
+			if (!buffer.Initialise(bufferSize, BufferUsageFlags::UniformBuffer, MemoryUsage::Auto, 
+				AllocationCreateFlags::HostAccessSequentialWrite | AllocationCreateFlags::Mapped,
+				SharingMode::Exclusive))
 			{
 				return false;
 			}
@@ -560,10 +571,11 @@ namespace Engine::Rendering::Vulkan
 		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
 		{
 			m_lightBuffers[i] = std::make_unique<Buffer>(m_allocator);
-			Buffer& buffer = *m_lightBuffers[i];
+			IBuffer& buffer = *m_lightBuffers[i];
 
-			if (!buffer.Initialise(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_AUTO,
-				VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, vk::SharingMode::eExclusive))
+			if (!buffer.Initialise(bufferSize, BufferUsageFlags::UniformBuffer, MemoryUsage::Auto,
+				AllocationCreateFlags::HostAccessSequentialWrite | AllocationCreateFlags::Mapped,
+				SharingMode::Exclusive))
 			{
 				return false;
 			}
@@ -637,6 +649,7 @@ namespace Engine::Rendering::Vulkan
 		m_postProcessing = std::make_unique<PostProcessing>(*m_gBuffer);
 		m_renderStats = std::make_unique<VulkanRenderStats>(*m_gBuffer, *m_shadowMap);
 		m_pipelineManager = std::make_unique<PipelineManager>();
+		m_resourceFactory = std::make_unique<ResourceFactory>(&m_allocator);
 
 		if (!m_instance->Initialise(title, *m_Debug, m_debug)
 			|| !m_surface->Initialise(*m_instance, m_window)
@@ -645,8 +658,7 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		vk::Format depthFormat = m_physicalDevice->FindDepthFormat();
-		float maxAnisotoropic = m_physicalDevice->GetLimits().maxSamplerAnisotropy;
+		Format depthFormat = m_physicalDevice->FindDepthFormat();
 
 		if (!m_device->Initialise(*m_physicalDevice)
 			|| !CreateAllocator()
@@ -657,10 +669,10 @@ namespace Engine::Rendering::Vulkan
 			|| !CreateSyncObjects()
 			|| !CreateFrameInfoUniformBuffer()
 			|| !CreateLightUniformBuffer()
-			|| !m_shadowMap->Rebuild(*m_device, m_allocator, depthFormat)
-			|| !m_gBuffer->Initialise(*m_physicalDevice, *m_device, *m_pipelineManager, m_allocator,
+			|| !m_shadowMap->Rebuild(*m_device, *m_resourceFactory, depthFormat)
+			|| !m_gBuffer->Initialise(*m_physicalDevice, *m_device, *m_pipelineManager, *m_resourceFactory,
 				depthFormat, size, m_frameInfoBuffers, m_lightBuffers, *m_shadowMap)
-			|| !m_postProcessing->Initialise(*m_physicalDevice, *m_device, *m_pipelineManager, m_allocator, size))
+			|| !m_postProcessing->Initialise(*m_physicalDevice, *m_device, *m_pipelineManager, *m_resourceFactory, size))
 		{
 			return false;
 		}
@@ -708,7 +720,7 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!m_sceneManager->Initialise(*m_physicalDevice, *m_device, *m_pipelineManager))
+		if (!m_sceneManager->Initialise(*m_physicalDevice, *m_device, *m_resourceFactory, *m_pipelineManager))
 		{
 			return false;
 		}
@@ -734,13 +746,13 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!m_gBuffer->Rebuild(*m_physicalDevice, *m_device, m_allocator, size,
+		if (!m_gBuffer->Rebuild(*m_physicalDevice, *m_device, *m_resourceFactory, size,
 			m_frameInfoBuffers, m_lightBuffers, *m_shadowMap))
 		{
 			return false;
 		}
 
-		if (!m_postProcessing->Rebuild(*m_physicalDevice, *m_device, m_allocator, size))
+		if (!m_postProcessing->Rebuild(*m_physicalDevice, *m_device, *m_resourceFactory, size))
 		{
 			return false;
 		}
@@ -864,7 +876,7 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<vk::SubmitInfo> submitInfos;
 
-		if (!RecordRenderCommandBuffer(m_renderCommandBuffers[m_currentFrame].get()))
+		if (!RecordRenderCommandBuffer(CommandBuffer(m_renderCommandBuffers[m_currentFrame].get())))
 		{
 			return false;
 		}
@@ -873,7 +885,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_shadowCommandBuffers[m_currentFrame]->reset();
 
-		if (!RecordShadowCommandBuffer(m_shadowCommandBuffers[m_currentFrame].get()))
+		if (!RecordShadowCommandBuffer(CommandBuffer(m_shadowCommandBuffers[m_currentFrame].get())))
 		{
 			return false;
 		}
@@ -882,7 +894,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_presentCommandBuffers[m_currentFrame]->reset();
 
-		if (!RecordPresentCommandBuffer(m_presentCommandBuffers[m_currentFrame].get()))
+		if (!RecordPresentCommandBuffer(CommandBuffer(m_presentCommandBuffers[m_currentFrame].get())))
 		{
 			return false;
 		}
@@ -896,7 +908,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_postProcessingCommandBuffers[m_currentFrame]->reset();
 
-		if (!RecordPostProcessingCommandBuffer(m_postProcessingCommandBuffers[m_currentFrame].get(), colorImage, imageView))
+		if (!RecordPostProcessingCommandBuffer(CommandBuffer(m_postProcessingCommandBuffers[m_currentFrame].get()), colorImage, imageView))
 		{
 			return false;
 		}
@@ -908,7 +920,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_uiCommandBuffers[m_currentFrame]->reset();
 
-		if (!RecordUICommandBuffer(m_uiCommandBuffers[m_currentFrame].get(), colorImage, imageView))
+		if (!RecordUICommandBuffer(CommandBuffer(m_uiCommandBuffers[m_currentFrame].get()), colorImage, imageView))
 		{
 			return false;
 		}
@@ -937,7 +949,7 @@ namespace Engine::Rendering::Vulkan
 		}
 		catch (std::exception ex)
 		{
-			Logger::Error("Fatal exception during present call occured: {}", ex.what());
+			Logger::Error("Fatal exception during present call occurred: {}", ex.what());
 			return false;
 		}
 

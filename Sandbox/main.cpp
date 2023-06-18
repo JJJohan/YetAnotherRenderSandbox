@@ -1,14 +1,13 @@
 #include <Core/Logging/Logger.hpp>
-#include <Core/Colour.hpp>
-#include <Core/Image.hpp>
 #include <Core/AsyncData.hpp>
 #include <OS/Window.hpp>
-#include <OS/Files.hpp>
 #include <Rendering/Renderer.hpp>
 #include <Rendering/SceneManager.hpp>
-#include <Rendering/VertexData.hpp>
-#include <Rendering/GLTFLoader.hpp>
+#include "UI.hpp"
+#include "Options.hpp"
+#include <UI/Drawer.hpp>
 #include <UI/UIManager.hpp>
+#include <memory>
 
 using namespace Engine;
 using namespace Engine::Rendering;
@@ -44,122 +43,10 @@ uint32_t CreateTestMesh(const Renderer& renderer, std::shared_ptr<Image>& image)
 		image);
 }
 
-Colour g_clearColour = Colour(0, 0, 0);
-Colour g_sunColour = Colour(1, 1, 0.9f);
-float g_sunIntensity = 5.0f;
 Renderer* g_renderer;
 Window* g_window;
-bool g_useTAA = true;
-bool g_useHDR = false;
 AsyncData g_sceneLoad;
-
-std::vector<ScrollingGraphBuffer> g_statGraphBuffers =
-{
-	ScrollingGraphBuffer("Scene", 1000),
-	ScrollingGraphBuffer("Shadow Cascade 1", 1000),
-	ScrollingGraphBuffer("Shadow Cascade 2", 1000),
-	ScrollingGraphBuffer("Shadow Cascade 3", 1000),
-	ScrollingGraphBuffer("Shadow Cascade 4", 1000),
-	ScrollingGraphBuffer("Combine", 1000),
-	ScrollingGraphBuffer("TAA", 1000),
-	ScrollingGraphBuffer("UI", 1000),
-	ScrollingGraphBuffer("Total", 1000)
-};
-
-std::vector<const char*> g_debugModes = { "None", "Albedo", "Normal", "WorldPos", "MetalRoughness", "Cascade Index" };
-
-void DrawUI(const Drawer& drawer)
-{
-	if (drawer.Begin("UI"))
-	{
-		if (drawer.BeginTabBar("##uiTabBar"))
-		{
-			if (drawer.BeginTabItem("Options"))
-			{
-				int32_t debugMode = static_cast<int32_t>(g_renderer->GetDebugMode());
-				if (drawer.ComboBox("Debug Mode", g_debugModes, &debugMode))
-				{
-					g_renderer->SetDebugMode(debugMode);
-				}
-
-				if (drawer.Checkbox("Use Temporal AA", &g_useTAA))
-				{
-					g_renderer->SetTemporalAAState(g_useTAA);
-				}
-
-				bool hdrSupported = g_renderer->IsHDRSupported();
-				drawer.BeginDisabled(!hdrSupported);
-				if (drawer.Checkbox("Use HDR", &g_useHDR))
-				{
-					g_renderer->SetHDRState(g_useHDR);
-				}
-				drawer.EndDisabled();
-
-				if (drawer.Colour3("Clear Colour", g_clearColour))
-				{
-					g_renderer->SetClearColour(g_clearColour);
-				}
-
-				if (drawer.Colour3("Sun Colour", g_sunColour))
-				{
-					g_renderer->SetSunLightColour(g_sunColour);
-				}
-
-				if (drawer.SliderFloat("Sun Intensity", &g_sunIntensity, 0.0f, 20.0f))
-				{
-					g_renderer->SetSunLightIntensity(g_sunIntensity);
-				}
-
-				drawer.EndTabItem();
-			}
-
-			if (drawer.BeginTabItem("Statistics"))
-			{
-				if (drawer.CollapsingHeader("Memory", true))
-				{
-					const MemoryStats& memoryStats = g_renderer->GetMemoryStats();
-
-					float dedicatedUsage = static_cast<float>(memoryStats.DedicatedUsage) / 1024.0f / 1024.0f;
-					float dedicatedBudget = static_cast<float>(memoryStats.DedicatedBudget) / 1024.0f / 1024.0f;
-					float dedicatedPercent = dedicatedUsage / dedicatedBudget * 100.0f;
-					float sharedUsage = static_cast<float>(memoryStats.SharedUsage) / 1024.0f / 1024.0f;
-					float sharedBudget = static_cast<float>(memoryStats.SharedBudget) / 1024.0f / 1024.0f;
-					float sharedPercent = sharedUsage / sharedBudget * 100.0f;
-
-					drawer.Text("GBuffer Usage: %.2f MB", static_cast<float>(memoryStats.GBuffer) / 1024.0f / 1024.0f);
-					drawer.Text("Shadow Map Usage: %.2f MB", static_cast<float>(memoryStats.ShadowMap) / 1024.0f / 1024.0f);
-					drawer.Text("Dedicated VRAM Usage: %.2f MB / %.2f MB (%.2f%%)", dedicatedUsage, dedicatedBudget, dedicatedPercent);
-					drawer.Text("Shared VRAM Usage: %.2f MB / %.2f MB (%.2f%%)", sharedUsage, sharedBudget, sharedPercent);
-				}
-
-				if (drawer.CollapsingHeader("Performance", true))
-				{
-					drawer.Text("FPS: %.2f", g_renderer->GetUIManager().GetFPS());
-
-					const std::vector<FrameStats>& statsArray = g_renderer->GetRenderStats();
-					if (!statsArray.empty())
-					{
-						for (size_t pass = 0; pass < statsArray.size(); ++pass)
-						{
-							const FrameStats& stats = statsArray[pass];
-							ScrollingGraphBuffer& buffer = g_statGraphBuffers[pass];
-							buffer.AddValue(stats.RenderTime);
-						}
-
-						glm::vec2 space = drawer.GetContentRegionAvailable();
-						drawer.PlotGraphs("Frame Times (ms)", g_statGraphBuffers, space);
-					}
-				}
-
-				drawer.EndTabItem();
-			}
-
-			drawer.EndTabBar();
-		}
-
-		drawer.End();
-	}
-}
+Sandbox::Options g_options;
 
 void DrawLoadProgress(const Drawer& drawer)
 {
@@ -171,7 +58,6 @@ void DrawLoadProgress(const Drawer& drawer)
 
 	const ProgressInfo& progress = g_sceneLoad.GetProgress();
 	drawer.Progress(progress);
-
 }
 
 int main()
@@ -189,9 +75,11 @@ int main()
 		return 1;
 	}
 
-	renderer->SetClearColour(g_clearColour);
-	renderer->SetSunLightColour(g_sunColour);
-	renderer->SetSunLightIntensity(g_sunIntensity);
+	std::unique_ptr<Sandbox::UI> ui = std::make_unique<Sandbox::UI>(g_options, g_renderer);
+
+	renderer->SetClearColour(g_options.ClearColour);
+	renderer->SetSunLightColour(g_options.SunColour);
+	renderer->SetSunLightIntensity(g_options.SunIntensity);
 
 	renderer->GetUIManager().RegisterDrawCallback(DrawLoadProgress);
 	renderer->GetSceneManager().LoadScene("C:/Users/Johan/Desktop/test/Bistro_small.glb", true, g_sceneLoad);
@@ -200,6 +88,8 @@ int main()
 
 	float totalTime = 0.0f;
 	static auto prevTime = std::chrono::high_resolution_clock::now();
+
+	const auto& uiDrawCallback = std::bind(&Sandbox::UI::Draw, ui.get(), std::placeholders::_1);
 
 	bool drawUI = false;
 	while (!window->IsClosed())
@@ -219,9 +109,9 @@ int main()
 			drawUI = !drawUI;
 			window->SetCursorVisible(drawUI);
 			if (drawUI)
-				renderer->GetUIManager().RegisterDrawCallback(DrawUI);
+				renderer->GetUIManager().RegisterDrawCallback(uiDrawCallback);
 			else
-				renderer->GetUIManager().UnregisterDrawCallback(DrawUI);
+				renderer->GetUIManager().UnregisterDrawCallback(uiDrawCallback);
 		}
 
 		// Rotate sunlight for testing

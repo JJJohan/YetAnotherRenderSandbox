@@ -1,8 +1,9 @@
 #pragma once
-#include <string>
 #include <vector>
-#include <glm/glm.hpp>
-#include <imgui_node_editor.h>
+#include <memory>
+#include <unordered_map>
+#include "Core/Colour.hpp"
+#include <imgui.h>
 
 namespace Engine::UI
 {
@@ -27,12 +28,20 @@ namespace Engine::UI
 		Houdini
 	};
 
+	class NodeBuilder;
+
 	class NodeManager
 	{
 	public:
 		NodeManager();
 		~NodeManager();
-		void Draw();
+
+		bool Begin(const char* label);
+		void SetupLink(const char* outputNodeName, const char* outputPinName, const char* inputNodeName, const char* inputPinName);
+		void DrawNode(const char* label, const ImVec2& pos, const std::vector<const char*>& inputs, 
+			const std::vector<const char*>& outputs, const Colour& colour);
+		void ZoomToContent();
+		void End();
 
 	private:
 		enum class PinKind
@@ -47,35 +56,31 @@ namespace Engine::UI
 		{
 			uint32_t ID;
 			Node* Node;
-			std::string Name;
 			PinType Type;
 			PinKind Kind;
 
-			Pin(uint32_t id, const char* name, PinType type)
-				: ID(id)
-				, Node(nullptr)
-				, Name(name)
-				, Type(type)
-				, Kind(PinKind::Input)
+			inline void Setup(uint32_t id, PinType type)
 			{
+				ID = id;
+				Node = nullptr;
+				Type = type;
+				Kind = PinKind::Input;
 			}
 		};
 
 		struct Node
 		{
 			uint32_t ID;
-			std::string Name;
-			std::vector<Pin> Inputs;
-			std::vector<Pin> Outputs;
+			std::unordered_map<const char*, Pin> Inputs;
+			std::unordered_map<const char*, Pin> Outputs;
 			ImColor Color;
 			NodeType Type;
 
-			Node(uint32_t id, const char* name, ImColor color = ImColor(100, 100, 100))
-				: ID(id)
-				, Name(name)
-				, Color(color)
-				, Type(NodeType::Blueprint)
+			inline void Setup(uint32_t id, ImColor color = ImColor(100, 100, 100))
 			{
+				ID = id;
+				Color = color;
+				Type = NodeType::Blueprint;
 			}
 		};
 
@@ -95,16 +100,16 @@ namespace Engine::UI
 			}
 		};
 
+		Node& GetOrCreateNode(const char* nodeName);
+		Pin& GetOrCreatePin(std::unordered_map<const char*, Pin>& pinMap, const char* pinName);
+
 		void DrawIcon(const ImVec2& size, bool filled, ImU32 color, ImU32 innerColor);
-		bool IsPinLinked(uint32_t id);
-		Node* SpawnBranchNode();
-		void BuildNode(Node* node);
 		ImColor GetIconColor(PinType type);
 		void DrawPinIcon(const Pin& pin, bool connected, uint8_t alpha);
 
 		uint32_t m_currentId;
-		const float m_pinIconSize = 24.0f;
-		std::vector<Node> m_nodes;
+		std::unique_ptr<NodeBuilder> m_builder;
+		std::unordered_map<const char*, Node> m_nodeMap;
 		std::vector<Link> m_links;
 	};
 }

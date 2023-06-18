@@ -1,8 +1,10 @@
 #include "RenderImage.hpp"
 #include "Device.hpp"
 #include "CommandPool.hpp"
+#include "CommandBuffer.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "PhysicalDevice.hpp"
+#include "VulkanTypesInterop.hpp"
 
 using namespace Engine::Logging;
 
@@ -13,10 +15,6 @@ namespace Engine::Rendering::Vulkan
 		, m_imageAlloc(nullptr)
 		, m_imageAllocInfo()
 		, m_allocator(allocator)
-		, m_format(vk::Format::eUndefined)
-		, m_layout(vk::ImageLayout::eUndefined)
-		, m_dimensions()
-		, m_mipLevels(1)
 	{
 	}
 
@@ -25,10 +23,6 @@ namespace Engine::Rendering::Vulkan
 		, m_imageAlloc(nullptr)
 		, m_imageAllocInfo()
 		, m_allocator(nullptr)
-		, m_format(format)
-		, m_layout(vk::ImageLayout::eUndefined)
-		, m_dimensions()
-		, m_mipLevels(1)
 	{
 	}
 
@@ -38,7 +32,7 @@ namespace Engine::Rendering::Vulkan
 			vmaDestroyImage(m_allocator, m_image, m_imageAlloc);
 	}
 
-	bool RenderImage::UpdateContents(const void* data, vk::DeviceSize size)
+	bool RenderImage::UpdateContents(const void* data, size_t size)
 	{
 		if (m_imageAllocInfo.pMappedData == nullptr)
 		{
@@ -59,18 +53,11 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool RenderImage::FormatSupported(const PhysicalDevice& physicalDevice, vk::Format format)
-	{
-		vk::FormatProperties properties = physicalDevice.Get().getFormatProperties(format);
-		return (properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eTransferDst &&
-			properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImage);
-	}
-
-	void RenderImage::GenerateMipmaps(const Device& device, const vk::CommandBuffer& commandBuffer)
+	void RenderImage::GenerateMipmaps(const IDevice& device, const ICommandBuffer& commandBuffer)
 	{
 		if (m_mipLevels == 1)
 		{
-			TransitionImageLayout(device, commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+			TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
 			return;
 		}
 
@@ -83,7 +70,9 @@ namespace Engine::Rendering::Vulkan
 		barrier.subresourceRange.layerCount = 1;
 		barrier.subresourceRange.levelCount = 1;
 
-		vk::Extent3D mipDimensions = m_dimensions;
+		const vk::CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
+
+		glm::uvec3 mipDimensions = m_dimensions;
 		for (uint32_t i = 1; i < m_mipLevels; ++i)
 		{
 			barrier.subresourceRange.baseMipLevel = i - 1;
@@ -92,29 +81,29 @@ namespace Engine::Rendering::Vulkan
 			barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
 			barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
 
-			commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+			vulkanCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
 				vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlagBits::eByRegion,
 				nullptr, nullptr, { barrier });
 
 			vk::ImageBlit blit;
 			blit.srcSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i - 1, 0, 1);
-			blit.srcOffsets = std::array<vk::Offset3D, 2> { vk::Offset3D(), vk::Offset3D(mipDimensions.width, mipDimensions.height, 1) };
+			blit.srcOffsets = std::array<vk::Offset3D, 2> { vk::Offset3D(), vk::Offset3D(mipDimensions.x, mipDimensions.y, 1) };
 			blit.dstSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i, 0, 1);
-			blit.dstOffsets = std::array<vk::Offset3D, 2> { vk::Offset3D(), vk::Offset3D(mipDimensions.width > 1 ? mipDimensions.width / 2 : 1, mipDimensions.height > 1 ? mipDimensions.height / 2 : 1, 1) };
+			blit.dstOffsets = std::array<vk::Offset3D, 2> { vk::Offset3D(), vk::Offset3D(mipDimensions.x > 1 ? mipDimensions.x / 2 : 1, mipDimensions.y > 1 ? mipDimensions.y / 2 : 1, 1) };
 
-			commandBuffer.blitImage(m_image, vk::ImageLayout::eTransferSrcOptimal, m_image, vk::ImageLayout::eTransferDstOptimal, { blit }, vk::Filter::eLinear);
+			vulkanCommandBuffer.blitImage(m_image, vk::ImageLayout::eTransferSrcOptimal, m_image, vk::ImageLayout::eTransferDstOptimal, { blit }, vk::Filter::eLinear);
 
 			barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
 			barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 			barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
 			barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
-			commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+			vulkanCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
 				vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlagBits::eByRegion,
 				nullptr, nullptr, { barrier });
 
-			if (mipDimensions.width > 1) mipDimensions.width /= 2;
-			if (mipDimensions.height > 1) mipDimensions.height /= 2;
+			if (mipDimensions.x > 1) mipDimensions.x /= 2;
+			if (mipDimensions.y > 1) mipDimensions.y /= 2;
 		}
 
 		barrier.subresourceRange.baseMipLevel = m_mipLevels - 1;
@@ -123,24 +112,25 @@ namespace Engine::Rendering::Vulkan
 		barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
 		barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
-		commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+		vulkanCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
 			vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlagBits::eByRegion,
 			nullptr, nullptr, { barrier });
 	}
 
-	bool RenderImage::Initialise(vk::ImageType imageType, vk::Format format, vk::Extent3D dimensions, uint32_t mipLevels, vk::ImageTiling tiling,
-		vk::ImageUsageFlags imageUsage, VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode)
+	bool RenderImage::Initialise(ImageType imageType, Format format, const glm::uvec3& dimensions, uint32_t mipLevels, ImageTiling tiling,
+		ImageUsageFlags imageUsage, MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode)
 	{
 		m_format = format;
 		m_dimensions = dimensions;
 
 		m_mipLevels = mipLevels;
 
-		vk::ImageCreateInfo RenderImageInfo(vk::ImageCreateFlags(), imageType, format, dimensions, m_mipLevels, 1, vk::SampleCountFlagBits::e1, tiling, imageUsage, sharingMode);
+		vk::ImageCreateInfo RenderImageInfo(vk::ImageCreateFlags(), GetImageType(imageType), GetVulkanFormat(format), GetExtent3D(dimensions),
+			m_mipLevels, 1, vk::SampleCountFlagBits::e1, GetImageTiling(tiling), static_cast<vk::ImageUsageFlagBits>(imageUsage), GetSharingMode(sharingMode));
 
 		VmaAllocationCreateInfo allocCreateInfo = {};
-		allocCreateInfo.usage = memoryUsage;
-		allocCreateInfo.flags = createFlags;
+		allocCreateInfo.usage = GetVmaMemoryUsage(memoryUsage);
+		allocCreateInfo.flags = static_cast<VmaAllocationCreateFlagBits>(createFlags);
 
 		VkImageCreateInfo RenderImageInfoImp = static_cast<VkImageCreateInfo>(RenderImageInfo);
 		VkResult createResult = vmaCreateImage(m_allocator, &RenderImageInfoImp, &allocCreateInfo, &m_image, &m_imageAlloc, &m_imageAllocInfo);
@@ -153,40 +143,40 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool HasStencilComponent(vk::Format format)
+	bool HasStencilComponent(Format format)
 	{
-		return format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint;
+		return format == Format::D32SfloatS8Uint || format == Format::D24UnormS8Uint;
 	}
 
-	inline bool SetFlags(const vk::ImageLayout& imageLayout, vk::AccessFlags& accessMask, vk::PipelineStageFlags& stage)
+	inline bool SetFlags(const ImageLayout& imageLayout, vk::AccessFlags& accessMask, vk::PipelineStageFlags& stage)
 	{
 		switch (imageLayout)
 		{
-		case vk::ImageLayout::eUndefined:
+		case ImageLayout::Undefined:
 			accessMask = vk::AccessFlagBits::eNone;
 			stage = vk::PipelineStageFlagBits::eTopOfPipe;
 			return true;
-		case vk::ImageLayout::eTransferSrcOptimal:
+		case ImageLayout::TransferSrc:
 			accessMask = vk::AccessFlagBits::eTransferRead;
 			stage = vk::PipelineStageFlagBits::eTransfer;
 			return true;
-		case vk::ImageLayout::eTransferDstOptimal:
+		case ImageLayout::TransferDst:
 			accessMask = vk::AccessFlagBits::eTransferWrite;
 			stage = vk::PipelineStageFlagBits::eTransfer;
 			return true;
-		case vk::ImageLayout::eShaderReadOnlyOptimal:
+		case ImageLayout::ShaderReadOnly:
 			accessMask = vk::AccessFlagBits::eShaderRead;
 			stage = vk::PipelineStageFlagBits::eFragmentShader;
 			return true;
-		case vk::ImageLayout::eColorAttachmentOptimal:
+		case ImageLayout::ColorAttachment:
 			accessMask = vk::AccessFlagBits::eColorAttachmentWrite;
 			stage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 			return true;
-		case vk::ImageLayout::eDepthStencilAttachmentOptimal:
+		case ImageLayout::DepthStencilAttachment:
 			accessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
 			stage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
 			return true;
-		case vk::ImageLayout::ePresentSrcKHR:
+		case ImageLayout::PresentSrc:
 			accessMask = vk::AccessFlagBits::eNone;
 			stage = vk::PipelineStageFlagBits::eBottomOfPipe;
 			return true;
@@ -195,7 +185,7 @@ namespace Engine::Rendering::Vulkan
 		}
 	}
 
-	void RenderImage::TransitionImageLayout(const Device& device, const vk::CommandBuffer& commandBuffer, vk::ImageLayout newLayout)
+	void RenderImage::TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout)
 	{
 		if (m_layout == newLayout)
 			return;
@@ -218,7 +208,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		vk::ImageAspectFlags aspectFlags;
-		if (m_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal || newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+		if (m_layout == ImageLayout::DepthStencilAttachment || newLayout == ImageLayout::DepthStencilAttachment)
 		{
 			aspectFlags = vk::ImageAspectFlagBits::eDepth;
 
@@ -234,10 +224,12 @@ namespace Engine::Rendering::Vulkan
 
 		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, 1);
 
-		vk::ImageMemoryBarrier barrier(srcAccessMask, dstAccessMask, m_layout, newLayout,
+		vk::ImageMemoryBarrier barrier(srcAccessMask, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
 			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
 
-		commandBuffer.pipelineBarrier(srcStage, dstStage, vk::DependencyFlagBits::eByRegion, nullptr, nullptr, { barrier });
+		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);
+		vulkanCommandBuffer.Get().pipelineBarrier(srcStage, dstStage,
+			vk::DependencyFlagBits::eByRegion, nullptr, nullptr, {barrier});
 
 		m_layout = newLayout;
 	}

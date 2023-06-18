@@ -2,10 +2,8 @@
 
 #include "../Renderer.hpp"
 #include <vulkan/vulkan.hpp>
-#include <unordered_map>
 #include <functional>
 #include <queue>
-#include <vma/vk_mem_alloc.h>
 #include "VulkanRenderStats.hpp"
 #include "SwapChain.hpp"
 #include "VulkanSceneManager.hpp"
@@ -18,6 +16,14 @@ namespace Engine::Rendering
 	class SceneManager;
 	struct FrameInfoUniformBuffer;
 	struct LightUniformBuffer;
+	class GBuffer;
+	class ShadowMap;
+	class PostProcessing;
+	class IBuffer;
+	class IRenderImage;
+	class IImageView;
+	class IDevice;
+	class IPhysicalDevice;
 }
 
 namespace Engine::UI
@@ -34,12 +40,6 @@ namespace Engine::Rendering::Vulkan
 	class Surface;
 	class PipelineLayout;
 	class CommandPool;
-	class Buffer;
-	class GBuffer;
-	class ShadowMap;
-	class PostProcessing;
-	class RenderImage;
-	class ImageView;
 	class PipelineManager;
 
 	class VulkanRenderer : public Renderer
@@ -73,17 +73,19 @@ namespace Engine::Rendering::Vulkan
 		inline const GBuffer& GetGBuffer() const { return *m_gBuffer; };
 		inline VmaAllocator GetAllocator() const { return m_allocator; };
 		inline uint32_t GetConcurrentFrameCount() const { return m_maxConcurrentFrames; };
-		inline const std::vector<std::unique_ptr<Buffer>>& GetFrameInfoBuffers() const { return m_frameInfoBuffers; };
-		inline const std::vector<std::unique_ptr<Buffer>>& GetLightBuffers() const { return m_lightBuffers; };
+		inline const std::vector<std::unique_ptr<IBuffer>>& GetFrameInfoBuffers() const { return m_frameInfoBuffers; };
+		inline const std::vector<std::unique_ptr<IBuffer>>& GetLightBuffers() const { return m_lightBuffers; };
 
-		bool SubmitResourceCommand(std::function<bool(const vk::CommandBuffer&, std::vector<std::unique_ptr<Buffer>>&)> command, std::optional<std::function<void()>> postAction = std::nullopt);
+		bool SubmitResourceCommand(std::function<bool(const IDevice& device, const IPhysicalDevice& physicalDevice, 
+			const ICommandBuffer&, std::vector<std::unique_ptr<IBuffer>>&)> command,
+			std::optional<std::function<void()>> postAction = std::nullopt);
 
 	private:
-		bool RecordRenderCommandBuffer(const vk::CommandBuffer& commandBuffer);
-		bool RecordShadowCommandBuffer(const vk::CommandBuffer& commandBuffer);
-		bool RecordPresentCommandBuffer(const vk::CommandBuffer& commandBuffer);
-		bool RecordPostProcessingCommandBuffer(const vk::CommandBuffer& commandBuffer, RenderImage& image, const ImageView& imageView);
-		bool RecordUICommandBuffer(const vk::CommandBuffer& commandBuffer, RenderImage& image, const ImageView& imageView);
+		bool RecordRenderCommandBuffer(const ICommandBuffer& commandBuffer);
+		bool RecordShadowCommandBuffer(const ICommandBuffer& commandBuffer);
+		bool RecordPresentCommandBuffer(const ICommandBuffer& commandBuffer);
+		bool RecordPostProcessingCommandBuffer(const ICommandBuffer& commandBuffer, IRenderImage& image, const IImageView& imageView);
+		bool RecordUICommandBuffer(const ICommandBuffer& commandBuffer, IRenderImage& image, const IImageView& imageView);
 		bool CreateSyncObjects();
 		bool CreateAllocator();
 		bool RecreateSwapChain(const glm::uvec2& size, bool rebuildPipelines);
@@ -91,12 +93,10 @@ namespace Engine::Rendering::Vulkan
 		bool CreateLightUniformBuffer();
 		void UpdateFrameInfo();
 
-		void OnResize(const glm::uvec2& size);
-
 		struct ResourceCommandData
 		{
 			vk::UniqueFence fence;
-			std::vector<std::unique_ptr<Buffer>> buffers;
+			std::vector<std::unique_ptr<IBuffer>> buffers;
 			vk::UniqueCommandBuffer commandBuffer;
 			std::optional<std::function<void()>> postAction;
 		};
@@ -118,8 +118,8 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<CommandPool> m_resourceCommandPool;
 		std::unique_ptr<CommandPool> m_renderCommandPool;
 
-		std::vector<std::unique_ptr<Buffer>> m_frameInfoBuffers;
-		std::vector<std::unique_ptr<Buffer>> m_lightBuffers;
+		std::vector<std::unique_ptr<IBuffer>> m_frameInfoBuffers;
+		std::vector<std::unique_ptr<IBuffer>> m_lightBuffers;
 		std::vector<FrameInfoUniformBuffer*> m_frameInfoBufferData;
 		std::vector<LightUniformBuffer*> m_lightBufferData;
 

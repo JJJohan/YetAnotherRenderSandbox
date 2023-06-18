@@ -67,17 +67,17 @@ namespace Engine::Rendering
 		Logger::Error("Material '{}' has invalid data type for element: {}", name, elementName);
 	}
 
-	inline bool TryParseProgramType(std::string_view name, std::string& string, ProgramType& programType)
+	inline bool TryParseProgramType(std::string_view name, std::string& string, ShaderStageFlags& programType)
 	{
 		Utilities::StringToLower(string);
 		if (string == "vertex")
 		{
-			programType = ProgramType::Vertex;
+			programType = ShaderStageFlags::Vertex;
 			return true;
 		}
 		else if (string == "fragment")
 		{
-			programType = ProgramType::Fragment;
+			programType = ShaderStageFlags::Fragment;
 			return true;
 		}
 
@@ -85,38 +85,38 @@ namespace Engine::Rendering
 		return false;
 	}
 
-	inline bool TryParseAttachmentFormat(std::string_view name, std::string& string, AttachmentFormat& attachmentFormat)
+	inline bool TryParseAttachmentFormat(std::string_view name, std::string& string, Format& attachmentFormat)
 	{
 		Utilities::StringToLower(string);
 
 		if (string == "r8g8unorm")
 		{
-			attachmentFormat = AttachmentFormat::R8G8Unorm;
+			attachmentFormat = Format::R8G8Unorm;
 			return true;
 		}
 		else if (string == "r8g8b8a8unorm")
 		{
-			attachmentFormat = AttachmentFormat::R8G8B8A8Unorm;
+			attachmentFormat = Format::R8G8B8A8Unorm;
 			return true;
 		}
 		else if (string == "r16g16sfloat")
 		{
-			attachmentFormat = AttachmentFormat::R16G16Sfloat;
+			attachmentFormat = Format::R16G16Sfloat;
 			return true;
 		}
 		else if (string == "r16g16b16a16sfloat")
 		{
-			attachmentFormat = AttachmentFormat::R16G16B16A16Sfloat;
+			attachmentFormat = Format::R16G16B16A16Sfloat;
 			return true;
 		}
 		else if (string == "r32g32b32a32sfloat")
 		{
-			attachmentFormat = AttachmentFormat::R32G32B32A32Sfloat;
+			attachmentFormat = Format::R32G32B32A32Sfloat;
 			return true;
 		}
 		else if (string == "swapchain")
 		{
-			attachmentFormat = AttachmentFormat::Swapchain;
+			attachmentFormat = Format::Swapchain;
 			return true;
 		}
 
@@ -166,7 +166,7 @@ namespace Engine::Rendering
 			if (!TryGetStringValue(m_name, program, "Path", pathString))
 				return false;
 
-			ProgramType programType;
+			ShaderStageFlags programType;
 			if (!TryParseProgramType(m_name, typeString, programType))
 				return false;
 
@@ -217,7 +217,7 @@ namespace Engine::Rendering
 			}
 
 			std::string attachmentString = std::string(attachment.GetString());
-			AttachmentFormat attachmentFormat;
+			Format attachmentFormat;
 			if (!TryParseAttachmentFormat(m_name, attachmentString, attachmentFormat))
 				return false;
 

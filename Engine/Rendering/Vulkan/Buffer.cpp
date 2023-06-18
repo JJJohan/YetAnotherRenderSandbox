@@ -1,7 +1,7 @@
 #include "Buffer.hpp"
 #include "RenderImage.hpp"
-#include "Device.hpp"
-#include "CommandPool.hpp"
+#include "VulkanTypesInterop.hpp"
+#include "CommandBuffer.hpp"
 
 using namespace Engine::Logging;
 
@@ -21,7 +21,7 @@ namespace Engine::Rendering::Vulkan
 			vmaDestroyBuffer(m_allocator, m_buffer, m_bufferAlloc);
 	}
 
-	bool Buffer::UpdateContents(const void* data, vk::DeviceSize size)
+	bool Buffer::UpdateContents(const void* data, size_t size)
 	{
 		if (m_bufferAllocInfo.pMappedData == nullptr)
 		{
@@ -42,15 +42,17 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	void Buffer::Copy(const Device& device, const vk::CommandBuffer& commandBuffer, const Buffer& destination, vk::DeviceSize size) const
+	void Buffer::Copy(const ICommandBuffer& commandBuffer, const IBuffer& destination, size_t size) const
 	{
+		const Buffer& vulkanDestination = static_cast<const Buffer&>(destination);
+		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);
 		vk::BufferCopy copyRegion(0, 0, size);
-		commandBuffer.copyBuffer(m_buffer, destination.m_buffer, 1, &copyRegion);
+		vulkanCommandBuffer.Get().copyBuffer(m_buffer, vulkanDestination.Get(), 1, &copyRegion);
 	}
 
-	void Buffer::CopyToImage(const Device& device, uint32_t mipLevel, const vk::CommandBuffer& commandBuffer, const RenderImage& destination) const
+	void Buffer::CopyToImage(uint32_t mipLevel, const ICommandBuffer& commandBuffer, const IRenderImage& destination) const
 	{
-		vk::Extent3D extents = destination.GetDimensions();
+		vk::Extent3D extents = GetExtent3D(destination.GetDimensions());
 		for (uint32_t i = 0; i < mipLevel; ++i)
 		{
 			extents.width /= 2;
@@ -61,18 +63,20 @@ namespace Engine::Rendering::Vulkan
 		vk::BufferImageCopy region(0, 0, 0, subresource, vk::Offset3D(0, 0, 0), extents);
 		region.bufferRowLength = extents.width;
 
-		commandBuffer.copyBufferToImage(m_buffer, destination.Get(), vk::ImageLayout::eTransferDstOptimal, { region });
+		const RenderImage& vulkanDestination = static_cast<const RenderImage&>(destination);
+		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);
+		vulkanCommandBuffer.Get().copyBufferToImage(m_buffer, vulkanDestination.Get(), vk::ImageLayout::eTransferDstOptimal, {region});
 	}
 
-	bool Buffer::Initialise(uint64_t size, vk::BufferUsageFlags bufferUsage,
-		VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags createFlags, vk::SharingMode sharingMode)
+	bool Buffer::Initialise(uint64_t size, BufferUsageFlags bufferUsage,
+		MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode)
 	{
 		m_size = size;
-		vk::BufferCreateInfo bufferInfo(vk::BufferCreateFlags(), size, bufferUsage, sharingMode);
+		vk::BufferCreateInfo bufferInfo(vk::BufferCreateFlags(), size, static_cast<vk::BufferUsageFlagBits>(bufferUsage), GetSharingMode(sharingMode));
 
 		VmaAllocationCreateInfo allocCreateInfo = {};
-		allocCreateInfo.usage = memoryUsage;
-		allocCreateInfo.flags = createFlags;
+		allocCreateInfo.usage = GetVmaMemoryUsage(memoryUsage);
+		allocCreateInfo.flags = static_cast<VmaAllocatorCreateFlagBits>(createFlags);
 
 		VkBufferCreateInfo bufferInfoImp = static_cast<VkBufferCreateInfo>(bufferInfo);
 		VkResult createResult = vmaCreateBuffer(m_allocator, &bufferInfoImp, &allocCreateInfo, &m_buffer, &m_bufferAlloc, &m_bufferAllocInfo);
@@ -82,6 +86,7 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
+		m_mappedDataPtr = m_bufferAllocInfo.pMappedData;
 		return true;
 	}
 }

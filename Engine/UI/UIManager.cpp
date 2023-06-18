@@ -3,6 +3,13 @@
 #include "OS/Window.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "imgui.h"
+#include "NodeManager.hpp"
+
+#ifdef _WIN32
+#include "backends/imgui_impl_win32.h"
+#else
+#error Not implemented.
+#endif
 
 using namespace Engine::OS;
 using namespace Engine::Rendering;
@@ -20,6 +27,48 @@ namespace Engine::UI
 
 	UIManager::~UIManager()
 	{
+#ifdef _WIN32
+		ImGui_ImplWin32_Shutdown();
+#else
+#error Not implemented.
+#endif
+	}
+
+	bool UIManager::Initialise() const
+	{
+		// Setup Dear ImGui context
+		IMGUI_CHECKVERSION();
+		ImGui::CreateContext();
+		ImGuiIO& io = ImGui::GetIO();
+		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+		io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+
+		// Setup Dear ImGui style
+		ImGui::StyleColorsDark();
+
+#ifdef _WIN32
+		if (!ImGui_ImplWin32_Init(m_window.GetHandle()))
+		{
+			return false;
+		}
+#else
+#error Not implemented.
+#endif
+
+		IM_DELETE(io.Fonts);
+
+		io.Fonts = IM_NEW(ImFontAtlas);
+
+		ImFontConfig config;
+		config.OversampleH = 4;
+		config.OversampleV = 4;
+		config.PixelSnapH = false;
+
+		io.FontDefault = io.Fonts->AddFontFromFileTTF("Fonts/Play-Regular.ttf", 16.0f, &config);
+
+		io.Fonts->Build();
+
+		return true;
 	}
 
 	void UIManager::RegisterDrawCallback(std::function<void(const Drawer&)> callback)
@@ -55,5 +104,26 @@ namespace Engine::UI
 	float UIManager::GetFPS() const
 	{
 		return ImGui::GetIO().Framerate;
+	}
+
+	bool UIManager::Draw(float width, float height) const
+	{
+		if (!m_window.IsCursorVisible())
+			return false;
+
+		ImGuiIO& io = ImGui::GetIO();
+		io.DisplaySize.x = width;
+		io.DisplaySize.y = height;
+
+		if (width < FLT_MIN || height < FLT_MIN)
+			return false;
+
+#ifdef _WIN32
+		ImGui_ImplWin32_NewFrame();
+#else
+#error Not implemented.
+#endif
+
+		return true;
 	}
 }

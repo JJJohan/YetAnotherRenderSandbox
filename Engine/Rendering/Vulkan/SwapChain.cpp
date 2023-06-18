@@ -5,6 +5,7 @@
 #include "ImageView.hpp"
 #include "OS/Window.hpp"
 #include "Core/Logging/Logger.hpp"
+#include "VulkanTypesInterop.hpp"
 
 using namespace Engine::Logging;
 using namespace Engine::OS;
@@ -13,7 +14,7 @@ namespace Engine::Rendering::Vulkan
 {
 	SwapChain::SwapChain()
 		: m_swapChain(nullptr)
-		, m_swapChainImageFormat(vk::Format::eUndefined)
+		, m_swapChainImageFormat(Format::Undefined)
 		, m_swapChainExtent()
 		, m_swapChainImages()
 		, m_swapChainImageViews()
@@ -83,7 +84,7 @@ namespace Engine::Rendering::Vulkan
 		vk::SurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupportDetails.Formats, hdr);
 		vk::PresentModeKHR presentMode = ChooseSwapPresentMode(swapChainSupportDetails.PresentModes);
 		m_swapChainExtent = ChooseSwapExtent(swapChainSupportDetails.Capabilities, size);
-		m_swapChainImageFormat = surfaceFormat.format;
+		m_swapChainImageFormat = FromVulkanFormat(surfaceFormat.format);
 
 		uint32_t imageCount = swapChainSupportDetails.Capabilities.minImageCount + 1;
 		if (swapChainSupportDetails.Capabilities.maxImageCount > 0 && imageCount > swapChainSupportDetails.Capabilities.maxImageCount)
@@ -149,13 +150,14 @@ namespace Engine::Rendering::Vulkan
 		for (const auto& image : images)
 		{
 			std::unique_ptr<ImageView> imageView = std::make_unique<ImageView>();
-			if (!imageView->Initialise(device, image, 1, surfaceFormat.format, vk::ImageAspectFlagBits::eColor))
+			RenderImage renderImage = RenderImage(image, surfaceFormat.format);
+			if (!imageView->Initialise(device, renderImage, 1, FromVulkanFormat(surfaceFormat.format), ImageAspectFlags::Color))
 			{
 				Logger::Error("Failed to create image view for swap chain image.");
 				return false;
 			}
 
-			m_swapChainImages.push_back(RenderImage(image, surfaceFormat.format));
+			m_swapChainImages.push_back(std::move(renderImage));
 			m_swapChainImageViews.push_back(std::move(imageView));
 		}
 

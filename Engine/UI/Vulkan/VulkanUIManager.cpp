@@ -4,7 +4,8 @@
 #include "Rendering/Vulkan/Device.hpp"
 #include "Rendering/Vulkan/SwapChain.hpp"
 #include "Rendering/Vulkan/PhysicalDevice.hpp"
-#include "Rendering/Vulkan/Buffer.hpp"
+#include "Rendering/Vulkan/CommandBuffer.hpp"
+#include "Rendering/Vulkan/VulkanTypesInterop.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "OS/Window.hpp"
 #include "imgui.h"
@@ -12,11 +13,6 @@
 
 #include <vulkan/vulkan.hpp>
 #include "backends/imgui_impl_vulkan.h"
-#ifdef _WIN32
-#include "backends/imgui_impl_win32.h"
-#else
-#error Not implemented.
-#endif
 
 using namespace Engine::OS;
 using namespace Engine::Rendering;
@@ -46,18 +42,13 @@ namespace Engine::UI::Vulkan
 	{
 		ImPlot::DestroyContext();
 		ImGui_ImplVulkan_Shutdown();
-#ifdef _WIN32
-		ImGui_ImplWin32_Shutdown();
-#else
-#error Not implemented.
-#endif
 	}
 
 	bool VulkanUIManager::SetupRenderBackend(const vk::Instance& instance, VulkanRenderer& renderer)
 	{
 		uint32_t concurrentFrames = renderer.GetConcurrentFrameCount();
-		const Device& device = renderer.GetDevice();
-		const PhysicalDevice& physicalDevice = renderer.GetPhysicalDevice();
+		const Device& device = static_cast<const Device&>(renderer.GetDevice());
+		const PhysicalDevice& physicalDevice = static_cast<const PhysicalDevice&>(renderer.GetPhysicalDevice());
 
 		m_descriptorPool = std::make_unique<DescriptorPool>();
 		if (!m_descriptorPool->Initialise(device, concurrentFrames, {})) // Why does ImGui need an empty descriptor pool?
@@ -84,7 +75,7 @@ namespace Engine::UI::Vulkan
 		initInfo.Allocator = nullptr;
 		initInfo.CheckVkResultFn = check_vk_result;
 		initInfo.UseDynamicRendering = true;
-		initInfo.ColorAttachmentFormat = static_cast<VkFormat>(renderer.GetSwapChain().GetFormat());
+		initInfo.ColorAttachmentFormat = static_cast<VkFormat>(GetVulkanFormat(renderer.GetSwapChain().GetFormat()));
 		if (!ImGui_ImplVulkan_Init(&initInfo, nullptr))
 		{
 			return false;
@@ -96,9 +87,10 @@ namespace Engine::UI::Vulkan
 	bool VulkanUIManager::SubmitRenderResourceSetup(VulkanRenderer& renderer)
 	{
 		uint8_t initVersion = m_initVersion;
-		return renderer.SubmitResourceCommand([](const vk::CommandBuffer& commandBuffer, std::vector<std::unique_ptr<Buffer>>& temporaryBuffers)
+		return renderer.SubmitResourceCommand([](const IDevice& device, const IPhysicalDevice& physicalDevice, 
+			const ICommandBuffer& commandBuffer, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers)
 			{
-				ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
+				ImGui_ImplVulkan_CreateFontsTexture(static_cast<const CommandBuffer&>(commandBuffer).Get());
 				return true;
 			},
 			[this, initVersion]() {
@@ -109,29 +101,15 @@ namespace Engine::UI::Vulkan
 
 	bool VulkanUIManager::Initialise(const vk::Instance& instance, VulkanRenderer& renderer)
 	{
-		// Setup Dear ImGui context
-		IMGUI_CHECKVERSION();
-		ImGui::CreateContext();
-		ImGuiIO& io = ImGui::GetIO();
-		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-		io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-
-		// Setup Dear ImGui style
-		ImGui::StyleColorsDark();
+		if (!UIManager::Initialise())
+		{
+			return false;
+		}
 
 		if (!SetupRenderBackend(instance, renderer))
 		{
 			return false;
 		}
-
-#ifdef _WIN32
-		if (!ImGui_ImplWin32_Init(m_window.GetHandle()))
-		{
-			return false;
-		}
-#else
-#error Not implemented.
-#endif
 
 		if (!SubmitRenderResourceSetup(renderer))
 		{
@@ -161,21 +139,8 @@ namespace Engine::UI::Vulkan
 
 	void VulkanUIManager::Draw(const vk::CommandBuffer& commandBuffer, float width, float height)
 	{
-		if (!m_window.IsCursorVisible())
+		if (!UIManager::Draw(width, height))
 			return;
-
-		ImGuiIO& io = ImGui::GetIO();
-		io.DisplaySize.x = width;
-		io.DisplaySize.y = height;
-
-		if (width < FLT_MIN || height < FLT_MIN)
-			return;
-
-#ifdef _WIN32
-		ImGui_ImplWin32_NewFrame();
-#else
-#error Not implemented.
-#endif
 
 		ImGui_ImplVulkan_NewFrame();
 		ImGui::NewFrame();

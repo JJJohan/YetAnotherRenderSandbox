@@ -22,6 +22,8 @@ namespace Engine
 			return glm::vec4(static_cast<float>(R) / 255.0f, static_cast<float>(G) / 255.0f, static_cast<float>(B) / 255.0f, static_cast<float>(A) / 255.0f);
 		}
 
+		operator uint32_t() const { return R | G << 8 | B << 16 | A << 24; }
+
 		uint8_t R;
 		uint8_t G;
 		uint8_t B;
