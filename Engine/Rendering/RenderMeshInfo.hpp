@@ -1,7 +1,6 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include "Core/Colour.hpp"
 
 namespace Engine::Rendering
 {

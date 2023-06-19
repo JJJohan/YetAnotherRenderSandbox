@@ -1,7 +1,6 @@
 #pragma once
 
 #include <filesystem>
-#include "VertexData.hpp"
 
 namespace Engine
 {

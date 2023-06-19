@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <vector>
-#include <unordered_map>
 #include "Core/Colour.hpp"
 #include "Core/Macros.hpp"
 #include <glm/glm.hpp>

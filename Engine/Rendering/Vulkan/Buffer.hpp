@@ -2,7 +2,6 @@
 
 #include <vulkan/vulkan.hpp>
 #include <vma/vk_mem_alloc.h>
-#include <Core/Logging/Logger.hpp>
 #include "../Resources/IBuffer.hpp"
 
 namespace Engine::Rendering::Vulkan

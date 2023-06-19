@@ -1,7 +1,6 @@
 #pragma once
 
 #include "InputEnums.hpp"
-#include "Core/Macros.hpp"
 #include <glm/vec2.hpp>
 #include <array>
 

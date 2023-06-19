@@ -25,8 +25,8 @@ namespace Engine::Rendering::Vulkan
 		Format FindSupportedFormat(const std::vector<Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
 		Format FindDepthFormat() const;
 		virtual bool FormatSupported(Format format) const override;
-		float GetMaxAnisotropy() const override;
-		bool SupportsBCTextureCompression() const override;
+		virtual float GetMaxAnisotropy() const override;
+		virtual bool SupportsBCTextureCompression() const override;
 
 	private:
 

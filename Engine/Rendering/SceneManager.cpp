@@ -6,7 +6,6 @@
 #include "Core/AsyncData.hpp"
 #include <filesystem>
 #include "GltfLoader.hpp"
-#include "TangentCalculator.hpp"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>

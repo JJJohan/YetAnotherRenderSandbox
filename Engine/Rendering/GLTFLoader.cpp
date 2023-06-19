@@ -2,14 +2,13 @@
 #include "Core/Logging/Logger.hpp"
 #include "Core/AsyncData.hpp"
 #include "SceneManager.hpp"
-#include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <filesystem>
 #include <chrono>
 #include <unordered_map>
 #include <stdint.h>
-#include <algorithm>
 #include <execution>
+#include <glm/gtc/type_ptr.hpp>
 
 #define FASTGLTF_USE_CUSTOM_SMALLVECTOR 1
 #include <fastgltf_parser.hpp>

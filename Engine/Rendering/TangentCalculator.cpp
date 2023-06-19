@@ -1,5 +1,6 @@
 #include "TangentCalculator.hpp"
 #include "VertexData.hpp"
+#include <glm/glm.hpp>
 
 namespace Engine::Rendering
 {

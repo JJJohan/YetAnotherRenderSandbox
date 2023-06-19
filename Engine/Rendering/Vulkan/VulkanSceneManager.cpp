@@ -93,12 +93,12 @@ namespace Engine::Rendering::Vulkan
 				totalSize, temporaryBuffers))
 				return false;
 
-			m_meshInfos.resize(totalSize / sizeof(vk::DrawIndexedIndirectCommand)); // TODO: Cleanup
+			m_meshInfos.resize(totalSize / sizeof(IndexedIndirectCommand)); // TODO: Cleanup
 			m_meshCapacity = static_cast<uint32_t>(m_meshInfos.size());
 			return true;
 		}
 
-		std::vector<vk::DrawIndexedIndirectCommand> indirectBufferData;
+		std::vector<IndexedIndirectCommand> indirectBufferData;
 		indirectBufferData.reserve(m_meshCapacity);
 		for (size_t i = 0; i < m_meshCapacity; ++i)
 		{
@@ -106,18 +106,18 @@ namespace Engine::Rendering::Vulkan
 				continue;
 
 			const MeshInfo& meshInfo = m_meshInfos[i];
-			vk::DrawIndexedIndirectCommand indirectCommand{};
-			indirectCommand.vertexOffset = m_vertexOffsets[meshInfo.vertexBufferIndex];
-			indirectCommand.firstIndex = m_indexOffsets[meshInfo.indexBufferIndex];
-			indirectCommand.indexCount = m_indexCounts[meshInfo.indexBufferIndex];
-			indirectCommand.instanceCount = 1;
+			IndexedIndirectCommand indirectCommand{};
+			indirectCommand.VertexOffset = m_vertexOffsets[meshInfo.vertexBufferIndex];
+			indirectCommand.FirstIndex = m_indexOffsets[meshInfo.indexBufferIndex];
+			indirectCommand.IndexCount = m_indexCounts[meshInfo.indexBufferIndex];
+			indirectCommand.InstanceCount = 1;
 			indirectBufferData.emplace_back(indirectCommand);
 		}
 
 		m_indirectDrawBuffer = std::move(resourceFactory.CreateBuffer());
 		IBuffer* buffer = m_indirectDrawBuffer.get();
 
-		size_t totalSize = indirectBufferData.size() * sizeof(vk::DrawIndexedIndirectCommand);
+		size_t totalSize = indirectBufferData.size() * sizeof(IndexedIndirectCommand);
 		bool initialised = buffer->Initialise(totalSize,
 			BufferUsageFlags::TransferDst | BufferUsageFlags::IndirectBuffer,
 			MemoryUsage::AutoPreferDevice,
@@ -782,7 +782,7 @@ namespace Engine::Rendering::Vulkan
 		commandBuffer.BindIndexBuffer(*m_indexBuffer, 0, IndexType::Uint32);
 
 		uint32_t drawCount = m_meshCapacity; // TODO: Compute counted, after culling, etc.
-		commandBuffer.DrawIndexedIndirect(*m_indirectDrawBuffer, 0, drawCount, sizeof(vk::DrawIndexedIndirectCommand));
+		commandBuffer.DrawIndexedIndirect(*m_indirectDrawBuffer, 0, drawCount, sizeof(IndexedIndirectCommand));
 	}
 
 	void VulkanSceneManager::DrawShadows(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex)
@@ -804,6 +804,6 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		uint32_t drawCount = m_meshCapacity; // TODO: Compute counted, after culling, etc.
-		commandBuffer.DrawIndexedIndirect(*m_indirectDrawBuffer, 0, drawCount, sizeof(vk::DrawIndexedIndirectCommand));
+		commandBuffer.DrawIndexedIndirect(*m_indirectDrawBuffer, 0, drawCount, sizeof(IndexedIndirectCommand));
 	}
 }

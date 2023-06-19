@@ -165,7 +165,6 @@
     <ClCompile Include="Core\Image.cpp" />
     <ClCompile Include="Core\Logging\Logger.cpp" />
     <ClCompile Include="Core\MeshOptimiser.cpp" />
-    <ClCompile Include="Core\Utilities.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="OS\Files.cpp" />
     <ClCompile Include="OS\InputEnums.hpp" />
@@ -244,6 +243,7 @@
     <ClInclude Include="Rendering\Resources\AttachmentInfo.hpp" />
     <ClInclude Include="Rendering\Resources\ICommandBuffer.hpp" />
     <ClInclude Include="Rendering\Resources\IDevice.hpp" />
+    <ClInclude Include="Rendering\Resources\IndexedIndirectCommand.hpp" />
     <ClInclude Include="Rendering\Resources\IPhysicalDevice.hpp" />
     <ClInclude Include="Rendering\Resources\IResourceFactory.hpp" />
     <ClInclude Include="Rendering\ShadowMap.hpp" />

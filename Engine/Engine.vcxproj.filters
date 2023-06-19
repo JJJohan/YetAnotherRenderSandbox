@@ -160,9 +160,6 @@
     <ClCompile Include="UI\Drawer.cpp">
       <Filter>UI</Filter>
     </ClCompile>
-    <ClCompile Include="Core\Utilities.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="Core\ChunkData.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -494,6 +491,9 @@
     </ClInclude>
     <ClInclude Include="Rendering\RenderMeshInfo.hpp">
       <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Resources\IndexedIndirectCommand.hpp">
+      <Filter>Rendering\Resources</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

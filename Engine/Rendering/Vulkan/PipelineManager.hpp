@@ -2,7 +2,6 @@
 
 #include <vulkan/vulkan.hpp>
 #include "../Resources/IMaterialManager.hpp"
-#include "Core/Logging/Logger.hpp"
 
 namespace Engine::Rendering::Vulkan
 {

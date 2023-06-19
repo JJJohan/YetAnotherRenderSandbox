@@ -1,11 +1,8 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
 #include "../SceneManager.hpp"
+#include "../Resources/IndexedIndirectCommand.hpp"
 #include <memory>
-
-struct VmaAllocator_T;
-typedef struct VmaAllocator_T* VmaAllocator;
 
 namespace Engine
 {
@@ -90,7 +87,7 @@ namespace Engine::Rendering::Vulkan
 		std::vector<uint32_t> m_indexOffsets;
 		std::vector<uint32_t> m_indexCounts;
 
-		std::vector<vk::DrawIndexedIndirectCommand> m_indirectDrawCommands;
+		std::vector<IndexedIndirectCommand> m_indirectDrawCommands;
 		Material* m_pbrMaterial;
 		Material* m_shadowMaterial;
 	};

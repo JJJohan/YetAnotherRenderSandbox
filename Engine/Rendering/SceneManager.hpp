@@ -9,9 +9,10 @@
 #include <vector>
 #include <stack>
 #include <mutex>
+#include <memory>
 #include <unordered_map>
-#include <filesystem>
 #include <string>
+#include <atomic>
 
 namespace Engine
 {

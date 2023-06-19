@@ -1,6 +1,5 @@
 #include <Core/Logging/Logger.hpp>
 #include "Win32Window.hpp"
-#include <vector>
 #include "WindowProc.hpp"
 #include <dxgi1_6.h>
 #include <strsafe.h>

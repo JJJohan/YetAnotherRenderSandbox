@@ -5,7 +5,6 @@
 #include "../ShadowMap.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "CommandBuffer.hpp"
-#include "VulkanTypesInterop.hpp"
 
 using namespace Engine::Logging;
 
