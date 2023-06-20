@@ -95,7 +95,6 @@ namespace Engine::Rendering::Vulkan
 
 		struct ResourceCommandData
 		{
-			vk::UniqueFence fence;
 			std::vector<std::unique_ptr<IBuffer>> buffers;
 			vk::UniqueCommandBuffer commandBuffer;
 			std::optional<std::function<void()>> postAction;
@@ -135,7 +134,8 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::UniqueSemaphore> m_postProcessingFinishedSemaphores;
 		std::vector<vk::UniqueSemaphore> m_uiFinishedSemaphores;
 		std::vector<vk::UniqueFence> m_inFlightFences;
-		std::vector<ResourceCommandData> m_inFlightResources;
+		std::vector<std::pair<vk::UniqueFence, std::vector<ResourceCommandData>>> m_inFlightResources;
+		std::vector<ResourceCommandData> m_pendingResources;
 
 		std::unique_ptr<VulkanSceneManager> m_sceneManager;
 		std::queue<std::function<bool()>> m_actionQueue;

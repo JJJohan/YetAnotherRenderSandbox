@@ -65,6 +65,7 @@ namespace Engine::Rendering::Vulkan
 		, m_uiFinishedSemaphores()
 		, m_inFlightFences()
 		, m_inFlightResources()
+		, m_pendingResources()
 		, m_actionQueue()
 		, m_lastWindowSize()
 		, m_swapChainOutOfDate(false)
@@ -105,6 +106,8 @@ namespace Engine::Rendering::Vulkan
 		m_renderStats.reset();
 		m_pipelineManager.reset();
 
+		m_pendingResources.clear();
+		m_inFlightResources.clear();
 		m_frameInfoBuffers.clear();
 		m_lightBuffers.clear();
 		m_frameInfoBufferData.clear();
@@ -450,25 +453,9 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		resourceData.commandBuffer->end();
-		const vk::Queue& queue = m_device->GetGraphicsQueue();
-
-		vk::SubmitInfo submitInfo;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &resourceData.commandBuffer.get();
-
-		resourceData.fence = m_device->Get().createFenceUnique(vk::FenceCreateInfo());
 		resourceData.postAction = postAction;
 
-		// TODO: Avoid this if possible.
-		const std::lock_guard<std::mutex> lock(m_resourceSubmitMutex);
-
-		vk::Result submitResult = queue.submit(1, &submitInfo, resourceData.fence.get());
-		if (submitResult != vk::Result::eSuccess)
-		{
-			return false;
-		}
-
-		m_inFlightResources.push_back(std::move(resourceData));
+		m_pendingResources.emplace_back(std::move(resourceData));
 		return true;
 	}
 
@@ -759,14 +746,6 @@ namespace Engine::Rendering::Vulkan
 
 		if (rebuildPipelines)
 		{
-			// TODO: Does pipeline manager need to be rebuilt?
-
-			/*if (!m_sceneManager->RebuildShader(*m_physicalDevice, *m_device, m_gBuffer->GetImageFormats(), m_gBuffer->GetDepthFormat()))
-			{
-				Logger::Error("Failed to rebuild scene manager shader.");
-				return false;
-			}*/
-
 			if (!m_uiManager->Rebuild(m_instance->Get(), *this))
 			{
 				Logger::Error("Failed to recreate UI render backend.");
@@ -797,15 +776,18 @@ namespace Engine::Rendering::Vulkan
 			}
 		}
 
-		// Clean up in-flight resources.
+		// Process in-flight resource requests.
 		for (size_t i = 0; i < m_inFlightResources.size();)
 		{
-			const ResourceCommandData& resourceData = m_inFlightResources[i];
-			if (deviceImp.waitForFences(1, &resourceData.fence.get(), true, 0) == vk::Result::eSuccess)
+			const auto& resourceDataPair = m_inFlightResources[i];
+			if (deviceImp.waitForFences(1, &resourceDataPair.first.get(), true, 0) == vk::Result::eSuccess)
 			{
-				if (resourceData.postAction.has_value())
+				for (const auto& resource : resourceDataPair.second)
 				{
-					resourceData.postAction.value()();
+					if (resource.postAction.has_value())
+					{
+						resource.postAction.value()();
+					}
 				}
 
 				m_inFlightResources.erase(m_inFlightResources.begin() + i);
@@ -814,6 +796,32 @@ namespace Engine::Rendering::Vulkan
 			{
 				++i;
 			}
+		}
+
+		// Submit all currently pending resources.
+		if (!m_pendingResources.empty())
+		{
+			std::vector<vk::CommandBuffer> commandBuffers(m_pendingResources.size());
+			for (size_t i = 0; i < m_pendingResources.size(); ++i)
+			{
+				commandBuffers[i] = m_pendingResources[i].commandBuffer.get();
+			}
+
+			vk::SubmitInfo submitInfo;
+			submitInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+			submitInfo.pCommandBuffers = commandBuffers.data();
+
+			vk::UniqueFence fence = m_device->Get().createFenceUnique(vk::FenceCreateInfo());
+
+			vk::Result submitResult = graphicsQueue.submit(1, &submitInfo, fence.get());
+			if (submitResult != vk::Result::eSuccess)
+			{
+				return false;
+			}
+
+			std::vector<ResourceCommandData> resources = std::move(m_pendingResources);
+			m_inFlightResources.push_back(std::make_pair(std::move(fence), std::move(resources)));
+			m_pendingResources.clear();
 		}
 
 		// Skip rendering in minimised state.
