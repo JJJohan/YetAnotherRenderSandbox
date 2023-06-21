@@ -65,6 +65,11 @@ namespace Engine::Rendering
 			return BindImageViewsImp(binding, imageViewPtrs);
 		}
 
+		inline bool BindImageViews(uint32_t binding, const std::vector<const IImageView*>& imageViews)
+		{
+			return BindImageViewsImp(binding, imageViews);
+		}
+
 		inline bool BindSamplers(uint32_t binding, const std::vector<std::unique_ptr<IImageSampler>>& samplers)
 		{
 			std::vector<const IImageSampler*> samplerPtrs(samplers.size());

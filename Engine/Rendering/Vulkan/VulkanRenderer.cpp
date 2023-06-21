@@ -19,6 +19,7 @@
 #include "ImageView.hpp"
 #include "ImageSampler.hpp"
 #include "PipelineLayout.hpp"
+#include "../RenderGraph.hpp"
 #include "RenderImage.hpp"
 #include "FrameInfoUniformBuffer.hpp"
 #include "PipelineManager.hpp"
@@ -105,6 +106,7 @@ namespace Engine::Rendering::Vulkan
 		m_postProcessing.reset();
 		m_renderStats.reset();
 		m_pipelineManager.reset();
+		m_renderGraph.reset();
 
 		m_pendingResources.clear();
 		m_inFlightResources.clear();
@@ -637,6 +639,7 @@ namespace Engine::Rendering::Vulkan
 		m_renderStats = std::make_unique<VulkanRenderStats>(*m_gBuffer, *m_shadowMap);
 		m_pipelineManager = std::make_unique<PipelineManager>();
 		m_resourceFactory = std::make_unique<ResourceFactory>(&m_allocator);
+		m_renderGraph = std::make_unique<RenderGraph>();
 
 		if (!m_instance->Initialise(title, *m_Debug, m_debug)
 			|| !m_surface->Initialise(*m_instance, m_window)

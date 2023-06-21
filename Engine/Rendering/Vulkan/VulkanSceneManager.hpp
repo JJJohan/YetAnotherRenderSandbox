@@ -18,7 +18,6 @@ namespace Engine::Rendering
 	class IPhysicalDevice;
 	class ICommandBuffer;
 	class IBuffer;
-	class IImageView;
 	class IRenderImage;
 	class IImageSampler;
 	class IResourceFactory;
@@ -81,7 +80,6 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<IBuffer> m_indexBuffer;
 		std::unique_ptr<IBuffer> m_meshInfoBuffer;
 		std::vector<std::unique_ptr<IRenderImage>> m_imageArray;
-		std::vector<std::unique_ptr<IImageView>> m_imageArrayView;
 
 		std::vector<uint32_t> m_vertexOffsets;
 		std::vector<uint32_t> m_indexOffsets;

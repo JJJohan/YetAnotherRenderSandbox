@@ -3,7 +3,6 @@
 #include "../Resources/IDevice.hpp"
 #include "../Resources/IBuffer.hpp"
 #include "../Resources/IRenderImage.hpp"
-#include "../Resources/IImageView.hpp"
 #include "../Resources/IImageSampler.hpp"
 #include "../Resources/IResourceFactory.hpp"
 #include "../Resources/IMaterialManager.hpp"
@@ -30,7 +29,6 @@ namespace Engine::Rendering::Vulkan
 		, m_indexBuffer()
 		, m_meshInfoBuffer()
 		, m_imageArray()
-		, m_imageArrayView()
 		, m_indirectDrawCommands()
 		, m_vertexOffsets()
 		, m_indexOffsets()
@@ -404,7 +402,6 @@ namespace Engine::Rendering::Vulkan
 
 			imageCount = static_cast<uint32_t>(cachedImageData->size());
 			m_imageArray.reserve(cachedImageData->size());
-			m_imageArrayView.reserve(cachedImageData->size());
 
 			float subTicks = 400.0f / static_cast<float>(cachedImageData->size());
 
@@ -428,20 +425,13 @@ namespace Engine::Rendering::Vulkan
 				}
 
 				std::unique_ptr<IRenderImage>& renderImage = m_imageArray.emplace_back(std::move(resourceFactory.CreateRenderImage()));
-				bool imageInitialised = renderImage->Initialise(ImageType::e2D, format, dimensions, imageData.Header.MipLevels, ImageTiling::Optimal,
-					ImageUsageFlags::TransferSrc | ImageUsageFlags::TransferDst | ImageUsageFlags::Sampled,
+				bool imageInitialised = renderImage->Initialise(device, ImageType::e2D, format, dimensions, imageData.Header.MipLevels, ImageTiling::Optimal,
+					ImageUsageFlags::TransferSrc | ImageUsageFlags::TransferDst | ImageUsageFlags::Sampled, ImageAspectFlags::Color,
 					MemoryUsage::AutoPreferDevice,
 					AllocationCreateFlags::None,
 					SharingMode::Exclusive);
 
 				if (!imageInitialised)
-				{
-					return false;
-				}
-
-				std::unique_ptr<IImageView>& imageView = m_imageArrayView.emplace_back(std::move(resourceFactory.CreateImageView()));
-				bool imageViewInitialised = imageView->Initialise(device, *renderImage, renderImage->GetMiplevels(), renderImage->GetFormat(), ImageAspectFlags::Color);
-				if (!imageViewInitialised)
 				{
 					return false;
 				}
@@ -465,7 +455,6 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		m_imageArray.reserve(m_images.size());
-		m_imageArrayView.reserve(m_images.size());
 		imageCount = 0;
 
 		bool compress = false;
@@ -552,20 +541,13 @@ namespace Engine::Rendering::Vulkan
 			glm::uvec3 dimensions(size.x, size.y, 1);
 
 			std::unique_ptr<IRenderImage>& renderImage = m_imageArray.emplace_back(std::move(resourceFactory.CreateRenderImage()));
-			bool imageInitialised = renderImage->Initialise(ImageType::e2D, format, dimensions, static_cast<uint32_t>(pixels.size()), ImageTiling::Optimal,
-				ImageUsageFlags::TransferSrc | ImageUsageFlags::TransferDst | ImageUsageFlags::Sampled,
+			bool imageInitialised = renderImage->Initialise(device, ImageType::e2D, format, dimensions, static_cast<uint32_t>(pixels.size()), ImageTiling::Optimal,
+				ImageUsageFlags::TransferSrc | ImageUsageFlags::TransferDst | ImageUsageFlags::Sampled, ImageAspectFlags::Color,
 				MemoryUsage::AutoPreferDevice,
 				AllocationCreateFlags::None,
 				SharingMode::Exclusive);
 
 			if (!imageInitialised)
-			{
-				return false;
-			}
-
-			std::unique_ptr<IImageView>& imageView = m_imageArrayView.emplace_back(std::move(resourceFactory.CreateImageView()));
-			bool imageViewInitialised = imageView->Initialise(device, *renderImage, renderImage->GetMiplevels(), renderImage->GetFormat(), ImageAspectFlags::Color);
-			if (!imageViewInitialised)
 			{
 				return false;
 			}
@@ -739,17 +721,21 @@ namespace Engine::Rendering::Vulkan
 					return false;
 				}
 
+				std::vector<const IImageView*> imageViews(m_imageArray.size());
+				for (size_t i = 0; i < m_imageArray.size(); ++i)
+					imageViews[i] = &m_imageArray[i]->GetView();
+
 				if (!m_pbrMaterial->BindUniformBuffers(0, frameInfoBuffers) ||
 					!m_pbrMaterial->BindStorageBuffer(1, m_meshInfoBuffer) ||
 					!m_pbrMaterial->BindSampler(2, m_sampler) ||
-					!m_pbrMaterial->BindImageViews(3, m_imageArrayView))
+					!m_pbrMaterial->BindImageViews(3, imageViews))
 					return false;
 
 				if (!m_shadowMaterial->BindUniformBuffers(0, frameInfoBuffers) ||
 					!m_shadowMaterial->BindUniformBuffers(1, lightBuffers) ||
 					!m_shadowMaterial->BindStorageBuffer(2, m_meshInfoBuffer) ||
 					!m_shadowMaterial->BindSampler(3, m_sampler) ||
-					!m_shadowMaterial->BindImageViews(4, m_imageArrayView))
+					!m_shadowMaterial->BindImageViews(4, imageViews))
 					return false;
 
 				return true;

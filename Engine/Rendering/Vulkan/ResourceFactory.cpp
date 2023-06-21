@@ -1,6 +1,5 @@
 #include "ResourceFactory.hpp"
 #include "Buffer.hpp"
-#include "ImageView.hpp"
 #include "ImageSampler.hpp"
 #include "RenderImage.hpp"
 
@@ -24,10 +23,5 @@ namespace Engine::Rendering::Vulkan
 	std::unique_ptr<IImageSampler> ResourceFactory::CreateImageSampler() const
 	{
 		return std::make_unique<ImageSampler>();
-	}
-
-	std::unique_ptr<IImageView> ResourceFactory::CreateImageView() const
-	{
-		return std::make_unique<ImageView>();
 	}
 }

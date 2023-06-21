@@ -24,6 +24,7 @@ namespace Engine::Rendering
 	class IImageView;
 	class IDevice;
 	class IPhysicalDevice;
+	class RenderGraph;
 }
 
 namespace Engine::UI
@@ -111,6 +112,7 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<PostProcessing> m_postProcessing;
 		std::unique_ptr<VulkanRenderStats> m_renderStats;
 		std::unique_ptr<PipelineManager> m_pipelineManager;
+		std::unique_ptr<RenderGraph> m_renderGraph;
 		std::unique_ptr<Engine::UI::Vulkan::VulkanUIManager> m_uiManager;
 		VmaAllocator m_allocator;
 

@@ -2,8 +2,6 @@
 #include "Core/Logging/Logger.hpp"
 #include "Camera.hpp"
 #include "Resources/IDevice.hpp"
-#include "Resources/IImageView.hpp"
-#include "Resources/IRenderImage.hpp"
 #include "Resources/IResourceFactory.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -15,7 +13,6 @@ namespace Engine::Rendering
 
 	ShadowMap::ShadowMap()
 		: m_shadowImages()
-		, m_shadowImageViews()
 		, m_cascadeMatrices(DefaultCascadeCount)
 		, m_cascadeSplits(DefaultCascadeCount)
 		, m_cascadeCount(DefaultCascadeCount)
@@ -118,18 +115,11 @@ namespace Engine::Rendering
 		for (uint32_t i = 0; i < m_cascadeCount; ++i)
 		{
 			std::unique_ptr<IRenderImage>& image = m_shadowImages.emplace_back(std::move(resourceFactory.CreateRenderImage()));
-			if (!image->Initialise(ImageType::e2D, depthFormat, m_extent, 1, ImageTiling::Optimal,
+			if (!image->Initialise(device, ImageType::e2D, depthFormat, m_extent, 1, ImageTiling::Optimal,
 				ImageUsageFlags::Sampled | ImageUsageFlags::DepthStencilAttachment,
-				MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
+				ImageAspectFlags::Depth, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 			{
 				Logger::Error("Failed to create shadow image.");
-				return false;
-			}
-
-			std::unique_ptr<IImageView>& imageView = m_shadowImageViews.emplace_back(std::move(resourceFactory.CreateImageView()));
-			if (!imageView->Initialise(device, *image, 1, image->GetFormat(), ImageAspectFlags::Depth))
-			{
-				Logger::Error("Failed to create shadow image view.");
 				return false;
 			}
 		}
@@ -139,7 +129,6 @@ namespace Engine::Rendering
 
 	bool ShadowMap::Rebuild(const IDevice& device, const IResourceFactory& resourceFactory, Format depthFormat)
 	{
-		m_shadowImageViews.clear();
 		m_shadowImages.clear();
 
 		if (!CreateShadowImages(device, resourceFactory, depthFormat))

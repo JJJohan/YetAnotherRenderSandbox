@@ -3,6 +3,7 @@
 #include <array>
 #include <glm/glm.hpp>
 #include <memory>
+#include "Resources/IRenderImage.hpp"
 
 namespace Engine::Rendering
 {
@@ -10,8 +11,6 @@ namespace Engine::Rendering
 	class IPhysicalDevice;
 	class IDevice;
 	class IImageSampler;
-	class IImageView;
-	class IRenderImage;
 	class IResourceFactory;
 	class ICommandBuffer;
 	class IMaterialManager;
@@ -38,7 +37,7 @@ namespace Engine::Rendering
 			return m_taaJitterOffsets[++m_taaFrameIndex % m_taaJitterOffsets.size()];
 		}
 
-		inline const IImageView& GetTAAPrevImageView() const { return *m_taaPreviousImageViews[1]; };
+		inline const IImageView& GetTAAPrevImageView() const { return m_taaPreviousImages[1]->GetView(); };
 
 		inline void SetEnabled(bool enabled) { m_enabled = enabled; };
 		inline bool IsEnabled() { return m_enabled; };
@@ -57,7 +56,6 @@ namespace Engine::Rendering
 		uint32_t m_taaFrameIndex;
 		std::array<glm::vec2, 6> m_taaJitterOffsets;
 		std::array<std::unique_ptr<IRenderImage>, 2> m_taaPreviousImages;
-		std::array<std::unique_ptr<IImageView>, 2> m_taaPreviousImageViews;
 		Material* m_taaMaterial;
 	};
 }

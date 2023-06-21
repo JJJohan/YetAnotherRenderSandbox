@@ -4,14 +4,13 @@
 #include "Types.hpp"
 #include <memory>
 #include <vector>
+#include "Resources/IRenderImage.hpp"
 
 #define GBUFFER_SIZE 5 // albedo, normal, worldPos, metalRoughness, velocity
 
 namespace Engine::Rendering
 {
 	class ShadowMap;
-	class IRenderImage;
-	class IImageView;
 	class IImageSampler;
 	class IPhysicalDevice;
 	class IDevice;
@@ -42,12 +41,12 @@ namespace Engine::Rendering
 
 		std::vector<AttachmentInfo> GetRenderAttachments() const;
 		AttachmentInfo GetDepthAttachment() const;
-		inline const IImageView& GetVelocityImageView() const { return *m_gBufferImageViews[4]; }
+		inline const IImageView& GetVelocityImageView() const { return m_gBufferImages[4]->GetView(); }
 		inline const std::vector<Format>& GetImageFormats() const { return m_imageFormats; }
 		inline Format GetDepthFormat() const { return m_depthFormat; }
 		inline IRenderImage& GetOutputImage() const { return *m_outputImage; }
-		inline const IImageView& GetOutputImageView() const { return *m_outputImageView; }
-		inline const IImageView& GetDepthImageView() const { return *m_depthImageView; }
+		inline const IImageView& GetOutputImageView() const { return m_outputImage->GetView(); }
+		inline const IImageView& GetDepthImageView() const { return m_depthImage->GetView(); }
 
 	private:
 		bool CreateImageAndView(const IDevice& device, const IResourceFactory& resourceFactory, const glm::uvec2& size, Format format);
@@ -56,12 +55,9 @@ namespace Engine::Rendering
 		bool CreateOutputImage(const IDevice& device, const IResourceFactory& resourceFactory, const glm::uvec2& size);
 
 		std::vector<std::unique_ptr<IRenderImage>> m_gBufferImages;
-		std::vector<std::unique_ptr<IImageView>> m_gBufferImageViews;
 		std::vector<Format> m_imageFormats;
 		std::unique_ptr<IRenderImage> m_depthImage;
-		std::unique_ptr<IImageView> m_depthImageView;
 		std::unique_ptr<IRenderImage> m_outputImage;
-		std::unique_ptr<IImageView> m_outputImageView;
 		std::unique_ptr<IImageSampler> m_sampler;
 		std::unique_ptr<IImageSampler> m_shadowSampler;
 		Format m_depthFormat;

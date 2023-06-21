@@ -150,8 +150,8 @@ namespace Engine::Rendering::Vulkan
 		for (const auto& image : images)
 		{
 			std::unique_ptr<ImageView> imageView = std::make_unique<ImageView>();
-			RenderImage renderImage = RenderImage(image, surfaceFormat.format);
-			if (!imageView->Initialise(device, renderImage, 1, FromVulkanFormat(surfaceFormat.format), ImageAspectFlags::Color))
+			std::unique_ptr<RenderImage> renderImage = std::make_unique<RenderImage>(image, surfaceFormat.format);
+			if (!imageView->Initialise(device, *renderImage, 1, FromVulkanFormat(surfaceFormat.format), ImageAspectFlags::Color))
 			{
 				Logger::Error("Failed to create image view for swap chain image.");
 				return false;

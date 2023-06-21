@@ -7,8 +7,6 @@
 #include "Resources/IDevice.hpp"
 #include "Resources/IPhysicalDevice.hpp"
 #include "Resources/IBuffer.hpp"
-#include "Resources/IRenderImage.hpp"
-#include "Resources/IImageView.hpp"
 #include "Resources/ICommandBuffer.hpp"
 #include "Resources/IImageSampler.hpp"
 #include "Resources/IResourceFactory.hpp"
@@ -21,12 +19,9 @@ namespace Engine::Rendering
 {
 	GBuffer::GBuffer()
 		: m_gBufferImages()
-		, m_gBufferImageViews()
 		, m_depthImage()
-		, m_depthImageView()
 		, m_depthFormat(Format::Undefined)
 		, m_outputImage()
-		, m_outputImageView()
 		, m_imageFormats()
 		, m_sampler()
 		, m_shadowSampler()
@@ -43,17 +38,10 @@ namespace Engine::Rendering
 
 		std::unique_ptr<IRenderImage>& image = m_gBufferImages.emplace_back(std::move(resourceFactory.CreateRenderImage()));
 		glm::uvec3 extent(size.x, size.y, 1);
-		if (!image->Initialise(ImageType::e2D, format, extent, 1, ImageTiling::Optimal, ImageUsageFlags::ColorAttachment | ImageUsageFlags::Sampled,
-			MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
+		if (!image->Initialise(device, ImageType::e2D, format, extent, 1, ImageTiling::Optimal, ImageUsageFlags::ColorAttachment | ImageUsageFlags::Sampled,
+			ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to create image.");
-			return false;
-		}
-
-		std::unique_ptr<IImageView>& imageView = m_gBufferImageViews.emplace_back(std::move(resourceFactory.CreateImageView()));
-		if (!imageView->Initialise(device, *image, 1, format, ImageAspectFlags::Color))
-		{
-			Logger::Error("Failed to create image view.");
 			return false;
 		}
 
@@ -99,17 +87,10 @@ namespace Engine::Rendering
 	{
 		m_outputImage = std::move(resourceFactory.CreateRenderImage());
 		glm::uvec3 extent(size.x, size.y, 1);
-		if (!m_outputImage->Initialise(ImageType::e2D, OutputImageFormat, extent, 1, ImageTiling::Optimal, ImageUsageFlags::ColorAttachment | ImageUsageFlags::Sampled,
-			MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
+		if (!m_outputImage->Initialise(device, ImageType::e2D, OutputImageFormat, extent, 1, ImageTiling::Optimal, ImageUsageFlags::ColorAttachment | ImageUsageFlags::Sampled,
+			ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to create image.");
-			return false;
-		}
-
-		m_outputImageView = std::move(resourceFactory.CreateImageView());
-		if (!m_outputImageView->Initialise(device, *m_outputImage, 1, OutputImageFormat, ImageAspectFlags::Color))
-		{
-			Logger::Error("Failed to create image view.");
 			return false;
 		}
 
@@ -126,17 +107,10 @@ namespace Engine::Rendering
 
 		m_depthImage = std::move(resourceFactory.CreateRenderImage());
 		glm::uvec3 extent(size.x, size.y, 1);
-		if (!m_depthImage->Initialise(ImageType::e2D, m_depthFormat, extent, 1, ImageTiling::Optimal, ImageUsageFlags::DepthStencilAttachment | ImageUsageFlags::Sampled,
-			MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
+		if (!m_depthImage->Initialise(device, ImageType::e2D, m_depthFormat, extent, 1, ImageTiling::Optimal, ImageUsageFlags::DepthStencilAttachment | ImageUsageFlags::Sampled,
+			ImageAspectFlags::Depth, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to create depth image.");
-			return false;
-		}
-
-		m_depthImageView = std::move(resourceFactory.CreateImageView());
-		if (!m_depthImageView->Initialise(device, *m_depthImage, 1, m_depthFormat, ImageAspectFlags::Depth))
-		{
-			Logger::Error("Failed to create depth image view.");
 			return false;
 		}
 
@@ -199,11 +173,8 @@ namespace Engine::Rendering
 		const glm::uvec2& size, const std::vector<std::unique_ptr<IBuffer>>& frameInfoBuffers,
 		const std::vector<std::unique_ptr<IBuffer>>& lightBuffers, const ShadowMap& shadowMap)
 	{
-		m_depthImageView.reset();
 		m_depthImage.reset();
-		m_outputImageView.reset();
 		m_outputImage.reset();
-		m_gBufferImageViews.clear();
 		m_gBufferImages.clear();
 		m_imageFormats.clear();
 
@@ -222,10 +193,14 @@ namespace Engine::Rendering
 			return false;
 		}
 
+		std::vector<const IImageView*> imageViews(m_gBufferImages.size());
+		for (size_t i = 0; i < m_gBufferImages.size(); ++i)
+			imageViews[i] = &m_gBufferImages[i]->GetView();
+
 		if (!m_combineMaterial->BindUniformBuffers(0, frameInfoBuffers) ||
 			!m_combineMaterial->BindUniformBuffers(1, lightBuffers) ||
 			!m_combineMaterial->BindSampler(2, m_sampler) ||
-			!m_combineMaterial->BindImageViews(3, m_gBufferImageViews) ||
+			!m_combineMaterial->BindImageViews(3, imageViews) ||
 			!m_combineMaterial->BindSampler(4, m_shadowSampler) ||
 			!m_combineMaterial->BindImageViews(5, shadowMap.GetShadowImageViews()))
 			return false;
@@ -252,7 +227,7 @@ namespace Engine::Rendering
 
 		for (uint32_t i = 0; i < GBUFFER_SIZE; ++i)
 		{
-			attachments[i] = AttachmentInfo(m_gBufferImageViews[i].get(), ImageLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store);
+			attachments[i] = AttachmentInfo(&m_gBufferImages[i]->GetView(), ImageLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store);
 		}
 
 		return attachments;
@@ -260,7 +235,7 @@ namespace Engine::Rendering
 
 	AttachmentInfo GBuffer::GetDepthAttachment() const
 	{
-		return AttachmentInfo(m_depthImageView.get(), ImageLayout::DepthAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
+		return AttachmentInfo(&m_depthImage->GetView(), ImageLayout::DepthAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
 	}
 
 	void GBuffer::SetDebugMode(uint32_t value) const

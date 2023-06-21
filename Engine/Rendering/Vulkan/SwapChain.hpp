@@ -31,7 +31,7 @@ namespace Engine::Rendering::Vulkan
 		inline const vk::Extent2D& GetExtent() const { return m_swapChainExtent; }
 		inline const vk::SwapchainKHR& Get() const { return m_swapChain.get(); }
 
-		inline RenderImage& GetSwapChainImage(uint32_t imageIndex) { return m_swapChainImages[imageIndex]; }
+		inline RenderImage& GetSwapChainImage(uint32_t imageIndex) { return *m_swapChainImages[imageIndex]; }
 		inline const ImageView& GetSwapChainImageView(uint32_t imageIndex) const { return *m_swapChainImageViews[imageIndex]; }
 		inline bool IsHDRCapable() const { return m_hdrSupport.has_value() && m_hdrSupport.value(); }
 
@@ -46,7 +46,7 @@ namespace Engine::Rendering::Vulkan
 		vk::UniqueSwapchainKHR m_swapChain;
 		Format m_swapChainImageFormat;
 		vk::Extent2D m_swapChainExtent;
-		std::vector<RenderImage> m_swapChainImages;
+		std::vector<std::unique_ptr<RenderImage>> m_swapChainImages;
 		std::vector<std::unique_ptr<ImageView>> m_swapChainImageViews;
 		std::optional<bool> m_hdrSupport;
 	};

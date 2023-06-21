@@ -1,7 +1,5 @@
 #include "PostProcessing.hpp"
 #include "Core/Logging/Logger.hpp"
-#include "Resources/IRenderImage.hpp"
-#include "Resources/IImageView.hpp"
 #include "Resources/IImageSampler.hpp"
 #include "Resources/IPhysicalDevice.hpp"
 #include "Resources/IDevice.hpp"
@@ -23,7 +21,6 @@ namespace Engine::Rendering
 		, m_enabled(true)
 		, m_taaJitterOffsets()
 		, m_taaPreviousImages()
-		, m_taaPreviousImageViews()
 		, m_taaFrameIndex(0)
 		, m_gBuffer(gBuffer)
 		, m_taaMaterial(nullptr)
@@ -91,8 +88,6 @@ namespace Engine::Rendering
 	{
 		m_taaPreviousImages[0].reset();
 		m_taaPreviousImages[1].reset();
-		m_taaPreviousImageViews[0].reset();
-		m_taaPreviousImageViews[1].reset();
 
 		// Populate TAA jitter offsets with quasi-random sequence.
 		for (size_t i = 0; i < m_taaJitterOffsets.size(); ++i)
@@ -109,7 +104,7 @@ namespace Engine::Rendering
 		if (!m_taaMaterial->BindSampler(0, m_linearSampler) ||
 			!m_taaMaterial->BindSampler(1, m_nearestSampler) ||
 			!m_taaMaterial->BindImageView(2, inputImageView) ||
-			!m_taaMaterial->BindImageView(3, m_taaPreviousImageViews[0]) ||
+			!m_taaMaterial->BindImageView(3, m_taaPreviousImages[0]->GetView()) ||
 			!m_taaMaterial->BindImageView(4, m_gBuffer.GetVelocityImageView()) ||
 			!m_taaMaterial->BindImageView(5, m_gBuffer.GetDepthImageView()))
 			return false;
@@ -128,17 +123,10 @@ namespace Engine::Rendering
 
 			m_taaPreviousImages[i] = std::move(resourceFactory.CreateRenderImage());
 			glm::uvec3 extent(size.x, size.y, 1);
-			if (!m_taaPreviousImages[i]->Initialise(ImageType::e2D, format, extent, 1, ImageTiling::Optimal, usageFlags,
-				MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
+			if (!m_taaPreviousImages[i]->Initialise(device, ImageType::e2D, format, extent, 1, ImageTiling::Optimal, usageFlags,
+				ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 			{
 				Logger::Error("Failed to create image.");
-				return false;
-			}
-
-			m_taaPreviousImageViews[i] = std::move(resourceFactory.CreateImageView());
-			if (!m_taaPreviousImageViews[i]->Initialise(device, *m_taaPreviousImages[i], 1, format, ImageAspectFlags::Color))
-			{
-				Logger::Error("Failed to create image view.");
 				return false;
 			}
 		}

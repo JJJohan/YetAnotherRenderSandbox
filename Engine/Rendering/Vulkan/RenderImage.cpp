@@ -8,7 +8,8 @@ using namespace Engine::Logging;
 namespace Engine::Rendering::Vulkan
 {
 	RenderImage::RenderImage(VmaAllocator allocator)
-		: m_image(nullptr)
+		: IRenderImage()
+		, m_image(nullptr)
 		, m_imageAlloc(nullptr)
 		, m_imageAllocInfo()
 		, m_allocator(allocator)
@@ -16,7 +17,8 @@ namespace Engine::Rendering::Vulkan
 	}
 
 	RenderImage::RenderImage(vk::Image image, vk::Format format)
-		: m_image(image)
+		: IRenderImage()
+		, m_image(image)
 		, m_imageAlloc(nullptr)
 		, m_imageAllocInfo()
 		, m_allocator(nullptr)
@@ -114,8 +116,8 @@ namespace Engine::Rendering::Vulkan
 			nullptr, nullptr, { barrier });
 	}
 
-	bool RenderImage::Initialise(ImageType imageType, Format format, const glm::uvec3& dimensions, uint32_t mipLevels, ImageTiling tiling,
-		ImageUsageFlags imageUsage, MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode)
+	bool RenderImage::Initialise(const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions, uint32_t mipLevels, ImageTiling tiling,
+		ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags, MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode)
 	{
 		m_format = format;
 		m_dimensions = dimensions;
@@ -134,6 +136,13 @@ namespace Engine::Rendering::Vulkan
 		if (createResult != VK_SUCCESS)
 		{
 			Logger::Error("Failed to create RenderImage.");
+			return false;
+		}
+
+		m_imageView = std::make_unique<ImageView>();
+		if (!m_imageView->Initialise(device, *this, mipLevels, format, aspectFlags))
+		{
+			Logger::Error("Failed to create image view.");
 			return false;
 		}
 
