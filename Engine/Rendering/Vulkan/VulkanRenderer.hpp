@@ -16,15 +16,11 @@ namespace Engine::Rendering
 	class SceneManager;
 	struct FrameInfoUniformBuffer;
 	struct LightUniformBuffer;
-	class GBuffer;
-	class ShadowMap;
-	class PostProcessing;
 	class IBuffer;
 	class IRenderImage;
 	class IImageView;
 	class IDevice;
 	class IPhysicalDevice;
-	class RenderGraph;
 }
 
 namespace Engine::UI
@@ -39,9 +35,7 @@ namespace Engine::Rendering::Vulkan
 	class PhysicalDevice;
 	class Instance;
 	class Surface;
-	class PipelineLayout;
 	class CommandPool;
-	class PipelineManager;
 
 	class VulkanRenderer : public Renderer
 	{
@@ -51,8 +45,6 @@ namespace Engine::Rendering::Vulkan
 
 		virtual bool Initialise() override;
 		virtual bool Render() override;
-		inline virtual const std::vector<FrameStats>& GetRenderStats() const override { return m_renderStats->GetFrameStats(); };
-		inline virtual const MemoryStats& GetMemoryStats() const override { return m_renderStats->GetMemoryStats(); };
 
 		inline virtual void SetMultiSampleCount(uint32_t multiSampleCount) override
 		{
@@ -63,23 +55,15 @@ namespace Engine::Rendering::Vulkan
 
 		virtual void SetDebugMode(uint32_t mode);
 		virtual void SetHDRState(bool enable) override;
-		inline virtual bool IsHDRSupported() const override { return m_swapChain->IsHDRCapable(); };
 
-		inline virtual SceneManager& GetSceneManager() const override { return *m_sceneManager; };
-		inline virtual Engine::UI::UIManager& GetUIManager() const override { return *m_uiManager; };
-
-		inline const Device& GetDevice() const { return *m_device; };
-		inline const PhysicalDevice& GetPhysicalDevice() const { return *m_physicalDevice; };
-		inline const SwapChain& GetSwapChain() const { return *m_swapChain; };
-		inline const GBuffer& GetGBuffer() const { return *m_gBuffer; };
 		inline VmaAllocator GetAllocator() const { return m_allocator; };
-		inline uint32_t GetConcurrentFrameCount() const { return m_maxConcurrentFrames; };
-		inline const std::vector<std::unique_ptr<IBuffer>>& GetFrameInfoBuffers() const { return m_frameInfoBuffers; };
-		inline const std::vector<std::unique_ptr<IBuffer>>& GetLightBuffers() const { return m_lightBuffers; };
 
 		bool SubmitResourceCommand(std::function<bool(const IDevice& device, const IPhysicalDevice& physicalDevice, 
 			const ICommandBuffer&, std::vector<std::unique_ptr<IBuffer>>&)> command,
 			std::optional<std::function<void()>> postAction = std::nullopt);
+
+	protected:
+		virtual void DestroyResources() override;
 
 	private:
 		bool RecordRenderCommandBuffer(const ICommandBuffer& commandBuffer);
@@ -90,9 +74,6 @@ namespace Engine::Rendering::Vulkan
 		bool CreateSyncObjects();
 		bool CreateAllocator();
 		bool RecreateSwapChain(const glm::uvec2& size, bool rebuildPipelines);
-		bool CreateFrameInfoUniformBuffer();
-		bool CreateLightUniformBuffer();
-		void UpdateFrameInfo();
 
 		struct ResourceCommandData
 		{
@@ -102,27 +83,12 @@ namespace Engine::Rendering::Vulkan
 		};
 
 		std::unique_ptr<Debug> m_Debug;
-		std::unique_ptr<Device> m_device;
-		std::unique_ptr<PhysicalDevice> m_physicalDevice;
 		std::unique_ptr<Instance> m_instance;
 		std::unique_ptr<Surface> m_surface;
-		std::unique_ptr<SwapChain> m_swapChain;
-		std::unique_ptr<GBuffer> m_gBuffer;
-		std::unique_ptr<ShadowMap> m_shadowMap;
-		std::unique_ptr<PostProcessing> m_postProcessing;
-		std::unique_ptr<VulkanRenderStats> m_renderStats;
-		std::unique_ptr<PipelineManager> m_pipelineManager;
-		std::unique_ptr<RenderGraph> m_renderGraph;
-		std::unique_ptr<Engine::UI::Vulkan::VulkanUIManager> m_uiManager;
 		VmaAllocator m_allocator;
 
 		std::unique_ptr<CommandPool> m_resourceCommandPool;
 		std::unique_ptr<CommandPool> m_renderCommandPool;
-
-		std::vector<std::unique_ptr<IBuffer>> m_frameInfoBuffers;
-		std::vector<std::unique_ptr<IBuffer>> m_lightBuffers;
-		std::vector<FrameInfoUniformBuffer*> m_frameInfoBufferData;
-		std::vector<LightUniformBuffer*> m_lightBufferData;
 
 		std::vector<vk::UniqueCommandBuffer> m_renderCommandBuffers;
 		std::vector<vk::UniqueCommandBuffer> m_shadowCommandBuffers;
@@ -139,13 +105,9 @@ namespace Engine::Rendering::Vulkan
 		std::vector<std::pair<vk::UniqueFence, std::vector<ResourceCommandData>>> m_inFlightResources;
 		std::vector<ResourceCommandData> m_pendingResources;
 
-		std::unique_ptr<VulkanSceneManager> m_sceneManager;
 		std::queue<std::function<bool()>> m_actionQueue;
 
 		bool m_swapChainOutOfDate;
-		uint32_t m_currentFrame;
-		const uint32_t m_maxConcurrentFrames;
-		glm::uvec2 m_lastWindowSize;
 		std::mutex m_resourceSubmitMutex;
 	};
 }

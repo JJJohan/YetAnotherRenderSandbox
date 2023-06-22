@@ -12,17 +12,14 @@ namespace Engine::Rendering
 
 namespace Engine::Rendering::Vulkan
 {
-	class Device;
-	class PhysicalDevice;
-
 	class VulkanRenderStats : public RenderStats
 	{
 	public:
 		VulkanRenderStats(const GBuffer& gBuffer, const ShadowMap& shadowMap);
-		bool Initialise(const PhysicalDevice& physicalDevice, const Device& device, uint32_t renderPassCount);
-		void Begin(const ICommandBuffer& commandBuffer);
-		void End(const ICommandBuffer& commandBuffer);
-		void GetResults(const PhysicalDevice& physicalDevice, const Device& device);
+		virtual bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t renderPassCount) override;
+		virtual void Begin(const ICommandBuffer& commandBuffer) override;
+		virtual void End(const ICommandBuffer& commandBuffer) override;
+		virtual void FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device) override;
 
 	private:
 		vk::UniqueQueryPool m_statisticsQueryPool;

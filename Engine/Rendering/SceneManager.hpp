@@ -23,11 +23,13 @@ namespace Engine
 namespace Engine::Rendering
 {
 	class Shader;
+	class ICommandBuffer;
 
 	class SceneManager
 	{
 	public:
 		SceneManager();
+		virtual ~SceneManager() = default;
 
 		EXPORT uint32_t CreateMesh(
 			const std::vector<VertexData>& vertexData,
@@ -43,6 +45,9 @@ namespace Engine::Rendering
 
 		EXPORT uint32_t CreateFromOBJ(const std::string& filePath,
 			const glm::mat4& transform, const Colour& colour = {}, std::shared_ptr<Image> image = nullptr);
+
+		virtual void Draw(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex) = 0;
+		virtual void DrawShadows(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex) = 0;
 
 	protected:
 		std::stack<uint32_t> m_recycledIds;

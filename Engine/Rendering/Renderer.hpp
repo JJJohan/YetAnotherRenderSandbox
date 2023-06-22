@@ -7,6 +7,9 @@
 #include <glm/glm.hpp>
 #include "Camera.hpp"
 #include "RenderStats.hpp"
+#include "Types.hpp"
+#include "Resources/ISwapChain.hpp"
+#include "RenderGraph.hpp"
 
 namespace Engine::OS
 {
@@ -23,6 +26,17 @@ namespace Engine::Rendering
 	class SceneManager;
 	class Camera;
 	class IResourceFactory;
+	class GBuffer;
+	class ShadowMap;
+	class PostProcessing;
+	class RenderStats;
+	class IDevice;
+	class IPhysicalDevice;
+	class IMaterialManager;
+	struct FrameInfoUniformBuffer;
+	struct LightUniformBuffer;
+	class IBuffer;
+	class ISwapChain;
 
 	enum class RendererType
 	{
@@ -35,10 +49,10 @@ namespace Engine::Rendering
 		EXPORT static std::unique_ptr<Renderer> Create(RendererType rendererType, const Engine::OS::Window& window, bool debug);
 		EXPORT virtual ~Renderer();
 
-		inline virtual bool Initialise() { return true; }
-		inline virtual bool Render() { return false; }
-		EXPORT virtual const std::vector<FrameStats>& GetRenderStats() const { throw; };
-		EXPORT virtual const MemoryStats& GetMemoryStats() const { throw; };
+		inline virtual bool Initialise();
+		inline virtual bool Render() = 0;
+		inline const std::vector<FrameStats>& GetRenderStats() const { return m_renderStats->GetFrameStats(); };
+		inline const MemoryStats& GetMemoryStats() const { return m_renderStats->GetMemoryStats(); };
 
 		inline void SetClearColour(const Colour& clearColour) { m_clearColour = clearColour.GetVec4(); };
 		inline const Colour GetClearColor() const { return Colour(m_clearColour); };
@@ -54,23 +68,42 @@ namespace Engine::Rendering
 
 		inline virtual void SetHDRState(bool enable) { m_hdr = enable; };
 		inline bool GetHDRState() const { return m_hdr; };
-		inline virtual bool IsHDRSupported() const { return false; };
+		bool IsHDRSupported() const { return m_swapChain->IsHDRCapable(); };
 
 		inline void SetSunLightDirection(const glm::vec3& dir) { m_sunDirection = glm::normalize(dir); };
 		inline void SetSunLightColour(const Colour& colour) { m_sunColour = colour; };
 		inline void SetSunLightIntensity(float intensity) { m_sunIntensity = intensity; };
+
+		inline const GBuffer& GetGBuffer() const { return *m_gBuffer; };
 
 		inline void SetCamera(const Camera& camera) { m_camera = camera; };
 		inline Camera& GetCamera() { return m_camera; };
 
 		inline const IResourceFactory& GetResourceFactory() { return *m_resourceFactory; }
 
-		inline virtual SceneManager& GetSceneManager() const { throw; };
-		inline virtual Engine::UI::UIManager& GetUIManager() const { throw; };
+		inline SceneManager& GetSceneManager() const { return *m_sceneManager; };
+		inline Engine::UI::UIManager& GetUIManager() const { return *m_uiManager; };
+
+		inline const IDevice& GetDevice() const { return *m_device; };
+		inline const IPhysicalDevice& GetPhysicalDevice() const { return *m_physicalDevice; };
+		inline const ISwapChain& GetSwapChain() const { return *m_swapChain; };
+		inline uint32_t GetConcurrentFrameCount() const { return m_maxConcurrentFrames; };
+
+		inline const std::vector<std::unique_ptr<IBuffer>>& GetFrameInfoBuffers() const { return m_frameInfoBuffers; };
+		inline const std::vector<std::unique_ptr<IBuffer>>& GetLightBuffers() const { return m_lightBuffers; };
 
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);
 
+		bool CreateFrameInfoUniformBuffer();
+		bool CreateLightUniformBuffer();
+		void UpdateFrameInfo();
+
+		virtual void DestroyResources();
+
+		uint32_t m_currentFrame;
+		glm::uvec2 m_lastWindowSize;
+		uint32_t m_maxConcurrentFrames;
 		glm::vec3 m_sunDirection;
 		Colour m_sunColour;
 		float m_sunIntensity;
@@ -83,6 +116,24 @@ namespace Engine::Rendering
 		bool m_hdr;
 		Camera m_camera;
 		glm::vec4 m_clearColour;
+		Format m_depthFormat;
+
+		std::vector<std::unique_ptr<IBuffer>> m_frameInfoBuffers;
+		std::vector<std::unique_ptr<IBuffer>> m_lightBuffers;
+		std::vector<FrameInfoUniformBuffer*> m_frameInfoBufferData;
+		std::vector<LightUniformBuffer*> m_lightBufferData;
+
+		std::unique_ptr<SceneManager> m_sceneManager;
 		std::unique_ptr<IResourceFactory> m_resourceFactory;
+		std::unique_ptr<GBuffer> m_gBuffer;
+		std::unique_ptr<ShadowMap> m_shadowMap;
+		std::unique_ptr<PostProcessing> m_postProcessing;
+		std::unique_ptr<RenderGraph> m_renderGraph;
+		std::unique_ptr<IMaterialManager> m_materialManager;
+		std::unique_ptr<IPhysicalDevice> m_physicalDevice;
+		std::unique_ptr<IDevice> m_device;
+		std::unique_ptr<ISwapChain> m_swapChain;
+		std::unique_ptr<RenderStats> m_renderStats;
+		std::unique_ptr<Engine::UI::UIManager> m_uiManager;
 	};
 }

@@ -14,6 +14,7 @@ namespace Engine::Rendering::Vulkan
 namespace Engine::Rendering
 {
 	class Renderer;
+	class ICommandBuffer;
 }
 
 namespace Engine::OS
@@ -31,7 +32,7 @@ namespace Engine::UI::Vulkan
 
 		bool Initialise(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer & renderer);
 
-		void Draw(const vk::CommandBuffer& commandBuffer, float width, float height);
+		virtual void Draw(const Engine::Rendering::ICommandBuffer& commandBuffer, float width, float height) override;
 
 		bool Rebuild(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer& renderer);
 

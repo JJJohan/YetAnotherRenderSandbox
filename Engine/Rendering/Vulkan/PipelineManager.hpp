@@ -5,8 +5,6 @@
 
 namespace Engine::Rendering::Vulkan
 {
-	class Device;
-
 	class PipelineManager : public IMaterialManager
 	{
 	public:
@@ -17,7 +15,7 @@ namespace Engine::Rendering::Vulkan
 			Format depthFormat) const override;
 
 		bool CheckDirty() const;
-		void WritePipelineCache(const Device& device) const;
+		void WritePipelineCache(const IDevice& device) const;
 
 	private:
 		virtual bool BuildMaterials(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t concurrentFrames,

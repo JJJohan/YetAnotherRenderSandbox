@@ -13,12 +13,15 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	bool CommandPool::Initialise(const PhysicalDevice& physicalDevice, const Device& device, vk::CommandPoolCreateFlagBits flags)
+	bool CommandPool::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, vk::CommandPoolCreateFlagBits flags)
 	{
-		QueueFamilyIndices queueFamilyIndices = physicalDevice.GetQueueFamilyIndices();
+		const Device& vkDevice = static_cast<const Device&>(device);
+		const PhysicalDevice& vkPhysicalDevice = static_cast<const PhysicalDevice&>(physicalDevice);
+
+		QueueFamilyIndices queueFamilyIndices = vkPhysicalDevice.GetQueueFamilyIndices();
 
 		vk::CommandPoolCreateInfo poolInfo(flags, queueFamilyIndices.GraphicsFamily.value());
-		m_commandPool = device.Get().createCommandPoolUnique(poolInfo);
+		m_commandPool = vkDevice.Get().createCommandPoolUnique(poolInfo);
 		if (!m_commandPool.get())
 		{
 			Logger::Error("Failed to create command pool.");
@@ -28,16 +31,18 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	std::vector<vk::UniqueCommandBuffer> CommandPool::CreateCommandBuffers(const Device& device, uint32_t bufferCount)
+	std::vector<vk::UniqueCommandBuffer> CommandPool::CreateCommandBuffers(const IDevice& device, uint32_t bufferCount)
 	{
+		const Device& vkDevice = static_cast<const Device&>(device);
 		vk::CommandBufferAllocateInfo allocInfo(m_commandPool.get(), vk::CommandBufferLevel::ePrimary, bufferCount);
-		return device.Get().allocateCommandBuffersUnique(allocInfo);
+		return vkDevice.Get().allocateCommandBuffersUnique(allocInfo);
 	}
 
-	vk::UniqueCommandBuffer CommandPool::BeginResourceCommandBuffer(const Device& device) const
+	vk::UniqueCommandBuffer CommandPool::BeginResourceCommandBuffer(const IDevice& device) const
 	{
+		const Device& vkDevice = static_cast<const Device&>(device);
 		vk::CommandBufferAllocateInfo allocInfo(m_commandPool.get(), vk::CommandBufferLevel::ePrimary, 1);
-		std::vector<vk::UniqueCommandBuffer> commandBuffers = device.Get().allocateCommandBuffersUnique(allocInfo);
+		std::vector<vk::UniqueCommandBuffer> commandBuffers = vkDevice.Get().allocateCommandBuffersUnique(allocInfo);
 		vk::UniqueCommandBuffer commandBuffer = std::move(commandBuffers.front());
 
 		vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);

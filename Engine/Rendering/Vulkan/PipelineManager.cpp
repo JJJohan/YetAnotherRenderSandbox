@@ -4,7 +4,7 @@
 #include "PipelineLayout.hpp"
 #include "OS/Files.hpp"
 #include "../Resources/IPhysicalDevice.hpp"
-#include "../Material.hpp"
+#include "../Resources/Material.hpp"
 #include <filesystem>
 
 using namespace Engine::Logging;
@@ -88,9 +88,9 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	void PipelineManager::WritePipelineCache(const Device& device) const
+	void PipelineManager::WritePipelineCache(const IDevice& device) const
 	{
-		std::vector<uint8_t> cacheData = device.Get().getPipelineCacheData(m_pipelineCache.get());
+		std::vector<uint8_t> cacheData = static_cast<const Device&>(device).Get().getPipelineCacheData(m_pipelineCache.get());
 
 		if (!Files::TryWriteBinaryFile("materials.cache", cacheData))
 		{

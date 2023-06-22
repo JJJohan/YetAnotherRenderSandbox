@@ -2,7 +2,7 @@
 #include "Core/Logging/Logger.hpp"
 #include "ShadowMap.hpp"
 #include "OS/Files.hpp"
-#include "Material.hpp"
+#include "Resources/Material.hpp"
 #include "Resources/IMaterialManager.hpp"
 #include "Resources/IDevice.hpp"
 #include "Resources/IPhysicalDevice.hpp"

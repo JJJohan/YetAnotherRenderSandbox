@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Macros.hpp"
 #include <stdint.h>
 #include <vector>
 
@@ -24,12 +25,23 @@ namespace Engine::Rendering
 		uint64_t SharedBudget;
 	};
 
+	class IPhysicalDevice;
+	class IDevice;
+	class ICommandBuffer;
+
 	class RenderStats
 	{
 	public:
 		RenderStats();
-		const std::vector<FrameStats>& GetFrameStats() const;
-		const MemoryStats& GetMemoryStats() const;
+		virtual ~RenderStats() = default;
+
+		virtual bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t renderPassCount) = 0;
+		virtual void Begin(const ICommandBuffer& commandBuffer) = 0;
+		virtual void End(const ICommandBuffer& commandBuffer) = 0;
+		virtual void FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device) = 0;
+
+		EXPORT const std::vector<FrameStats>& GetFrameStats() const;
+		EXPORT const MemoryStats& GetMemoryStats() const;
 
 	protected:
 		std::vector<FrameStats> m_statsData;

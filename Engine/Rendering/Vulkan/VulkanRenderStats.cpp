@@ -26,11 +26,14 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	bool VulkanRenderStats::Initialise(const PhysicalDevice& physicalDevice, const Device& device, uint32_t renderPassCount)
+	bool VulkanRenderStats::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t renderPassCount)
 	{
 		m_renderPassCount = renderPassCount;
 
-		const vk::PhysicalDeviceLimits& limits = physicalDevice.GetLimits();
+		const Device& vkDevice = static_cast<const Device&>(device);
+		const PhysicalDevice& vkPhysicalDevice = static_cast<const PhysicalDevice&>(physicalDevice);
+
+		const vk::PhysicalDeviceLimits& limits = vkPhysicalDevice.GetLimits();
 
 		m_timestampPeriod = limits.timestampPeriod;
 		m_timestampSupported = m_timestampPeriod != 0.0f && limits.timestampComputeAndGraphics;
@@ -40,7 +43,7 @@ namespace Engine::Rendering::Vulkan
 			queryPoolInfo.queryType = vk::QueryType::eTimestamp;
 
 			queryPoolInfo.queryCount = m_renderPassCount * 2;
-			m_timestampQueryPool = device.Get().createQueryPoolUnique(queryPoolInfo);
+			m_timestampQueryPool = vkDevice.Get().createQueryPoolUnique(queryPoolInfo);
 			if (!m_timestampQueryPool.get())
 			{
 				return false;
@@ -51,7 +54,7 @@ namespace Engine::Rendering::Vulkan
 			Logger::Warning("Timestamp statistics not supported, statistics will be limited.");
 		}
 
-		m_statisticsSupported = physicalDevice.GetFeatures().pipelineStatisticsQuery;
+		m_statisticsSupported = vkPhysicalDevice.GetFeatures().pipelineStatisticsQuery;
 		if (m_statisticsSupported)
 		{
 			vk::QueryPoolCreateInfo queryPoolInfo{};
@@ -63,7 +66,7 @@ namespace Engine::Rendering::Vulkan
 				vk::QueryPipelineStatisticFlagBits::eFragmentShaderInvocations;
 
 			queryPoolInfo.queryCount = m_renderPassCount * statisticsCount;
-			m_statisticsQueryPool = device.Get().createQueryPoolUnique(queryPoolInfo);
+			m_statisticsQueryPool = vkDevice.Get().createQueryPoolUnique(queryPoolInfo);
 			if (!m_statisticsQueryPool.get())
 			{
 				return false;
@@ -107,8 +110,11 @@ namespace Engine::Rendering::Vulkan
 		++m_renderPassIndex;
 	}
 
-	void VulkanRenderStats::GetResults(const PhysicalDevice& physicalDevice, const Device& device)
+	void VulkanRenderStats::FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device)
 	{
+		const Device& vkDevice = static_cast<const Device&>(device);
+		const PhysicalDevice& vkPhysicalDevice = static_cast<const PhysicalDevice&>(physicalDevice);
+
 		memset(&m_memoryStats, 0, sizeof(MemoryStats));
 
 		m_memoryStats.GBuffer = m_gBuffer.GetMemoryUsage();
@@ -116,7 +122,7 @@ namespace Engine::Rendering::Vulkan
 		vk::PhysicalDeviceMemoryBudgetPropertiesEXT budgetProperties{};
 		vk::PhysicalDeviceMemoryProperties2 memoryProperties{};
 		memoryProperties.pNext = &budgetProperties;
-		physicalDevice.Get().getMemoryProperties2(&memoryProperties);
+		vkPhysicalDevice.Get().getMemoryProperties2(&memoryProperties);
 		uint32_t heapCount = memoryProperties.memoryProperties.memoryHeapCount;
 
 		for (uint32_t i = 0; i < heapCount; ++i)
@@ -141,7 +147,7 @@ namespace Engine::Rendering::Vulkan
 		m_renderPassIndex = 0;
 		m_statsData.clear();
 		m_statsData.resize(static_cast<size_t>(m_renderPassCount) + 1);
-		const vk::Device& deviceImp = device.Get();
+		const vk::Device& deviceImp = vkDevice.Get();
 
 
 		for (uint32_t i = 0; i < m_renderPassCount; ++i)

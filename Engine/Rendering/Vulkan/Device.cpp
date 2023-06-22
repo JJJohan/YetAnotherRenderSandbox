@@ -14,12 +14,14 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	bool Device::Initialise(const PhysicalDevice& physicalDevice)
+	bool Device::Initialise(const IPhysicalDevice& physicalDevice)
 	{
-		QueueFamilyIndices indices = physicalDevice.GetQueueFamilyIndices();
+		const PhysicalDevice& vkPhysicalDevice = static_cast<const PhysicalDevice&>(physicalDevice);
+
+		QueueFamilyIndices indices = vkPhysicalDevice.GetQueueFamilyIndices();
 		std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
 		std::set<uint32_t> uniqueQueueFamilies = { indices.GraphicsFamily.value(), indices.PresentFamily.value() };
-		const vk::PhysicalDeviceFeatures& availableFeatures = physicalDevice.GetFeatures();
+		const vk::PhysicalDeviceFeatures& availableFeatures = vkPhysicalDevice.GetFeatures();
 
 		float queuePriority = 1.0f;
 		for (uint32_t queueFamily : uniqueQueueFamilies)
@@ -57,7 +59,7 @@ namespace Engine::Rendering::Vulkan
 		deviceFeatures2.features.pipelineStatisticsQuery = availableFeatures.pipelineStatisticsQuery;
 		deviceFeatures2.pNext = &vulkan11Features;
 
-		std::vector<const char*> extensionNames = physicalDevice.GetRequiredExtensions();
+		std::vector<const char*> extensionNames = vkPhysicalDevice.GetRequiredExtensions();
 
 		vk::DeviceCreateInfo createInfo;
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
@@ -67,7 +69,7 @@ namespace Engine::Rendering::Vulkan
 		createInfo.enabledLayerCount = 0;
 		createInfo.pNext = &deviceFeatures2;
 
-		m_device = physicalDevice.Get().createDeviceUnique(createInfo);
+		m_device = vkPhysicalDevice.Get().createDeviceUnique(createInfo);
 		if (!m_device.get())
 		{
 			Logger::Error("Failed to create logical device.");

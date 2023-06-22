@@ -6,8 +6,8 @@
 #include "Resources/IResourceFactory.hpp"
 #include "Resources/IMaterialManager.hpp"
 #include "Resources/ICommandBuffer.hpp"
+#include "Resources/Material.hpp"
 #include "GBuffer.hpp"
-#include "Material.hpp"
 #include "OS/Files.hpp"
 
 using namespace Engine::Logging;

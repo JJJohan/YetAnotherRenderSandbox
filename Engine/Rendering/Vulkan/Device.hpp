@@ -3,10 +3,13 @@
 #include <vulkan/vulkan.hpp>
 #include "../Resources/IDevice.hpp"
 
+namespace Engine::Rendering
+{
+	class IPhysicalDevice;
+}
+
 namespace Engine::Rendering::Vulkan
 {
-	class PhysicalDevice;
-
 	class Device : public IDevice
 	{
 	public:
@@ -14,7 +17,7 @@ namespace Engine::Rendering::Vulkan
 		inline const vk::Device& Get() const { return m_device.get(); }
 		inline const vk::Queue& GetGraphicsQueue() const { return m_graphicsQueue; }
 		inline const vk::Queue& GetPresentQueue() const { return m_presentQueue; }
-		bool Initialise(const PhysicalDevice& physicalDevice);
+		bool Initialise(const IPhysicalDevice& physicalDevice);
 
 	private:
 		vk::UniqueDevice m_device;

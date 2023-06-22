@@ -6,6 +6,7 @@
 #include "OS/Window.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "VulkanTypesInterop.hpp"
+#include "RenderImage.hpp"
 
 using namespace Engine::Logging;
 using namespace Engine::OS;
@@ -14,11 +15,6 @@ namespace Engine::Rendering::Vulkan
 {
 	SwapChain::SwapChain()
 		: m_swapChain(nullptr)
-		, m_swapChainImageFormat(Format::Undefined)
-		, m_swapChainExtent()
-		, m_swapChainImages()
-		, m_swapChainImageViews()
-		, m_hdrSupport()
 	{
 	}
 
@@ -54,20 +50,18 @@ namespace Engine::Rendering::Vulkan
 	}
 
 
-	vk::Extent2D ChooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities, const glm::uvec2& size)
+	glm::uvec2 ChooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities, const glm::uvec2& size)
 	{
 		if (capabilities.currentExtent.width != UINT32_MAX)
 		{
-			return capabilities.currentExtent;
+			return glm::uvec2(capabilities.currentExtent.width, capabilities.currentExtent.height);
 		}
 		else
 		{
-			vk::Extent2D actualExtent(size.x, size.y);
-
-			actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-			actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-
-			return actualExtent;
+			glm::uvec2 result;
+			result.x = std::clamp(size.x, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+			result.y = std::clamp(size.y, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+			return result;
 		}
 	}
 
@@ -76,10 +70,13 @@ namespace Engine::Rendering::Vulkan
 		return vk::PresentModeKHR::eFifo;
 	}
 
-	bool SwapChain::Initialise(const PhysicalDevice& physicalDevice, const Device& device, const Surface& surface,
+	bool SwapChain::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, const Surface& surface,
 		const Window& window, VmaAllocator allocator, const glm::uvec2& size, bool hdr)
 	{
-		SwapChainSupportDetails swapChainSupportDetails = QuerySwapChainSupport(physicalDevice.Get(), surface);
+		const Device& vkDevice = static_cast<const Device&>(device);
+		const PhysicalDevice& vkPhysicalDevice = static_cast<const PhysicalDevice&>(physicalDevice);
+
+		SwapChainSupportDetails swapChainSupportDetails = QuerySwapChainSupport(vkPhysicalDevice.Get(), surface);
 
 		vk::SurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupportDetails.Formats, hdr);
 		vk::PresentModeKHR presentMode = ChooseSwapPresentMode(swapChainSupportDetails.PresentModes);
@@ -99,7 +96,7 @@ namespace Engine::Rendering::Vulkan
 		createInfo.minImageCount = imageCount;
 		createInfo.imageFormat = surfaceFormat.format;
 		createInfo.imageColorSpace = surfaceFormat.colorSpace;
-		createInfo.imageExtent = m_swapChainExtent;
+		createInfo.imageExtent = vk::Extent2D(m_swapChainExtent.x, m_swapChainExtent.y);
 		createInfo.imageArrayLayers = 1;
 		createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
 		createInfo.preTransform = swapChainSupportDetails.Capabilities.currentTransform;
@@ -108,7 +105,7 @@ namespace Engine::Rendering::Vulkan
 		createInfo.clipped = VK_TRUE;
 		createInfo.oldSwapchain = oldSwapChain.get();
 
-		QueueFamilyIndices indices = physicalDevice.GetQueueFamilyIndices();
+		QueueFamilyIndices indices = vkPhysicalDevice.GetQueueFamilyIndices();
 		uint32_t queueFamilyIndices[] = { indices.GraphicsFamily.value(), indices.PresentFamily.value() };
 
 		if (indices.GraphicsFamily != indices.PresentFamily)
@@ -124,7 +121,7 @@ namespace Engine::Rendering::Vulkan
 			createInfo.pQueueFamilyIndices = nullptr; // Optional
 		}
 
-		const vk::Device& deviceImp = device.Get();
+		const vk::Device& deviceImp = vkDevice.Get();
 
 		VkSwapchainKHR swapChain{};
 		m_swapChain = deviceImp.createSwapchainKHRUnique(createInfo);

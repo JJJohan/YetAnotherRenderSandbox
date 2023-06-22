@@ -21,9 +21,8 @@
 #include "PipelineLayout.hpp"
 #include "../RenderGraph.hpp"
 #include "RenderImage.hpp"
-#include "FrameInfoUniformBuffer.hpp"
 #include "PipelineManager.hpp"
-#include "LightUniformBuffer.hpp"
+#include "../Resources/LightUniformBuffer.hpp"
 #include "../GBuffer.hpp"
 #include "../ShadowMap.hpp"
 #include "../PostProcessing.hpp"
@@ -46,10 +45,7 @@ namespace Engine::Rendering::Vulkan
 		: Renderer(window, debug)
 		, m_instance()
 		, m_Debug()
-		, m_physicalDevice()
-		, m_device()
 		, m_surface()
-		, m_swapChain()
 		, m_renderCommandPool()
 		, m_resourceCommandPool()
 		, m_renderCommandBuffers()
@@ -57,7 +53,6 @@ namespace Engine::Rendering::Vulkan
 		, m_presentCommandBuffers()
 		, m_postProcessingCommandBuffers()
 		, m_uiCommandBuffers()
-		, m_sceneManager()
 		, m_imageAvailableSemaphores()
 		, m_renderFinishedSemaphores()
 		, m_shadowFinishedSemaphores()
@@ -68,52 +63,19 @@ namespace Engine::Rendering::Vulkan
 		, m_inFlightResources()
 		, m_pendingResources()
 		, m_actionQueue()
-		, m_lastWindowSize()
 		, m_swapChainOutOfDate(false)
-		, m_currentFrame(0)
 		, m_allocator()
-		, m_maxConcurrentFrames(DEFAULT_MAX_CONCURRENT_FRAMES)
-		, m_frameInfoBuffers()
-		, m_lightBuffers()
-		, m_frameInfoBufferData()
-		, m_lightBufferData()
 		, m_resourceSubmitMutex()
-		, m_gBuffer()
-		, m_shadowMap()
-		, m_postProcessing()
-		, m_renderStats()
-		, m_pipelineManager()
-		, m_uiManager(std::make_unique<VulkanUIManager>(window, *this))
 	{
+		m_maxConcurrentFrames = DEFAULT_MAX_CONCURRENT_FRAMES;
 	}
 
-	VulkanRenderer::~VulkanRenderer()
+	void VulkanRenderer::DestroyResources()
 	{
-		if (!m_instance.get())
-		{
-			return;
-		}
-
-		Logger::Verbose("Shutting down Vulkan renderer...");
-
-		m_pipelineManager->WritePipelineCache(*m_device);
-
-		const vk::Device& deviceImp = m_device->Get();
-		deviceImp.waitIdle(); // Shutdown warrants stalling GPU pipeline.
-
-		m_uiManager.reset();
-		m_sceneManager.reset();
-		m_postProcessing.reset();
-		m_renderStats.reset();
-		m_pipelineManager.reset();
-		m_renderGraph.reset();
+		Renderer::DestroyResources();
 
 		m_pendingResources.clear();
 		m_inFlightResources.clear();
-		m_frameInfoBuffers.clear();
-		m_lightBuffers.clear();
-		m_frameInfoBufferData.clear();
-		m_lightBufferData.clear();
 		m_imageAvailableSemaphores.clear();
 		m_renderFinishedSemaphores.clear();
 		m_shadowFinishedSemaphores.clear();
@@ -127,8 +89,6 @@ namespace Engine::Rendering::Vulkan
 		m_postProcessingCommandBuffers.clear();
 		m_uiCommandBuffers.clear();
 
-		m_shadowMap.reset();
-		m_gBuffer.reset();
 		m_renderCommandPool.reset();
 		m_resourceCommandPool.reset();
 		m_swapChain.reset();
@@ -145,17 +105,26 @@ namespace Engine::Rendering::Vulkan
 		m_instance.reset();
 	}
 
-	void VulkanRenderer::UpdateFrameInfo()
+	VulkanRenderer::~VulkanRenderer()
 	{
-		const glm::vec2& size = m_window.GetSize();
+		if (!m_instance.get())
+		{
+			return;
+		}
 
-		FrameInfoUniformBuffer* frameInfo = m_frameInfoBufferData[m_currentFrame];
-		frameInfo->view = m_camera.GetView();
-		frameInfo->viewPos = glm::vec4(m_camera.GetPosition(), 1.0f);
-		frameInfo->prevViewProj = frameInfo->viewProj;
-		frameInfo->viewSize = size;
-		frameInfo->viewProj = m_camera.GetViewProjection();
-		frameInfo->jitter = m_postProcessing->IsEnabled() ? m_postProcessing->GetTAAJitter(size) : glm::vec2();
+		Logger::Verbose("Shutting down Vulkan renderer...");
+
+		static_cast<PipelineManager*>(m_materialManager.get())->WritePipelineCache(*m_device);
+
+		const vk::Device& deviceImp = static_cast<Device*>(m_device.get())->Get();
+		deviceImp.waitIdle(); // Shutdown warrants stalling GPU pipeline.
+
+		DestroyResources();
+	}
+
+	inline vk::Extent2D ToVulkanExtents(const glm::uvec2& extents)
+	{
+		return vk::Extent2D(extents.x, extents.y);
 	}
 
 	bool VulkanRenderer::RecordRenderCommandBuffer(const ICommandBuffer& commandBuffer)
@@ -178,7 +147,7 @@ namespace Engine::Rendering::Vulkan
 
 		vk::RenderingInfo renderingInfo{};
 		renderingInfo.renderArea.offset = vk::Offset2D();
-		renderingInfo.renderArea.extent = m_swapChain->GetExtent();
+		renderingInfo.renderArea.extent = ToVulkanExtents(m_swapChain->GetExtent());
 		renderingInfo.layerCount = 1;
 		renderingInfo.colorAttachmentCount = static_cast<uint32_t>(vkColorAttachments.size());
 		renderingInfo.pColorAttachments = vkColorAttachments.data();
@@ -298,7 +267,7 @@ namespace Engine::Rendering::Vulkan
 
 		vk::RenderingInfo renderingInfo{};
 		renderingInfo.renderArea.offset = vk::Offset2D();
-		renderingInfo.renderArea.extent = m_swapChain->GetExtent();
+		renderingInfo.renderArea.extent = ToVulkanExtents(m_swapChain->GetExtent());
 		renderingInfo.layerCount = 1;
 		renderingInfo.colorAttachmentCount = 1;
 		renderingInfo.pColorAttachments = &colorAttachmentInfo;
@@ -358,7 +327,7 @@ namespace Engine::Rendering::Vulkan
 
 		vk::RenderingInfo renderingInfo{};
 		renderingInfo.renderArea.offset = vk::Offset2D();
-		renderingInfo.renderArea.extent = m_swapChain->GetExtent();
+		renderingInfo.renderArea.extent = ToVulkanExtents(m_swapChain->GetExtent());
 		renderingInfo.layerCount = 1;
 		renderingInfo.colorAttachmentCount = static_cast<uint32_t>(attachmentInfos.size());
 		renderingInfo.pColorAttachments = attachmentInfos.data();
@@ -415,7 +384,7 @@ namespace Engine::Rendering::Vulkan
 
 		vk::RenderingInfo renderingInfo{};
 		renderingInfo.renderArea.offset = vk::Offset2D();
-		renderingInfo.renderArea.extent = m_swapChain->GetExtent();
+		renderingInfo.renderArea.extent = ToVulkanExtents(m_swapChain->GetExtent());
 		renderingInfo.layerCount = 1;
 		renderingInfo.colorAttachmentCount = 1;
 		renderingInfo.pColorAttachments = &colorAttachmentInfo;
@@ -431,7 +400,7 @@ namespace Engine::Rendering::Vulkan
 		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
 		vkCommandBuffer.setScissor(0, 1, &scissor);
 
-		m_uiManager->Draw(vkCommandBuffer, width, height);
+		m_uiManager->Draw(commandBuffer, width, height);
 
 		vkCommandBuffer.endRendering();
 		m_renderStats->End(commandBuffer);
@@ -463,7 +432,7 @@ namespace Engine::Rendering::Vulkan
 
 	bool VulkanRenderer::CreateSyncObjects()
 	{
-		const vk::Device& deviceImp = m_device->Get();
+		const vk::Device& deviceImp = static_cast<Device*>(m_device.get())->Get();
 
 		vk::SemaphoreCreateInfo semaphoreInfo{};
 		vk::FenceCreateInfo fenceInfo(vk::FenceCreateFlagBits::eSignaled);
@@ -507,8 +476,8 @@ namespace Engine::Rendering::Vulkan
 	bool VulkanRenderer::CreateAllocator()
 	{
 		VmaAllocatorCreateInfo allocatorInfo = {};
-		allocatorInfo.physicalDevice = m_physicalDevice->Get();
-		allocatorInfo.device = m_device->Get();
+		allocatorInfo.physicalDevice = static_cast<PhysicalDevice*>(m_physicalDevice.get())->Get();
+		allocatorInfo.device = static_cast<Device*>(m_device.get())->Get();
 		allocatorInfo.instance = m_instance->Get();
 		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
 
@@ -520,62 +489,6 @@ namespace Engine::Rendering::Vulkan
 
 		VkResult result = vmaCreateAllocator(&allocatorInfo, &m_allocator);
 		return result == VK_SUCCESS;
-	}
-
-	bool VulkanRenderer::CreateFrameInfoUniformBuffer()
-	{
-		vk::DeviceSize bufferSize = sizeof(FrameInfoUniformBuffer);
-
-		m_frameInfoBuffers.resize(m_maxConcurrentFrames);
-		m_frameInfoBufferData.resize(m_maxConcurrentFrames);
-
-		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
-		{
-			m_frameInfoBuffers[i] = std::move(std::make_unique<Buffer>(m_allocator));
-			IBuffer& buffer = *m_frameInfoBuffers[i];
-
-			if (!buffer.Initialise(bufferSize, BufferUsageFlags::UniformBuffer, MemoryUsage::Auto, 
-				AllocationCreateFlags::HostAccessSequentialWrite | AllocationCreateFlags::Mapped,
-				SharingMode::Exclusive))
-			{
-				return false;
-			}
-
-			if (!buffer.GetMappedMemory(&m_frameInfoBufferData[i]))
-			{
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	bool VulkanRenderer::CreateLightUniformBuffer()
-	{
-		vk::DeviceSize bufferSize = sizeof(LightUniformBuffer);
-
-		m_lightBuffers.resize(m_maxConcurrentFrames);
-		m_lightBufferData.resize(m_maxConcurrentFrames);
-
-		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
-		{
-			m_lightBuffers[i] = std::make_unique<Buffer>(m_allocator);
-			IBuffer& buffer = *m_lightBuffers[i];
-
-			if (!buffer.Initialise(bufferSize, BufferUsageFlags::UniformBuffer, MemoryUsage::Auto,
-				AllocationCreateFlags::HostAccessSequentialWrite | AllocationCreateFlags::Mapped,
-				SharingMode::Exclusive))
-			{
-				return false;
-			}
-
-			if (!buffer.GetMappedMemory(&m_lightBufferData[i]))
-			{
-				return false;
-			}
-		}
-
-		return true;
 	}
 
 	void VulkanRenderer::SetTemporalAAState(bool enabled)
@@ -622,7 +535,6 @@ namespace Engine::Rendering::Vulkan
 		VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
 		std::string title = m_window.GetTitle();
-		const glm::uvec2 size = m_window.GetSize();
 
 		m_instance = std::make_unique<Instance>();
 		m_surface = std::make_unique<Surface>();
@@ -633,48 +545,35 @@ namespace Engine::Rendering::Vulkan
 		m_renderCommandPool = std::make_unique<CommandPool>();
 		m_Debug = std::make_unique<Debug>();
 		m_sceneManager = std::make_unique<VulkanSceneManager>(*this);
-		m_gBuffer = std::make_unique<GBuffer>();
-		m_shadowMap = std::make_unique<ShadowMap>();
-		m_postProcessing = std::make_unique<PostProcessing>(*m_gBuffer);
 		m_renderStats = std::make_unique<VulkanRenderStats>(*m_gBuffer, *m_shadowMap);
-		m_pipelineManager = std::make_unique<PipelineManager>();
+		m_materialManager = std::make_unique<PipelineManager>();
 		m_resourceFactory = std::make_unique<ResourceFactory>(&m_allocator);
-		m_renderGraph = std::make_unique<RenderGraph>();
+		m_uiManager = std::make_unique<VulkanUIManager>(m_window, *this);
 
 		if (!m_instance->Initialise(title, *m_Debug, m_debug)
 			|| !m_surface->Initialise(*m_instance, m_window)
-			|| !m_physicalDevice->Initialise(*m_instance, *m_surface))
+			|| !static_cast<PhysicalDevice*>(m_physicalDevice.get())->Initialise(*m_instance, *m_surface)
+			|| !static_cast<Device*>(m_device.get())->Initialise(*m_physicalDevice))
 		{
 			return false;
 		}
 
-		Format depthFormat = m_physicalDevice->FindDepthFormat();
-
-		if (!m_device->Initialise(*m_physicalDevice)
-			|| !CreateAllocator()
-			|| !m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, m_hdr)
+		if (!CreateAllocator()
+			|| !static_cast<SwapChain*>(m_swapChain.get())->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, m_lastWindowSize, m_hdr)
 			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eTransient)
 			|| !m_renderCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
-			|| !m_pipelineManager->Initialise(*m_physicalDevice, *m_device, m_maxConcurrentFrames, m_swapChain->GetFormat(), depthFormat)
-			|| !CreateSyncObjects()
-			|| !CreateFrameInfoUniformBuffer()
-			|| !CreateLightUniformBuffer()
-			|| !m_shadowMap->Rebuild(*m_device, *m_resourceFactory, depthFormat)
-			|| !m_gBuffer->Initialise(*m_physicalDevice, *m_device, *m_pipelineManager, *m_resourceFactory,
-				depthFormat, size, m_frameInfoBuffers, m_lightBuffers, *m_shadowMap)
-			|| !m_postProcessing->Initialise(*m_physicalDevice, *m_device, *m_pipelineManager, *m_resourceFactory, size))
+			|| !CreateSyncObjects())
 		{
 			return false;
 		}
 
-		const uint32_t renderPassCount = m_shadowMap->GetCascadeCount() + 4; // Shadow cascades, scene, resolve, TAA & UI
-		if (!m_renderStats->Initialise(*m_physicalDevice, *m_device, renderPassCount))
+		if (!Renderer::Initialise())
 		{
 			return false;
 		}
 
 		// Initialise UI
-		if (!m_uiManager->Initialise(m_instance->Get(), *this))
+		if (!static_cast<VulkanUIManager*>(m_uiManager.get())->Initialise(m_instance->Get(), *this))
 		{
 			Logger::Error("Failed to initialise UI.");
 			return false;
@@ -710,12 +609,10 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!m_sceneManager->Initialise(*m_physicalDevice, *m_device, *m_resourceFactory, *m_pipelineManager))
+		if (!static_cast<VulkanSceneManager*>(m_sceneManager.get())->Initialise(*m_physicalDevice, *m_device, *m_resourceFactory, *m_materialManager))
 		{
 			return false;
 		}
-
-		m_lastWindowSize = m_window.GetSize();
 
 		auto endTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
@@ -726,12 +623,12 @@ namespace Engine::Rendering::Vulkan
 
 	bool VulkanRenderer::RecreateSwapChain(const glm::uvec2& size, bool rebuildPipelines)
 	{
-		m_device->Get().waitIdle(); // Recreating swapchain warrants stalling GPU pipeline.
+		static_cast<Device*>(m_device.get())->Get().waitIdle(); // Recreating swapchain warrants stalling GPU pipeline.
 
 		m_lastWindowSize = size;
 		m_swapChainOutOfDate = false;
 
-		if (!m_swapChain->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, m_hdr))
+		if (!static_cast<SwapChain*>(m_swapChain.get())->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, m_hdr))
 		{
 			return false;
 		}
@@ -749,7 +646,7 @@ namespace Engine::Rendering::Vulkan
 
 		if (rebuildPipelines)
 		{
-			if (!m_uiManager->Rebuild(m_instance->Get(), *this))
+			if (!static_cast<VulkanUIManager*>(m_uiManager.get())->Rebuild(m_instance->Get(), *this))
 			{
 				Logger::Error("Failed to recreate UI render backend.");
 				return false;
@@ -761,10 +658,13 @@ namespace Engine::Rendering::Vulkan
 
 	bool VulkanRenderer::Render()
 	{
-		const vk::Device& deviceImp = m_device->Get();
-		vk::Queue graphicsQueue = m_device->GetGraphicsQueue();
-		vk::Queue presentQueue = m_device->GetPresentQueue();
-		const vk::PhysicalDeviceLimits& limits = m_physicalDevice->GetLimits();
+		Device* vkDevice = static_cast<Device*>(m_device.get());
+		PhysicalDevice* vkPhysicalDevice = static_cast<PhysicalDevice*>(m_physicalDevice.get());
+
+		const vk::Device& deviceImp = vkDevice->Get();
+		vk::Queue graphicsQueue = vkDevice->GetGraphicsQueue();
+		vk::Queue presentQueue = vkDevice->GetPresentQueue();
+		const vk::PhysicalDeviceLimits& limits = vkPhysicalDevice->GetLimits();
 
 		// Exhaust action queue between frames.
 		while (!m_actionQueue.empty())
@@ -814,7 +714,7 @@ namespace Engine::Rendering::Vulkan
 			submitInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 			submitInfo.pCommandBuffers = commandBuffers.data();
 
-			vk::UniqueFence fence = m_device->Get().createFenceUnique(vk::FenceCreateInfo());
+			vk::UniqueFence fence = deviceImp.createFenceUnique(vk::FenceCreateInfo());
 
 			vk::Result submitResult = graphicsQueue.submit(1, &submitInfo, fence.get());
 			if (submitResult != vk::Result::eSuccess)
@@ -844,7 +744,7 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (m_pipelineManager->CheckDirty())
+		if (static_cast<PipelineManager*>(m_materialManager.get())->CheckDirty())
 		{
 			// Wait for both fences.
 			if (deviceImp.waitForFences(1, &m_inFlightFences[(m_currentFrame + 1) % m_maxConcurrentFrames].get(), true, UINT64_MAX) != vk::Result::eSuccess)
@@ -853,14 +753,14 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
-			if (!m_pipelineManager->Update(*m_physicalDevice, *m_device, m_swapChain->GetFormat(), m_gBuffer->GetDepthFormat()))
+			if (!m_materialManager->Update(*m_physicalDevice, *m_device, m_swapChain->GetFormat(), m_gBuffer->GetDepthFormat()))
 			{
 				Logger::Error("Failed to update pipeline manager.");
 				return false;
 			}
 		}
 
-		const vk::SwapchainKHR& swapchainImp = m_swapChain->Get();
+		const vk::SwapchainKHR& swapchainImp = static_cast<SwapChain*>(m_swapChain.get())->Get();
 
 		uint32_t imageIndex;
 		vk::Result acquireNextImageResult = deviceImp.acquireNextImageKHR(swapchainImp, UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame].get(), VK_NULL_HANDLE, &imageIndex);
@@ -914,8 +814,8 @@ namespace Engine::Rendering::Vulkan
 		std::array<vk::Semaphore, 3> presentWaitSemaphores = { m_imageAvailableSemaphores[m_currentFrame].get(), m_renderFinishedSemaphores[m_currentFrame].get(), m_shadowFinishedSemaphores[m_currentFrame].get() };
 		submitInfos.emplace_back(vk::SubmitInfo(3, presentWaitSemaphores.data(), presentWaitStages.data(), 1, &m_presentCommandBuffers[m_currentFrame].get(), 1, &m_presentFinishedSemaphores[m_currentFrame].get()));
 
-		RenderImage& colorImage = m_swapChain->GetSwapChainImage(imageIndex);
-		const ImageView& imageView = m_swapChain->GetSwapChainImageView(imageIndex);
+		IRenderImage& colorImage = m_swapChain->GetSwapChainImage(imageIndex);
+		const IImageView& imageView = m_swapChain->GetSwapChainImageView(imageIndex);
 
 		m_postProcessingCommandBuffers[m_currentFrame]->reset();
 
@@ -943,7 +843,7 @@ namespace Engine::Rendering::Vulkan
 
 		graphicsQueue.submit(submitInfos, m_inFlightFences[m_currentFrame].get());
 
-		m_renderStats->GetResults(*m_physicalDevice, *m_device);
+		m_renderStats->FinaliseResults(*m_physicalDevice, *m_device);
 
 		vk::PresentInfoKHR presentInfo(1, &m_uiFinishedSemaphores[m_currentFrame].get(), 1, &swapchainImp, &imageIndex);
 

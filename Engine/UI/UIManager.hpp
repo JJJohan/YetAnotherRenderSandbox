@@ -8,6 +8,7 @@
 namespace Engine::Rendering
 {
 	class Renderer;
+	class ICommandBuffer;
 }
 
 namespace Engine::OS
@@ -27,6 +28,8 @@ namespace Engine::UI
 		EXPORT void RegisterDrawCallback(std::function<void(const Drawer&)> callback);
 		EXPORT void UnregisterDrawCallback(std::function<void(const Drawer&)> callback);
 		EXPORT float GetFPS() const;
+
+		virtual void Draw(const Engine::Rendering::ICommandBuffer& commandBuffer, float width, float height) = 0;
 
 	protected:
 		UIManager(const Engine::OS::Window& window, Engine::Rendering::Renderer& renderer);

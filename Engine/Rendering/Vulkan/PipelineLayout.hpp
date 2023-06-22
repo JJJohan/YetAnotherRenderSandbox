@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
-#include "../Material.hpp"
+#include "../Resources/Material.hpp"
 #include "Core/Logging/Logger.hpp"
 
 struct SpvReflectInterfaceVariable;

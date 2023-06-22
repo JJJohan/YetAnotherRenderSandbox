@@ -39,8 +39,8 @@ namespace Engine::Rendering::Vulkan
 
 		virtual bool Build(ChunkData* chunkData, AsyncData& asyncData) override;
 
-		void Draw(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex);
-		void DrawShadows(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex);
+		virtual void Draw(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex) override;
+		virtual void DrawShadows(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex) override;
 
 	private:
 		enum class CachedDataType

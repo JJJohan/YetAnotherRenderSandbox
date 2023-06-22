@@ -4,6 +4,7 @@
 #include "Core/Utilities.hpp"
 #include "Core/MeshOptimiser.hpp"
 #include "Core/AsyncData.hpp"
+#include "Resources/ICommandBuffer.hpp"
 #include <filesystem>
 #include "GltfLoader.hpp"
 

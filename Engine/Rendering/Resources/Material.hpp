@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
-#include "Types.hpp"
+#include "../Types.hpp"
 
 namespace Engine::Rendering
 {

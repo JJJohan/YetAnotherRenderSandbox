@@ -4,6 +4,8 @@
 #include <glm/glm.hpp>
 #include <memory>
 #include "Resources/IRenderImage.hpp"
+#include "Resources/IImageSampler.hpp"
+#include "Resources/Material.hpp"
 
 namespace Engine::Rendering
 {
@@ -14,7 +16,6 @@ namespace Engine::Rendering
 	class IResourceFactory;
 	class ICommandBuffer;
 	class IMaterialManager;
-	class Material;
 
 	class PostProcessing
 	{

@@ -137,7 +137,7 @@ namespace Engine::UI::Vulkan
 		return true;
 	}
 
-	void VulkanUIManager::Draw(const vk::CommandBuffer& commandBuffer, float width, float height)
+	void VulkanUIManager::Draw(const ICommandBuffer& commandBuffer, float width, float height)
 	{
 		if (!UIManager::Draw(width, height))
 			return;
@@ -156,7 +156,7 @@ namespace Engine::UI::Vulkan
 		const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
 		if (!is_minimized)
 		{
-			ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
+			ImGui_ImplVulkan_RenderDrawData(draw_data, static_cast<const CommandBuffer&>(commandBuffer).Get());
 		}
 	}
 }

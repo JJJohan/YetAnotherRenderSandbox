@@ -7,7 +7,7 @@
 #include "../Resources/IResourceFactory.hpp"
 #include "../Resources/IMaterialManager.hpp"
 #include "../Resources/ICommandBuffer.hpp"
-#include "../Material.hpp"
+#include "../Resources/Material.hpp"
 #include "VulkanRenderer.hpp"
 #include "../RenderMeshInfo.hpp"
 #include "../GBuffer.hpp"
