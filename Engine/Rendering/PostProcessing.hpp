@@ -16,6 +16,7 @@ namespace Engine::Rendering
 	class IResourceFactory;
 	class ICommandBuffer;
 	class IMaterialManager;
+	class IRenderPass;
 
 	class PostProcessing
 	{
@@ -32,6 +33,16 @@ namespace Engine::Rendering
 		void BlitTAA(const IDevice& device, const ICommandBuffer& commandBuffer) const;
 
 		void Draw(const ICommandBuffer& commandBuffer, uint32_t frameIndex) const;
+
+		inline std::vector<IRenderPass*> GetRenderPasses() const
+		{
+			std::vector<IRenderPass*> passes(m_renderPasses.size());
+			for (size_t i = 0; i < m_renderPasses.size(); ++i)
+			{
+				passes[i] = m_renderPasses[i].get();
+			}
+			return passes;
+		}
 
 		inline const glm::vec2& GetTAAJitter(const glm::vec2& size)
 		{
@@ -57,6 +68,7 @@ namespace Engine::Rendering
 		uint32_t m_taaFrameIndex;
 		std::array<glm::vec2, 6> m_taaJitterOffsets;
 		std::array<std::unique_ptr<IRenderImage>, 2> m_taaPreviousImages;
+		std::vector<std::unique_ptr<IRenderPass>> m_renderPasses;
 		Material* m_taaMaterial;
 	};
 }

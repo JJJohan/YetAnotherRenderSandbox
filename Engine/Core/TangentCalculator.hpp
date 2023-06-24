@@ -2,9 +2,9 @@
 
 #include <vector>
 #include <memory>
-#include "Core/Macros.hpp"
+#include "Macros.hpp"
 
-namespace Engine::Rendering
+namespace Engine
 {
 	class VertexData;
 

@@ -125,7 +125,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\lib;$(VULKAN_SDK)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;tinyobjloader.lib;fastgltf_d.lib;fastgltf_simdjson_d.lib;meshoptimizer_d.lib;liblz4_static_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;fastgltf_d.lib;fastgltf_simdjson_d.lib;meshoptimizer_d.lib;liblz4_static_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -151,7 +151,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\lib;$(VULKAN_SDK)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;tinyobjloader.lib;fastgltf.lib;fastgltf_simdjson.lib;meshoptimizer.lib;liblz4_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;fastgltf.lib;fastgltf_simdjson.lib;meshoptimizer.lib;liblz4_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -161,10 +161,14 @@
     <ClCompile Include="Core\AsyncData.cpp" />
     <ClCompile Include="Core\ChunkData.cpp" />
     <ClCompile Include="Core\Colour.cpp" />
+    <ClCompile Include="Core\GLTFLoader.cpp" />
     <ClCompile Include="Core\Hash.cpp" />
     <ClCompile Include="Core\Image.cpp" />
     <ClCompile Include="Core\Logging\Logger.cpp" />
     <ClCompile Include="Core\MeshOptimiser.cpp" />
+    <ClCompile Include="Core\SceneManager.cpp" />
+    <ClCompile Include="Core\TangentCalculator.cpp" />
+    <ClCompile Include="Core\VertexData.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="OS\Files.cpp" />
     <ClCompile Include="OS\InputEnums.hpp" />
@@ -173,7 +177,6 @@
     <ClCompile Include="OS\Window.cpp" />
     <ClCompile Include="Rendering\Camera.cpp" />
     <ClCompile Include="Rendering\GBuffer.cpp" />
-    <ClCompile Include="Rendering\GLTFLoader.cpp" />
     <ClCompile Include="Rendering\Passes\CombinePass.cpp" />
     <ClCompile Include="Rendering\Passes\SceneOpaquePass.cpp" />
     <ClCompile Include="Rendering\Passes\SceneShadowPass.cpp" />
@@ -182,11 +185,8 @@
     <ClCompile Include="Rendering\RenderGraph.cpp" />
     <ClCompile Include="Rendering\RenderStats.cpp" />
     <ClCompile Include="Rendering\Resources\Material.cpp" />
-    <ClCompile Include="Rendering\SceneManager.cpp" />
     <ClCompile Include="Rendering\Renderer.cpp" />
     <ClCompile Include="Rendering\ShadowMap.cpp" />
-    <ClCompile Include="Rendering\TangentCalculator.cpp" />
-    <ClCompile Include="Rendering\VertexData.cpp" />
     <ClCompile Include="Rendering\Vulkan\Buffer.cpp" />
     <ClCompile Include="Rendering\Vulkan\CommandBuffer.cpp" />
     <ClCompile Include="Rendering\Vulkan\CommandPool.cpp" />
@@ -201,7 +201,7 @@
     <ClCompile Include="Rendering\Vulkan\PhysicalDevice.cpp" />
     <ClCompile Include="Rendering\Vulkan\ResourceFactory.cpp" />
     <ClCompile Include="Rendering\Vulkan\VulkanRenderStats.cpp" />
-    <ClCompile Include="Rendering\Vulkan\VulkanSceneManager.cpp" />
+    <ClCompile Include="Rendering\Vulkan\GeometryBatch.cpp" />
     <ClCompile Include="Rendering\Vulkan\PipelineLayout.cpp" />
     <ClCompile Include="Rendering\Vulkan\VulkanRenderer.cpp" />
     <ClCompile Include="Rendering\Vulkan\Surface.cpp" />
@@ -230,12 +230,16 @@
     <ClInclude Include="Core\ChunkData.hpp" />
     <ClInclude Include="Core\ChunkTypeInfo.hpp" />
     <ClInclude Include="Core\Colour.hpp" />
+    <ClInclude Include="Core\GLTFLoader.hpp" />
     <ClInclude Include="Core\Hash.hpp" />
     <ClInclude Include="Core\Image.hpp" />
     <ClInclude Include="Core\Logging\Logger.hpp" />
     <ClInclude Include="Core\Macros.hpp" />
     <ClInclude Include="Core\MeshOptimiser.hpp" />
+    <ClInclude Include="Core\SceneManager.hpp" />
+    <ClInclude Include="Core\TangentCalculator.hpp" />
     <ClInclude Include="Core\Utilities.hpp" />
+    <ClInclude Include="Core\VertexData.hpp" />
     <ClInclude Include="OS\Files.hpp" />
     <ClInclude Include="OS\InputState.hpp" />
     <ClInclude Include="OS\Win32\Win32Window.hpp" />
@@ -255,6 +259,7 @@
     <ClInclude Include="Rendering\Resources\FrameInfoUniformBuffer.hpp" />
     <ClInclude Include="Rendering\Resources\ICommandBuffer.hpp" />
     <ClInclude Include="Rendering\Resources\IDevice.hpp" />
+    <ClInclude Include="Rendering\Resources\IGeometryBatch.hpp" />
     <ClInclude Include="Rendering\Resources\IndexedIndirectCommand.hpp" />
     <ClInclude Include="Rendering\Resources\IPhysicalDevice.hpp" />
     <ClInclude Include="Rendering\Resources\IResourceFactory.hpp" />
@@ -263,17 +268,13 @@
     <ClInclude Include="Rendering\Resources\Material.hpp" />
     <ClInclude Include="Rendering\ShadowMap.hpp" />
     <ClInclude Include="Rendering\Types.hpp" />
-    <ClInclude Include="Rendering\GLTFLoader.hpp" />
     <ClInclude Include="Rendering\MeshInfo.hpp" />
     <ClInclude Include="Rendering\RenderStats.hpp" />
     <ClInclude Include="Rendering\Resources\IBuffer.hpp" />
     <ClInclude Include="Rendering\Resources\IImageSampler.hpp" />
     <ClInclude Include="Rendering\Resources\IImageView.hpp" />
     <ClInclude Include="Rendering\Resources\IRenderImage.hpp" />
-    <ClInclude Include="Rendering\SceneManager.hpp" />
     <ClInclude Include="Rendering\Renderer.hpp" />
-    <ClInclude Include="Rendering\TangentCalculator.hpp" />
-    <ClInclude Include="Rendering\VertexData.hpp" />
     <ClInclude Include="Rendering\Vulkan\Buffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\CommandBuffer.hpp" />
     <ClInclude Include="Rendering\Vulkan\CommandPool.hpp" />
@@ -289,7 +290,7 @@
     <ClInclude Include="Rendering\Vulkan\QueueFamilyIndices.hpp" />
     <ClInclude Include="Rendering\Vulkan\ResourceFactory.hpp" />
     <ClInclude Include="Rendering\Vulkan\VulkanRenderStats.hpp" />
-    <ClInclude Include="Rendering\Vulkan\VulkanSceneManager.hpp" />
+    <ClInclude Include="Rendering\Vulkan\GeometryBatch.hpp" />
     <ClInclude Include="Rendering\Vulkan\PipelineLayout.hpp" />
     <ClInclude Include="Rendering\Vulkan\VulkanRenderer.hpp" />
     <ClInclude Include="Rendering\Vulkan\Surface.hpp" />

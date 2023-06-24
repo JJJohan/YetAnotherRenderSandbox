@@ -1,11 +1,10 @@
 #include "MeshOptimiser.hpp"
 #include <meshoptimizer.h>
 #include "Logging/Logger.hpp"
-#include "Rendering/VertexData.hpp"
+#include "VertexData.hpp"
 #include <glm/glm.hpp>
 
 using namespace Engine::Logging;
-using namespace Engine::Rendering;
 
 namespace Engine
 {

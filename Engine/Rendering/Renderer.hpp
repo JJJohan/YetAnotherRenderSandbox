@@ -11,6 +11,11 @@
 #include "Resources/ISwapChain.hpp"
 #include "RenderGraph.hpp"
 
+namespace Engine
+{
+	class SceneManager;
+}
+
 namespace Engine::OS
 {
 	class Window;
@@ -23,7 +28,6 @@ namespace Engine::UI
 
 namespace Engine::Rendering
 {
-	class SceneManager;
 	class Camera;
 	class IResourceFactory;
 	class GBuffer;
@@ -37,6 +41,8 @@ namespace Engine::Rendering
 	struct LightUniformBuffer;
 	class IBuffer;
 	class ISwapChain;
+	class IRenderPass;
+	class IGeometryBatch;
 
 	enum class RendererType
 	{
@@ -79,7 +85,7 @@ namespace Engine::Rendering
 		inline void SetCamera(const Camera& camera) { m_camera = camera; };
 		inline Camera& GetCamera() { return m_camera; };
 
-		inline const IResourceFactory& GetResourceFactory() { return *m_resourceFactory; }
+		inline const IResourceFactory& GetResourceFactory() const { return *m_resourceFactory; }
 
 		inline SceneManager& GetSceneManager() const { return *m_sceneManager; };
 		inline Engine::UI::UIManager& GetUIManager() const { return *m_uiManager; };
@@ -91,6 +97,8 @@ namespace Engine::Rendering
 
 		inline const std::vector<std::unique_ptr<IBuffer>>& GetFrameInfoBuffers() const { return m_frameInfoBuffers; };
 		inline const std::vector<std::unique_ptr<IBuffer>>& GetLightBuffers() const { return m_lightBuffers; };
+
+		virtual bool PrepareSceneGeometryBatch(IGeometryBatch** geometryBatch) = 0;
 
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);
@@ -122,13 +130,15 @@ namespace Engine::Rendering
 		std::vector<std::unique_ptr<IBuffer>> m_lightBuffers;
 		std::vector<FrameInfoUniformBuffer*> m_frameInfoBufferData;
 		std::vector<LightUniformBuffer*> m_lightBufferData;
+		std::vector<std::unique_ptr<IRenderPass>*> m_renderPasses;
+		std::unique_ptr<RenderGraph> m_renderGraph;
 
 		std::unique_ptr<SceneManager> m_sceneManager;
+		std::unique_ptr<IGeometryBatch> m_sceneGeometryBatch;
 		std::unique_ptr<IResourceFactory> m_resourceFactory;
 		std::unique_ptr<GBuffer> m_gBuffer;
 		std::unique_ptr<ShadowMap> m_shadowMap;
 		std::unique_ptr<PostProcessing> m_postProcessing;
-		std::unique_ptr<RenderGraph> m_renderGraph;
 		std::unique_ptr<IMaterialManager> m_materialManager;
 		std::unique_ptr<IPhysicalDevice> m_physicalDevice;
 		std::unique_ptr<IDevice> m_device;

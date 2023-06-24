@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Core/Hash.hpp"
+#include "Hash.hpp"
 #include <vector>
 
-namespace Engine::Rendering
+namespace Engine
 {
 	class VertexData
 	{

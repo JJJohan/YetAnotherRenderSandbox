@@ -6,14 +6,13 @@
 #include <queue>
 #include "VulkanRenderStats.hpp"
 #include "SwapChain.hpp"
-#include "VulkanSceneManager.hpp"
+#include "GeometryBatch.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "UI/Vulkan/VulkanUIManager.hpp"
 
 namespace Engine::Rendering
 {
 	class Shader;
-	class SceneManager;
 	struct FrameInfoUniformBuffer;
 	struct LightUniformBuffer;
 	class IBuffer;
@@ -58,9 +57,11 @@ namespace Engine::Rendering::Vulkan
 
 		inline VmaAllocator GetAllocator() const { return m_allocator; };
 
-		bool SubmitResourceCommand(std::function<bool(const IDevice& device, const IPhysicalDevice& physicalDevice, 
+		bool SubmitResourceCommand(std::function<bool(const IDevice& device, const IPhysicalDevice& physicalDevice,
 			const ICommandBuffer&, std::vector<std::unique_ptr<IBuffer>>&)> command,
 			std::optional<std::function<void()>> postAction = std::nullopt);
+
+		virtual bool PrepareSceneGeometryBatch(IGeometryBatch** geometryBatch) override;
 
 	protected:
 		virtual void DestroyResources() override;

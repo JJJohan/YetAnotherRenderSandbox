@@ -2,7 +2,7 @@
 #include "VertexData.hpp"
 #include <glm/glm.hpp>
 
-namespace Engine::Rendering
+namespace Engine
 {
 	void TangentCalculator::CalculateTangents(const VertexData& positionBuffer, const VertexData& normalBuffer, const VertexData& uvBuffer,
 		const std::vector<uint32_t>& indices, std::unique_ptr<VertexData>& tangentsResult, std::unique_ptr<VertexData>& bitangentsResult)

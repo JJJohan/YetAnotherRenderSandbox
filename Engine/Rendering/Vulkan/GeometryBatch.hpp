@@ -1,12 +1,15 @@
 #pragma once
 
-#include "../SceneManager.hpp"
+#include "../Resources/IGeometryBatch.hpp"
 #include "../Resources/IndexedIndirectCommand.hpp"
 #include <memory>
+#include <vector>
+#include <stack>
+#include <unordered_map>
+#include <glm/glm.hpp>
 
 namespace Engine
 {
-	class Image;
 	class ChunkData;
 	class AsyncData;
 }
@@ -23,25 +26,34 @@ namespace Engine::Rendering
 	class IResourceFactory;
 	class IMaterialManager;
 	class Material;
+	struct MeshInfo;
 }
 
 namespace Engine::Rendering::Vulkan
 {
 	class VulkanRenderer;
 
-	class VulkanSceneManager : public SceneManager
+	class GeometryBatch : public IGeometryBatch
 	{
 	public:
-		VulkanSceneManager(VulkanRenderer& renderer);
+		GeometryBatch(VulkanRenderer& renderer);
 
 		bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, 
 			const IResourceFactory& resourceFactory, const IMaterialManager& materialManager);
 
+		virtual bool CreateMesh(const std::vector<VertexData>& vertexData,
+			const std::vector<uint32_t>& indices,
+			const glm::mat4& transform,
+			const Colour& colour,
+			std::shared_ptr<Image> diffuseImage,
+			std::shared_ptr<Image> normalImage,
+			std::shared_ptr<Image> metallicRoughnessImage) override;
+
+		virtual bool Optimise() override;
 		virtual bool Build(ChunkData* chunkData, AsyncData& asyncData) override;
 
 		virtual void Draw(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex) override;
 		virtual void DrawShadows(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex) override;
-
 	private:
 		enum class CachedDataType
 		{
@@ -84,6 +96,22 @@ namespace Engine::Rendering::Vulkan
 		std::vector<uint32_t> m_vertexOffsets;
 		std::vector<uint32_t> m_indexOffsets;
 		std::vector<uint32_t> m_indexCounts;
+
+		std::stack<uint32_t> m_recycledIds;
+		std::vector<bool> m_active;
+		std::atomic<bool> m_creating;
+		uint32_t m_meshCapacity;
+
+		std::vector<std::vector<std::unique_ptr<VertexData>>> m_vertexDataArrays;
+		std::vector<std::unique_ptr<std::vector<uint32_t>>> m_indexArrays;
+		std::vector<Engine::Rendering::MeshInfo> m_meshInfos;
+		std::vector<std::shared_ptr<Image>> m_images;
+		std::vector<uint32_t> m_vertexBufferOffsets;
+		std::vector<uint32_t> m_indexBufferOffsets;
+
+		std::unordered_map<uint64_t, size_t> m_imageHashTable;
+		std::unordered_map<uint64_t, size_t> m_vertexDataHashTable;
+		std::unordered_map<uint64_t, size_t> m_indexDataHashTable;
 
 		std::vector<IndexedIndirectCommand> m_indirectDrawCommands;
 		Material* m_pbrMaterial;

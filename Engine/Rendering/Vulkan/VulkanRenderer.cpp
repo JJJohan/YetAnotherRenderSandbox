@@ -5,7 +5,7 @@
 #include "Core/Colour.hpp"
 #include "OS/Window.hpp"
 #include "Core/Logging/Logger.hpp"
-#include "VulkanSceneManager.hpp"
+#include "GeometryBatch.hpp"
 #include "UI/Vulkan/VulkanUIManager.hpp"
 #include "Debug.hpp"
 #include "Device.hpp"
@@ -180,7 +180,7 @@ namespace Engine::Rendering::Vulkan
 			lightInfo->cascadeSplits[i] = cascadeData.CascadeSplits[i];
 		}
 
-		m_sceneManager->Draw(commandBuffer, m_currentFrame);
+		m_sceneGeometryBatch->Draw(commandBuffer, m_currentFrame);
 
 		vkCommandBuffer.endRendering();
 		m_renderStats->End(commandBuffer);
@@ -229,7 +229,7 @@ namespace Engine::Rendering::Vulkan
 			m_renderStats->Begin(commandBuffer);
 			vkCommandBuffer.beginRendering(renderingInfo);
 
-			m_sceneManager->DrawShadows(commandBuffer, m_currentFrame, i);
+			m_sceneGeometryBatch->DrawShadows(commandBuffer, m_currentFrame, i);
 
 			vkCommandBuffer.endRendering();
 			m_renderStats->End(commandBuffer);
@@ -544,7 +544,7 @@ namespace Engine::Rendering::Vulkan
 		m_resourceCommandPool = std::make_unique<CommandPool>();
 		m_renderCommandPool = std::make_unique<CommandPool>();
 		m_Debug = std::make_unique<Debug>();
-		m_sceneManager = std::make_unique<VulkanSceneManager>(*this);
+		m_sceneGeometryBatch = std::make_unique<GeometryBatch>(*this);
 		m_renderStats = std::make_unique<VulkanRenderStats>(*m_gBuffer, *m_shadowMap);
 		m_materialManager = std::make_unique<PipelineManager>();
 		m_resourceFactory = std::make_unique<ResourceFactory>(&m_allocator);
@@ -609,15 +609,23 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!static_cast<VulkanSceneManager*>(m_sceneManager.get())->Initialise(*m_physicalDevice, *m_device, *m_resourceFactory, *m_materialManager))
-		{
-			return false;
-		}
-
 		auto endTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
 		Logger::Verbose("Renderer setup finished in {} seconds.", deltaTime);
 
+		return true;
+	}
+
+	bool VulkanRenderer::PrepareSceneGeometryBatch(IGeometryBatch** geometryBatch)
+	{
+		m_sceneGeometryBatch = std::make_unique<GeometryBatch>(*this);
+
+		if (!static_cast<GeometryBatch*>(m_sceneGeometryBatch.get())->Initialise(*m_physicalDevice, *m_device, *m_resourceFactory, *m_materialManager))
+		{
+			return false;
+		}
+
+		*geometryBatch = m_sceneGeometryBatch.get();
 		return true;
 	}
 

@@ -97,10 +97,7 @@
     <ClCompile Include="Rendering\Vulkan\CommandPool.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="Rendering\SceneManager.cpp">
-      <Filter>Rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="Rendering\Vulkan\VulkanSceneManager.cpp">
+    <ClCompile Include="Rendering\Vulkan\GeometryBatch.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="Core\Colour.cpp">
@@ -123,12 +120,6 @@
     </ClCompile>
     <ClCompile Include="Rendering\Vulkan\ImageSampler.cpp">
       <Filter>Rendering\Vulkan</Filter>
-    </ClCompile>
-    <ClCompile Include="Rendering\VertexData.cpp">
-      <Filter>Rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="Rendering\GLTFLoader.cpp">
-      <Filter>Rendering</Filter>
     </ClCompile>
     <ClCompile Include="Rendering\Camera.cpp">
       <Filter>Rendering</Filter>
@@ -156,9 +147,6 @@
     </ClCompile>
     <ClCompile Include="UI\imgui\backends\imgui_impl_win32.cpp">
       <Filter>UI\imgui\backends</Filter>
-    </ClCompile>
-    <ClCompile Include="Rendering\TangentCalculator.cpp">
-      <Filter>Rendering</Filter>
     </ClCompile>
     <ClCompile Include="UI\Drawer.cpp">
       <Filter>UI</Filter>
@@ -253,6 +241,18 @@
     <ClCompile Include="Rendering\Resources\Material.cpp">
       <Filter>Rendering\Resources</Filter>
     </ClCompile>
+    <ClCompile Include="Core\VertexData.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\SceneManager.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\GLTFLoader.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\TangentCalculator.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Macros.hpp">
@@ -309,10 +309,7 @@
     <ClInclude Include="Rendering\Vulkan\CommandPool.hpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\SceneManager.hpp">
-      <Filter>Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\Vulkan\VulkanSceneManager.hpp">
+    <ClInclude Include="Rendering\Vulkan\GeometryBatch.hpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClInclude>
     <ClInclude Include="Core\Colour.hpp">
@@ -335,12 +332,6 @@
     </ClInclude>
     <ClInclude Include="Rendering\Vulkan\ImageSampler.hpp">
       <Filter>Rendering\Vulkan</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\VertexData.hpp">
-      <Filter>Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\GLTFLoader.hpp">
-      <Filter>Rendering</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\Camera.hpp">
       <Filter>Rendering</Filter>
@@ -383,9 +374,6 @@
     </ClInclude>
     <ClInclude Include="OS\Win32\WindowProc.hpp">
       <Filter>OS\Win32</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\TangentCalculator.hpp">
-      <Filter>Rendering</Filter>
     </ClInclude>
     <ClInclude Include="UI\Drawer.hpp">
       <Filter>UI</Filter>
@@ -533,6 +521,21 @@
     </ClInclude>
     <ClInclude Include="Rendering\Resources\Material.hpp">
       <Filter>Rendering\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Resources\IGeometryBatch.hpp">
+      <Filter>Rendering\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\SceneManager.hpp">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\VertexData.hpp">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\GLTFLoader.hpp">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\TangentCalculator.hpp">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -4,16 +4,13 @@
 #include <vector>
 #include <memory>
 
-namespace Engine::Rendering
-{
-	class VertexData;
-}
-
 namespace Engine
 {
+	class VertexData;
+
 	class MeshOptimiser
 	{
 	public:
-		static bool Optimise(std::vector<uint32_t>& indices, std::vector<std::unique_ptr<Engine::Rendering::VertexData>>& vertexArrays);
+		static bool Optimise(std::vector<uint32_t>& indices, std::vector<std::unique_ptr<VertexData>>& vertexArrays);
 	};
 }

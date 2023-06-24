@@ -7,6 +7,7 @@ namespace Engine::Rendering
 	class IBuffer;
 	class IImageSampler;
 	class IRenderImage;
+	class Renderer;
 
 	class IResourceFactory
 	{

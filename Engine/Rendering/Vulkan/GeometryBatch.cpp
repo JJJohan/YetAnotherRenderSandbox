@@ -1,4 +1,4 @@
-#include "VulkanSceneManager.hpp"
+#include "GeometryBatch.hpp"
 #include "../Resources/IPhysicalDevice.hpp"
 #include "../Resources/IDevice.hpp"
 #include "../Resources/IBuffer.hpp"
@@ -8,12 +8,17 @@
 #include "../Resources/IMaterialManager.hpp"
 #include "../Resources/ICommandBuffer.hpp"
 #include "../Resources/Material.hpp"
+#include "../MeshInfo.hpp"
+#include "Core/MeshOptimiser.hpp"
+#include "Core/Image.hpp"
 #include "VulkanRenderer.hpp"
 #include "../RenderMeshInfo.hpp"
 #include "../GBuffer.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "Core/ChunkData.hpp"
 #include "Core/AsyncData.hpp"
+#include "Core/VertexData.hpp"
+#include "Core/Colour.hpp"
 #include <execution>
 
 using namespace Engine::Logging;
@@ -21,7 +26,7 @@ using namespace Engine::OS;
 
 namespace Engine::Rendering::Vulkan
 {
-	VulkanSceneManager::VulkanSceneManager(VulkanRenderer& renderer)
+	GeometryBatch::GeometryBatch(VulkanRenderer& renderer)
 		: m_renderer(renderer)
 		, m_sampler()
 		, m_indirectDrawBuffer()
@@ -35,10 +40,142 @@ namespace Engine::Rendering::Vulkan
 		, m_indexCounts()
 		, m_shadowMaterial(nullptr)
 		, m_pbrMaterial(nullptr)
+		, m_recycledIds()
+		, m_active()
+		, m_meshCapacity()
+		, m_vertexDataArrays()
+		, m_indexArrays()
+		, m_meshInfos()
+		, m_images()
+		, m_vertexDataHashTable()
+		, m_imageHashTable()
+		, m_creating(true)
 	{
 	}
 
-	bool VulkanSceneManager::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device,
+	bool GeometryBatch::CreateMesh(const std::vector<VertexData>& vertexData,
+		const std::vector<uint32_t>& indices,
+		const glm::mat4& transform,
+		const Colour& colour,
+		std::shared_ptr<Image> diffuseImage,
+		std::shared_ptr<Image> normalImage,
+		std::shared_ptr<Image> metallicRoughnessImage)
+	{
+		if (vertexData.empty())
+		{
+			Logger::Error("Empty vertex buffer vector not permitted.");
+			return false;
+		}
+
+		uint32_t id;
+		if (!m_recycledIds.empty())
+		{
+			id = m_recycledIds.top();
+			m_recycledIds.pop();
+		}
+		else
+		{
+			m_meshInfos.push_back({});
+			m_active.push_back(false);
+			id = m_meshCapacity++;
+		}
+
+		MeshInfo& meshInfo = m_meshInfos[id];
+		meshInfo.transform = transform;
+		meshInfo.colour = colour;
+
+		uint64_t indexHash = Hash::CalculateHash(indices.data(), indices.size() * sizeof(uint32_t));
+		const auto& indexResult = m_indexDataHashTable.find(indexHash);
+		if (indexResult != m_indexDataHashTable.cend())
+		{
+			meshInfo.indexBufferIndex = indexResult->second;
+		}
+		else
+		{
+			m_indexDataHashTable[indexHash] = m_indexArrays.size();
+			meshInfo.indexBufferIndex = m_indexArrays.size();
+			m_indexArrays.emplace_back(std::make_unique<std::vector<uint32_t>>(indices));
+		}
+
+		uint64_t vertexHash = vertexData[0].GetHash(); // Only hash the first vertex buffer to keep things simple.
+
+		const auto& vertexResult = m_vertexDataHashTable.find(vertexHash);
+		if (vertexResult != m_vertexDataHashTable.cend())
+		{
+			meshInfo.vertexBufferIndex = vertexResult->second;
+		}
+		else
+		{
+			m_vertexDataHashTable[vertexHash] = m_vertexDataArrays.size();
+			meshInfo.vertexBufferIndex = m_vertexDataArrays.size();
+
+			std::vector<std::unique_ptr<VertexData>> localVertexData;
+			localVertexData.reserve(vertexData.size() + 2);
+			for (auto& vertices : vertexData)
+				localVertexData.emplace_back(std::make_unique<VertexData>(vertices));
+
+			m_vertexDataArrays.push_back(std::move(localVertexData));
+		}
+
+		if (diffuseImage.get() != nullptr)
+		{
+			uint64_t imageHash = diffuseImage->GetHash();
+			const auto& imageResult = m_imageHashTable.find(imageHash);
+			if (imageResult != m_imageHashTable.cend())
+			{
+				meshInfo.diffuseImageIndex = imageResult->second;
+			}
+			else
+			{
+				m_imageHashTable[imageHash] = m_images.size();
+				meshInfo.diffuseImageIndex = m_images.size();
+				m_images.emplace_back(diffuseImage);
+			}
+		}
+
+		if (normalImage.get() != nullptr)
+		{
+			uint64_t imageHash = normalImage->GetHash();
+			const auto& imageResult = m_imageHashTable.find(imageHash);
+			if (imageResult != m_imageHashTable.cend())
+			{
+				meshInfo.normalImageIndex = imageResult->second;
+			}
+			else
+			{
+				m_imageHashTable[imageHash] = m_images.size();
+				meshInfo.normalImageIndex = m_images.size();
+				m_images.emplace_back(normalImage);
+			}
+		}
+
+		if (metallicRoughnessImage.get() != nullptr)
+		{
+			uint64_t imageHash = metallicRoughnessImage->GetHash();
+			const auto& imageResult = m_imageHashTable.find(imageHash);
+			if (imageResult != m_imageHashTable.cend())
+			{
+				meshInfo.metallicRoughnessImageIndex = imageResult->second;
+			}
+			else
+			{
+				m_imageHashTable[imageHash] = m_images.size();
+				meshInfo.metallicRoughnessImageIndex = m_images.size();
+				m_images.emplace_back(metallicRoughnessImage);
+			}
+		}
+
+		return true;
+	}
+
+	bool GeometryBatch::Optimise()
+	{
+		std::vector<uint32_t>& indices = *m_indexArrays.back();
+		std::vector<std::unique_ptr<VertexData>>& vertexDataArray = m_vertexDataArrays.back();
+		return MeshOptimiser::Optimise(indices, vertexDataArray);
+	}
+
+	bool GeometryBatch::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device,
 		const IResourceFactory& resourceFactory, const IMaterialManager& materialManager)
 	{
 		m_sampler = std::move(resourceFactory.CreateImageSampler());
@@ -58,7 +195,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupIndirectDrawBuffer(const ICommandBuffer& commandBuffer,
+	bool GeometryBatch::SetupIndirectDrawBuffer(const ICommandBuffer& commandBuffer,
 		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
@@ -140,7 +277,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupVertexBuffers(const ICommandBuffer& commandBuffer,
+	bool GeometryBatch::SetupVertexBuffers(const ICommandBuffer& commandBuffer,
 		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
@@ -254,7 +391,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupIndexBuffer(const ICommandBuffer& commandBuffer,
+	bool GeometryBatch::SetupIndexBuffer(const ICommandBuffer& commandBuffer,
 		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
@@ -345,7 +482,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::CreateStagingBuffer(const IResourceFactory& resourceFactory,
+	bool GeometryBatch::CreateStagingBuffer(const IResourceFactory& resourceFactory,
 		const ICommandBuffer& commandBuffer, const IBuffer* destinationBuffer, const void* data, uint64_t size,
 		std::vector<std::unique_ptr<IBuffer>>& copyBufferCollection)
 	{
@@ -366,7 +503,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::CreateImageStagingBuffer(const IResourceFactory& resourceFactory,
+	bool GeometryBatch::CreateImageStagingBuffer(const IResourceFactory& resourceFactory,
 		const ICommandBuffer& commandBuffer, const IRenderImage* destinationImage, uint32_t mipLevel, const void* data, uint64_t size,
 		std::vector<std::unique_ptr<IBuffer>>& copyBufferCollection)
 	{
@@ -388,7 +525,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupRenderImage(AsyncData* asyncData, const IDevice& device, const IPhysicalDevice& physicalDevice,
+	bool GeometryBatch::SetupRenderImage(AsyncData* asyncData, const IDevice& device, const IPhysicalDevice& physicalDevice,
 		const ICommandBuffer& commandBuffer, ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers,
 		const IResourceFactory& resourceFactory, float maxAnisotropy, uint32_t& imageCount)
 	{
@@ -580,7 +717,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::SetupMeshInfoBuffer(const ICommandBuffer& commandBuffer,
+	bool GeometryBatch::SetupMeshInfoBuffer(const ICommandBuffer& commandBuffer,
 		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
@@ -669,10 +806,8 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanSceneManager::Build(ChunkData* chunkData, AsyncData& asyncData)
+	bool GeometryBatch::Build(ChunkData* chunkData, AsyncData& asyncData)
 	{
-		const std::lock_guard<std::mutex> lock(m_creationMutex);
-
 		// TODO: Handle resizing
 		if (m_indexBuffer.get() != nullptr)
 		{
@@ -739,15 +874,16 @@ namespace Engine::Rendering::Vulkan
 					return false;
 
 				return true;
-			}, [startTime]()
+			}, [this, startTime]()
 				{
+					m_creating = false;
 					auto endTime = std::chrono::high_resolution_clock::now();
 					float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
 					Logger::Verbose("Scene manager build finished in {} seconds.", deltaTime);
 				});
 	}
 
-	void VulkanSceneManager::Draw(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex)
+	void GeometryBatch::Draw(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex)
 	{
 		if (m_vertexBuffers.empty() || m_creating)
 			return;
@@ -771,7 +907,7 @@ namespace Engine::Rendering::Vulkan
 		commandBuffer.DrawIndexedIndirect(*m_indirectDrawBuffer, 0, drawCount, sizeof(IndexedIndirectCommand));
 	}
 
-	void VulkanSceneManager::DrawShadows(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex)
+	void GeometryBatch::DrawShadows(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex)
 	{
 		if (m_vertexBuffers.empty() || m_creating)
 			return;

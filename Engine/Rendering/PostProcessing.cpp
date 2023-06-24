@@ -7,6 +7,7 @@
 #include "Resources/IMaterialManager.hpp"
 #include "Resources/ICommandBuffer.hpp"
 #include "Resources/Material.hpp"
+#include "Passes/TAAPass.hpp"
 #include "GBuffer.hpp"
 #include "OS/Files.hpp"
 
@@ -24,6 +25,7 @@ namespace Engine::Rendering
 		, m_taaFrameIndex(0)
 		, m_gBuffer(gBuffer)
 		, m_taaMaterial(nullptr)
+		, m_renderPasses()
 	{
 	}
 

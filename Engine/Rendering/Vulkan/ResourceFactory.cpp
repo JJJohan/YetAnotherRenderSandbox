@@ -2,6 +2,7 @@
 #include "Buffer.hpp"
 #include "ImageSampler.hpp"
 #include "RenderImage.hpp"
+#include "VulkanRenderer.hpp"
 
 namespace Engine::Rendering::Vulkan
 {

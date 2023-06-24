@@ -2,7 +2,7 @@
 #include <Core/AsyncData.hpp>
 #include <OS/Window.hpp>
 #include <Rendering/Renderer.hpp>
-#include <Rendering/SceneManager.hpp>
+#include <Core/SceneManager.hpp>
 #include "UI.hpp"
 #include "Options.hpp"
 #include <UI/Drawer.hpp>
@@ -20,28 +20,6 @@ const bool debug = true;
 #else
 const bool debug = false;
 #endif
-
-uint32_t CreateTestMesh(const Renderer& renderer, std::shared_ptr<Image>& image)
-{
-	return renderer.GetSceneManager().CreateMesh(
-		{
-			{
-				glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(-0.5f, 0.5f, 0.0f),
-				glm::vec3(-0.5f, -0.5f, -0.5f), glm::vec3(0.5f, -0.5f, -0.5f), glm::vec3(0.5f, 0.5f, -0.5f), glm::vec3(-0.5f, 0.5f, -0.5f)
-			},
-			{
-				glm::vec2(1.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 1.0f), glm::vec2(1.0f, 1.0f),
-				glm::vec2(1.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 1.0f), glm::vec2(1.0f, 1.0f)
-			}
-		},
-		{
-			0, 1, 2, 2, 3, 0,
-			4, 5, 6, 6, 7, 4
-		},
-		glm::mat4(1.0f),
-		Colour(),
-		image);
-}
 
 Renderer* g_renderer;
 Window* g_window;
@@ -82,7 +60,7 @@ int main()
 	renderer->SetSunLightIntensity(g_options.SunIntensity);
 
 	renderer->GetUIManager().RegisterDrawCallback(DrawLoadProgress);
-	renderer->GetSceneManager().LoadScene("C:/Users/Johan/Desktop/test/Bistro_small.glb", true, g_sceneLoad);
+	renderer->GetSceneManager().LoadScene("C:/Users/Johan/Desktop/test/Bistro_small.glb", renderer.get(), true, g_sceneLoad);
 
 	Camera& camera = renderer->GetCamera();
 

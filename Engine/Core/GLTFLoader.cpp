@@ -1,7 +1,10 @@
 #include "GLTFLoader.hpp"
-#include "Core/Logging/Logger.hpp"
-#include "Core/AsyncData.hpp"
-#include "SceneManager.hpp"
+#include "Logging/Logger.hpp"
+#include "AsyncData.hpp"
+#include "Rendering/Resources/IGeometryBatch.hpp"
+#include "VertexData.hpp"
+#include "Image.hpp"
+#include "Colour.hpp"
 #include <glm/gtx/quaternion.hpp>
 #include <filesystem>
 #include <chrono>
@@ -15,21 +18,22 @@
 #include <fastgltf_types.hpp>
 
 using namespace Engine::Logging;
+using namespace Engine::Rendering;
 
-namespace Engine::Rendering
+namespace Engine
 {
 	struct ImportState
 	{
 		const fastgltf::Asset* asset;
-		SceneManager* sceneManager;
+		IGeometryBatch* geometryBatch;
 		std::vector<std::shared_ptr<Image>> loadedImages;
 		std::unordered_map<size_t, VertexData> bufferMap;
 		std::unordered_map<size_t, std::vector<uint32_t>> indexBufferMap;
 
-		ImportState(const fastgltf::Asset* asset, SceneManager* sceneManager)
+		ImportState(const fastgltf::Asset* asset, IGeometryBatch* geometryBatch)
 		{
 			this->asset = asset;
-			this->sceneManager = sceneManager;
+			this->geometryBatch = geometryBatch;
 			bufferMap = {};
 			indexBufferMap = {};
 
@@ -225,7 +229,7 @@ namespace Engine::Rendering
 				}
 			}
 
-			importState.sceneManager->CreateMesh(vertexDataArrays, indices, transform, colour, diffuseImage, normalImage, metallicRoughnessImage);
+			importState.geometryBatch->CreateMesh(vertexDataArrays, indices, transform, colour, diffuseImage, normalImage, metallicRoughnessImage);
 		}
 
 		return true;
@@ -271,7 +275,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GLTFLoader::LoadGLTF(const std::filesystem::path& filePath, SceneManager* sceneManager, AsyncData* asyncData)
+	bool GLTFLoader::LoadGLTF(const std::filesystem::path& filePath, IGeometryBatch* geometryBatch, AsyncData* asyncData)
 	{
 		if (!std::filesystem::exists(filePath))
 		{
@@ -346,7 +350,7 @@ namespace Engine::Rendering
 
 		auto loadStartTime = std::chrono::high_resolution_clock::now();
 
-		ImportState importState(asset.get(), sceneManager);
+		ImportState importState(asset.get(), geometryBatch);
 
 		// Track if images should be treated as SRGB, normal maps, etc.
 		std::vector<ImageFlags> m_imageFlags;

@@ -1,4 +1,5 @@
 #include "Renderer.hpp"
+#include "Core/SceneManager.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "Vulkan/VulkanRenderer.hpp"
 #include "OS/Window.hpp"
@@ -10,6 +11,7 @@
 #include "Resources/ISwapChain.hpp"
 #include "Resources/FrameInfoUniformBuffer.hpp"
 #include "Resources/LightUniformBuffer.hpp"
+#include "Passes/IRenderPass.hpp"
 #include "ShadowMap.hpp"
 #include "GBuffer.hpp"
 #include "PostProcessing.hpp"
@@ -43,7 +45,6 @@ namespace Engine::Rendering
 		, m_lightBuffers()
 		, m_frameInfoBufferData()
 		, m_lightBufferData()
-		, m_sceneManager(nullptr)
 		, m_gBuffer(std::make_unique<GBuffer>())
 		, m_shadowMap(std::make_unique<ShadowMap>())
 		, m_postProcessing(nullptr)
@@ -54,6 +55,9 @@ namespace Engine::Rendering
 		, m_swapChain(nullptr)
 		, m_renderStats(nullptr)
 		, m_uiManager(nullptr)
+		, m_renderPasses()
+		, m_sceneGeometryBatch()
+		, m_sceneManager(std::make_unique<SceneManager>())
 	{
 		m_postProcessing = std::make_unique<PostProcessing>(*m_gBuffer);
 	}
@@ -68,7 +72,9 @@ namespace Engine::Rendering
 		m_lightBuffers.clear();
 		m_frameInfoBufferData.clear();
 		m_lightBufferData.clear();
+		m_renderPasses.clear();
 
+		m_sceneGeometryBatch.reset();
 		m_postProcessing.reset();
 		m_shadowMap.reset();
 		m_gBuffer.reset();

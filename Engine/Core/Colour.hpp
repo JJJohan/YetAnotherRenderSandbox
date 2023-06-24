@@ -6,9 +6,8 @@
 
 namespace Engine
 {
-	class EXPORT Colour
+	struct EXPORT Colour
 	{
-	public:
 		Colour(float r = 1.0f, float g = 1.0f, float b = 1.0f, float a = 1.0f);
 		Colour(const glm::vec4& colour);
 

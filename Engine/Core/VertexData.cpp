@@ -1,6 +1,6 @@
 #include "VertexData.hpp"
 
-namespace Engine::Rendering
+namespace Engine
 {
 	VertexData::VertexData()
 		: m_data()
