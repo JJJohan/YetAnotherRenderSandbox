@@ -33,8 +33,16 @@ namespace Engine::Rendering::Vulkan
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
+		vk::PhysicalDeviceTimelineSemaphoreFeatures timelineSemaphoreFeatures;
+		timelineSemaphoreFeatures.timelineSemaphore = true;
+
+		vk::PhysicalDeviceSynchronization2Features syncFeatures;
+		syncFeatures.synchronization2 = true;
+		syncFeatures.pNext = &timelineSemaphoreFeatures;
+
 		vk::PhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures;
 		dynamicRenderingFeatures.dynamicRendering = true;
+		dynamicRenderingFeatures.pNext = &syncFeatures;
 
 		vk::PhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures;
 		descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = true;

@@ -11,6 +11,6 @@ layout(location = 2) in vec2 fragUv;
 
 void main()
 {
-	vec4 baseColor = texture(sampler2D(textures[fragDiffuseImageIndex], samp), fragUv) * fragColor;
-	if (baseColor.a < 0.5) discard;
+	float alpha = texture(sampler2D(textures[fragDiffuseImageIndex], samp), fragUv).a * fragColor.a;
+	if (alpha < 0.5) discard;
 }

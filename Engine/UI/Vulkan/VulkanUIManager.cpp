@@ -69,8 +69,8 @@ namespace Engine::UI::Vulkan
 		initInfo.PipelineCache = nullptr;
 		initInfo.DescriptorPool = m_descriptorPool->Get();
 		initInfo.Subpass = 0;
-		initInfo.MinImageCount = concurrentFrames;
-		initInfo.ImageCount = concurrentFrames;
+		initInfo.MinImageCount = std::max(2U, concurrentFrames);
+		initInfo.ImageCount = std::max(2U, concurrentFrames);
 		initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 		initInfo.Allocator = nullptr;
 		initInfo.CheckVkResultFn = check_vk_result;

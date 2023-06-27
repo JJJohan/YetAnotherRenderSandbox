@@ -50,15 +50,12 @@ namespace Engine::Rendering::Vulkan
 		, m_resourceCommandPool()
 		, m_renderCommandBuffers()
 		, m_shadowCommandBuffers()
-		, m_presentCommandBuffers()
+		, m_combineCommandBuffers()
 		, m_postProcessingCommandBuffers()
 		, m_uiCommandBuffers()
 		, m_imageAvailableSemaphores()
-		, m_renderFinishedSemaphores()
-		, m_shadowFinishedSemaphores()
-		, m_presentFinishedSemaphores()
-		, m_postProcessingFinishedSemaphores()
-		, m_uiFinishedSemaphores()
+		, m_timelineSemaphore()
+		, m_timelineValue(0)
 		, m_inFlightFences()
 		, m_inFlightResources()
 		, m_pendingResources()
@@ -77,15 +74,11 @@ namespace Engine::Rendering::Vulkan
 		m_pendingResources.clear();
 		m_inFlightResources.clear();
 		m_imageAvailableSemaphores.clear();
-		m_renderFinishedSemaphores.clear();
-		m_shadowFinishedSemaphores.clear();
-		m_presentFinishedSemaphores.clear();
-		m_postProcessingFinishedSemaphores.clear();
-		m_uiFinishedSemaphores.clear();
+		m_timelineSemaphore.reset();
 		m_inFlightFences.clear();
 		m_renderCommandBuffers.clear();
 		m_shadowCommandBuffers.clear();
-		m_presentCommandBuffers.clear();
+		m_combineCommandBuffers.clear();
 		m_postProcessingCommandBuffers.clear();
 		m_uiCommandBuffers.clear();
 
@@ -434,39 +427,31 @@ namespace Engine::Rendering::Vulkan
 	{
 		const vk::Device& deviceImp = static_cast<Device*>(m_device.get())->Get();
 
-		vk::SemaphoreCreateInfo semaphoreInfo{};
+		vk::SemaphoreTypeCreateInfo typeCreateInfo(vk::SemaphoreType::eTimeline);
+		vk::SemaphoreCreateInfo timelineInfo({}, &typeCreateInfo);
+		m_timelineSemaphore = deviceImp.createSemaphoreUnique(timelineInfo);
+
+		if (!m_timelineSemaphore.get())
+		{
+			Logger::Error("Failed to create synchronization objects.");
+			return false;
+		}
+
 		vk::FenceCreateInfo fenceInfo(vk::FenceCreateFlagBits::eSignaled);
 
 		m_imageAvailableSemaphores.reserve(m_maxConcurrentFrames);
-		m_renderFinishedSemaphores.reserve(m_maxConcurrentFrames);
-		m_shadowFinishedSemaphores.reserve(m_maxConcurrentFrames);
-		m_presentFinishedSemaphores.reserve(m_maxConcurrentFrames);
-		m_postProcessingFinishedSemaphores.reserve(m_maxConcurrentFrames);
-		m_uiFinishedSemaphores.reserve(m_maxConcurrentFrames);
 		m_inFlightFences.reserve(m_maxConcurrentFrames);
 		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
 		{
-			vk::UniqueSemaphore imageAvailableSemaphore = deviceImp.createSemaphoreUnique(semaphoreInfo);
-			vk::UniqueSemaphore renderFinishedSemaphore = deviceImp.createSemaphoreUnique(semaphoreInfo);
-			vk::UniqueSemaphore shadowFinishedSemaphore = deviceImp.createSemaphoreUnique(semaphoreInfo);
-			vk::UniqueSemaphore presentFinishedSemaphore = deviceImp.createSemaphoreUnique(semaphoreInfo);
-			vk::UniqueSemaphore postProcessingFinishedSemaphore = deviceImp.createSemaphoreUnique(semaphoreInfo);
-			vk::UniqueSemaphore uiFinishedSemaphore = deviceImp.createSemaphoreUnique(semaphoreInfo);
+			vk::UniqueSemaphore imageAvailableSemaphore = deviceImp.createSemaphoreUnique({});
 			vk::UniqueFence inFlightFence = deviceImp.createFenceUnique(fenceInfo);
-			if (!imageAvailableSemaphore.get() || !renderFinishedSemaphore.get() || !shadowFinishedSemaphore.get() ||
-				!presentFinishedSemaphore.get() || !inFlightFence.get() || !postProcessingFinishedSemaphore.get() ||
-				!uiFinishedSemaphore.get())
+			if (!imageAvailableSemaphore.get() || !inFlightFence.get())
 			{
 				Logger::Error("Failed to create synchronization objects.");
 				return false;
 			}
 
 			m_imageAvailableSemaphores.push_back(std::move(imageAvailableSemaphore));
-			m_renderFinishedSemaphores.push_back(std::move(renderFinishedSemaphore));
-			m_shadowFinishedSemaphores.push_back(std::move(shadowFinishedSemaphore));
-			m_presentFinishedSemaphores.push_back(std::move(presentFinishedSemaphore));
-			m_postProcessingFinishedSemaphores.push_back(std::move(postProcessingFinishedSemaphore));
-			m_uiFinishedSemaphores.push_back(std::move(uiFinishedSemaphore));
 			m_inFlightFences.push_back(std::move(inFlightFence));
 		}
 
@@ -591,8 +576,8 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		m_presentCommandBuffers = m_renderCommandPool->CreateCommandBuffers(*m_device, m_maxConcurrentFrames);
-		if (m_presentCommandBuffers.empty())
+		m_combineCommandBuffers = m_renderCommandPool->CreateCommandBuffers(*m_device, m_maxConcurrentFrames);
+		if (m_combineCommandBuffers.empty())
 		{
 			return false;
 		}
@@ -770,14 +755,13 @@ namespace Engine::Rendering::Vulkan
 
 		const vk::SwapchainKHR& swapchainImp = static_cast<SwapChain*>(m_swapChain.get())->Get();
 
-		uint32_t imageIndex;
-		vk::Result acquireNextImageResult = deviceImp.acquireNextImageKHR(swapchainImp, UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame].get(), VK_NULL_HANDLE, &imageIndex);
-		if (acquireNextImageResult == vk::Result::eErrorOutOfDateKHR)
+		vk::ResultValue<uint32_t> acquireNextImageResult = deviceImp.acquireNextImageKHR(swapchainImp, UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame].get());
+		if (acquireNextImageResult.result == vk::Result::eErrorOutOfDateKHR)
 		{
 			m_swapChainOutOfDate = true;
 			return true; // Restart rendering.
 		}
-		else if (acquireNextImageResult != vk::Result::eSuccess && acquireNextImageResult != vk::Result::eSuboptimalKHR)
+		else if (acquireNextImageResult.result != vk::Result::eSuccess && acquireNextImageResult.result != vk::Result::eSuboptimalKHR)
 		{
 			Logger::Error("Failed to reset command buffer.");
 			return false;
@@ -790,6 +774,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		m_renderCommandBuffers[m_currentFrame]->reset();
+		std::array<vk::Semaphore, 1> timelineSemaphore = { m_timelineSemaphore.get() };
 
 		m_camera.Update(windowSize);
 
@@ -800,7 +785,10 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		submitInfos.emplace_back(vk::SubmitInfo(0, nullptr, nullptr, 1, &m_renderCommandBuffers[m_currentFrame].get(), 1, &m_renderFinishedSemaphores[m_currentFrame].get()));
+		std::array<uint64_t, 1> renderIncrements = { ++m_timelineValue };
+		vk::TimelineSemaphoreSubmitInfo renderTimelineInfo({}, renderIncrements);
+		std::array<vk::CommandBuffer, 1> renderCommandBuffer = { m_renderCommandBuffers[m_currentFrame].get() };
+		submitInfos.emplace_back(vk::SubmitInfo({}, {}, renderCommandBuffer, timelineSemaphore, &renderTimelineInfo));
 
 		m_shadowCommandBuffers[m_currentFrame]->reset();
 
@@ -809,19 +797,26 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		submitInfos.emplace_back(vk::SubmitInfo(0, nullptr, nullptr, 1, &m_shadowCommandBuffers[m_currentFrame].get(), 1, &m_shadowFinishedSemaphores[m_currentFrame].get()));
+		std::array<uint64_t, 1> shadowIncrements = { ++m_timelineValue };
+		vk::TimelineSemaphoreSubmitInfo shadowTimelineInfo({}, shadowIncrements);
+		std::array<vk::CommandBuffer, 1> shadowCommandBuffer = { m_shadowCommandBuffers[m_currentFrame].get() };
+		submitInfos.emplace_back(vk::SubmitInfo({}, {}, shadowCommandBuffer, timelineSemaphore, &shadowTimelineInfo));
 
-		m_presentCommandBuffers[m_currentFrame]->reset();
+		m_combineCommandBuffers[m_currentFrame]->reset();
 
-		if (!RecordPresentCommandBuffer(CommandBuffer(m_presentCommandBuffers[m_currentFrame].get())))
+		if (!RecordPresentCommandBuffer(CommandBuffer(m_combineCommandBuffers[m_currentFrame].get())))
 		{
 			return false;
 		}
 
-		std::array<vk::PipelineStageFlags, 3> presentWaitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eColorAttachmentOutput };
-		std::array<vk::Semaphore, 3> presentWaitSemaphores = { m_imageAvailableSemaphores[m_currentFrame].get(), m_renderFinishedSemaphores[m_currentFrame].get(), m_shadowFinishedSemaphores[m_currentFrame].get() };
-		submitInfos.emplace_back(vk::SubmitInfo(3, presentWaitSemaphores.data(), presentWaitStages.data(), 1, &m_presentCommandBuffers[m_currentFrame].get(), 1, &m_presentFinishedSemaphores[m_currentFrame].get()));
+		std::array<uint64_t, 1> combineWaits = { m_timelineValue };
+		std::array<uint64_t, 1> combineIncrements = { ++m_timelineValue };
+		std::array<vk::PipelineStageFlags, 1> combineWaitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+		vk::TimelineSemaphoreSubmitInfo combineTimelineInfo(combineWaits, combineIncrements);
+		std::array<vk::CommandBuffer, 1> combineCommandBuffer = { m_combineCommandBuffers[m_currentFrame].get() };
+		submitInfos.emplace_back(vk::SubmitInfo(timelineSemaphore, combineWaitStages, combineCommandBuffer, timelineSemaphore, &combineTimelineInfo));
 
+		uint32_t imageIndex = acquireNextImageResult.value;
 		IRenderImage& colorImage = m_swapChain->GetSwapChainImage(imageIndex);
 		const IImageView& imageView = m_swapChain->GetSwapChainImageView(imageIndex);
 
@@ -832,10 +827,12 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		std::array<vk::PipelineStageFlags, 1> postProcessingWaitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
-		std::array<vk::Semaphore, 1> postProcessingWaitSemaphores = { m_presentFinishedSemaphores[m_currentFrame].get() };
-		submitInfos.emplace_back(vk::SubmitInfo(1, postProcessingWaitSemaphores.data(), postProcessingWaitStages.data(), 1,
-			&m_postProcessingCommandBuffers[m_currentFrame].get(), 1, &m_postProcessingFinishedSemaphores[m_currentFrame].get()));
+		std::array<uint64_t, 1> postProcessingWaits = { m_timelineValue };
+		std::array<uint64_t, 1> postProcessIncrements = { ++m_timelineValue };
+		std::array<vk::PipelineStageFlags, 1> postProcessWaitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+		vk::TimelineSemaphoreSubmitInfo postProcessTimelineInfo(postProcessingWaits, postProcessIncrements);
+		std::array<vk::CommandBuffer, 1> postProcessCommandBuffer = { m_postProcessingCommandBuffers[m_currentFrame].get() };
+		submitInfos.emplace_back(vk::SubmitInfo(timelineSemaphore, postProcessWaitStages, postProcessCommandBuffer, timelineSemaphore, &postProcessTimelineInfo));
 
 		m_uiCommandBuffers[m_currentFrame]->reset();
 
@@ -844,35 +841,21 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
+		std::array<uint64_t, 1> uiWaits = { m_timelineValue };
+		std::array<uint64_t, 1> uiIncrements = { ++m_timelineValue };
 		std::array<vk::PipelineStageFlags, 1> uiWaitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
-		std::array<vk::Semaphore, 1> uiWaitSemaphores = { m_postProcessingFinishedSemaphores[m_currentFrame].get() };
-		submitInfos.emplace_back(vk::SubmitInfo(1, uiWaitSemaphores.data(), uiWaitStages.data(), 1,
-			&m_uiCommandBuffers[m_currentFrame].get(), 1, &m_uiFinishedSemaphores[m_currentFrame].get()));
+		vk::TimelineSemaphoreSubmitInfo uiTimelineInfo(uiWaits, uiIncrements);
+		std::array<vk::CommandBuffer, 1> uiCommandBuffer = { m_uiCommandBuffers[m_currentFrame].get() };
+		submitInfos.emplace_back(vk::SubmitInfo(timelineSemaphore, uiWaitStages, uiCommandBuffer, timelineSemaphore, &uiTimelineInfo));
 
 		graphicsQueue.submit(submitInfos, m_inFlightFences[m_currentFrame].get());
 
 		m_renderStats->FinaliseResults(*m_physicalDevice, *m_device);
 
-		vk::PresentInfoKHR presentInfo(1, &m_uiFinishedSemaphores[m_currentFrame].get(), 1, &swapchainImp, &imageIndex);
-
-		// Exceptions in the core render loop, oh my!
-		// The premise is that these are likely to only occur during swapchain resizing and are truly 'exceptional'.
-		try
-		{
-			vk::Result result = presentQueue.presentKHR(presentInfo);
-		}
-		catch (vk::OutOfDateKHRError)
-		{
-			m_swapChainOutOfDate = true;
-			return true; // Restart rendering, don't increment current frame index.
-		}
-		catch (std::exception ex)
-		{
-			Logger::Error("Fatal exception during present call occurred: {}", ex.what());
-			return false;
-		}
+		vk::PresentInfoKHR presentInfo(1, &m_imageAvailableSemaphores[m_currentFrame].get(), 1, &swapchainImp, &imageIndex);
+		vk::Result result = presentQueue.presentKHR(presentInfo);
 
 		m_currentFrame = (m_currentFrame + 1) % m_maxConcurrentFrames;
-		return true;
+		return result == vk::Result::eSuccess;
 	}
 }

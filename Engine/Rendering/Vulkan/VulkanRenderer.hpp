@@ -93,21 +93,18 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<vk::UniqueCommandBuffer> m_renderCommandBuffers;
 		std::vector<vk::UniqueCommandBuffer> m_shadowCommandBuffers;
-		std::vector<vk::UniqueCommandBuffer> m_presentCommandBuffers;
+		std::vector<vk::UniqueCommandBuffer> m_combineCommandBuffers;
 		std::vector<vk::UniqueCommandBuffer> m_postProcessingCommandBuffers;
 		std::vector<vk::UniqueCommandBuffer> m_uiCommandBuffers;
 		std::vector<vk::UniqueSemaphore> m_imageAvailableSemaphores;
-		std::vector<vk::UniqueSemaphore> m_renderFinishedSemaphores;
-		std::vector<vk::UniqueSemaphore> m_shadowFinishedSemaphores;
-		std::vector<vk::UniqueSemaphore> m_presentFinishedSemaphores;
-		std::vector<vk::UniqueSemaphore> m_postProcessingFinishedSemaphores;
-		std::vector<vk::UniqueSemaphore> m_uiFinishedSemaphores;
+		vk::UniqueSemaphore m_timelineSemaphore;
 		std::vector<vk::UniqueFence> m_inFlightFences;
 		std::vector<std::pair<vk::UniqueFence, std::vector<ResourceCommandData>>> m_inFlightResources;
 		std::vector<ResourceCommandData> m_pendingResources;
 
 		std::queue<std::function<bool()>> m_actionQueue;
 
+		uint64_t m_timelineValue;
 		bool m_swapChainOutOfDate;
 		std::mutex m_resourceSubmitMutex;
 	};
