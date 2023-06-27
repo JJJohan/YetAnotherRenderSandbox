@@ -164,6 +164,8 @@ namespace Engine::Rendering::Vulkan
 			return vk::Format::eR8G8B8Unorm;
 		case Format::B8G8R8A8Unorm:
 			return vk::Format::eB8G8R8A8Unorm;
+		case Format::A2B10G10R10UnormPack32:
+			return vk::Format::eA2B10G10R10UnormPack32;
 		case Format::Swapchain:
 			return vk::Format::eUndefined; // Queried during building
 		default:
@@ -211,6 +213,8 @@ namespace Engine::Rendering::Vulkan
 			return Format::R8G8B8Unorm;
 		case vk::Format::eB8G8R8A8Unorm:
 			return Format::B8G8R8A8Unorm;
+		case vk::Format::eA2B10G10R10UnormPack32:
+			return Format::A2B10G10R10UnormPack32;
 		default:
 			throw;
 		}
