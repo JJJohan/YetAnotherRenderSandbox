@@ -13,14 +13,14 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	bool CommandPool::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, vk::CommandPoolCreateFlagBits flags)
+	bool CommandPool::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t queueFamilyIndex, vk::CommandPoolCreateFlagBits flags)
 	{
 		const Device& vkDevice = static_cast<const Device&>(device);
 		const PhysicalDevice& vkPhysicalDevice = static_cast<const PhysicalDevice&>(physicalDevice);
 
 		QueueFamilyIndices queueFamilyIndices = vkPhysicalDevice.GetQueueFamilyIndices();
 
-		vk::CommandPoolCreateInfo poolInfo(flags, queueFamilyIndices.GraphicsFamily.value());
+		vk::CommandPoolCreateInfo poolInfo(flags, queueFamilyIndex);
 		m_commandPool = vkDevice.Get().createCommandPoolUnique(poolInfo);
 		if (!m_commandPool.get())
 		{

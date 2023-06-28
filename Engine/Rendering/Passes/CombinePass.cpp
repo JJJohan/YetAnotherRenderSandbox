@@ -18,13 +18,26 @@ namespace Engine::Rendering
 			"Shadows"
 		};
 
-		m_imageResourceMap = {
-			{"Combined", nullptr}
+		m_imageOutputs = 
+		{
+			"Combined"
 		};
 	}
 
 	void CombinePass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer) const
 	{
 		// TODO
+	}
+
+	const IRenderImage& CombinePass::GetImageResource(const char* name) const
+	{
+		// TODO
+		throw;
+	}
+
+	const IBuffer& CombinePass::GetBufferResource(const char* name) const
+	{
+		// TODO
+		throw;
 	}
 }

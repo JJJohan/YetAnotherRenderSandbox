@@ -12,6 +12,9 @@
 #include "Resources/FrameInfoUniformBuffer.hpp"
 #include "Resources/LightUniformBuffer.hpp"
 #include "Passes/IRenderPass.hpp"
+#include "Passes/SceneOpaquePass.hpp"
+#include "Passes/SceneShadowPass.hpp"
+#include "Passes/CombinePass.hpp"
 #include "ShadowMap.hpp"
 #include "GBuffer.hpp"
 #include "PostProcessing.hpp"
@@ -28,18 +31,16 @@ namespace Engine::Rendering
 		, m_window(window)
 		, m_clearColour()
 		, m_camera()
-		, m_multiSampleCount(1)
 		, m_maxMultiSampleCount(1)
 		, m_sunDirection(glm::normalize(glm::vec3(0.2f, -1.0f, 2.0f)))
 		, m_sunColour(Colour(1.0f, 1.0f, 1.0f))
 		, m_sunIntensity(1.0f)
 		, m_debugMode(0)
-		, m_hdr(false)
 		, m_resourceFactory(nullptr)
 		, m_currentFrame(0)
 		, m_lastWindowSize()
 		, m_maxConcurrentFrames()
-		, m_temporalAA()
+		, m_renderSettings()
 		, m_depthFormat(Format::Undefined)
 		, m_frameInfoBuffers()
 		, m_lightBuffers()
@@ -177,6 +178,40 @@ namespace Engine::Rendering
 			return false;
 		}
 
+		std::unique_ptr<SceneOpaquePass> sceneOpaquePass = std::make_unique<SceneOpaquePass>();
+		m_renderPasses.emplace_back(std::move(sceneOpaquePass));
+
+		std::unique_ptr<SceneShadowPass> sceneShadowPass = std::make_unique<SceneShadowPass>();
+		m_renderPasses.emplace_back(std::move(sceneShadowPass));
+
+		std::unique_ptr<CombinePass> combinePass = std::make_unique<CombinePass>();
+		m_renderPasses.emplace_back(std::move(combinePass));
+
+		for (const std::unique_ptr<IRenderPass>& pass : m_renderPasses)
+		{
+			if (!m_renderGraph->AddPass(pass.get()))
+			{
+				Logger::Error("Failed to add pass to render graph.");
+				return false;
+			}
+		}
+
+		std::vector<const IRenderPass*> postProcessPasses = m_postProcessing->GetRenderPasses();
+		for (const IRenderPass* pass : postProcessPasses)
+		{
+			if (!m_renderGraph->AddPass(pass))
+			{
+				Logger::Error("Failed to add post process pass to render graph.");
+				return false;
+			}
+		}
+
+		if (!m_renderGraph->Build())
+		{
+			Logger::Error("Failed to build render graph.");
+			return false;
+		}
+
 		return true;
 	}
 
@@ -200,6 +235,6 @@ namespace Engine::Rendering
 			return;
 		}
 
-		m_multiSampleCount = std::clamp(multiSampleCount, 1U, m_maxMultiSampleCount);
+		m_renderSettings.m_multiSampleCount = std::clamp(multiSampleCount, 1U, m_maxMultiSampleCount);
 	}
 }

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vector>
-#include <unordered_map>
 
 namespace Engine::Rendering
 {
@@ -14,9 +13,9 @@ namespace Engine::Rendering
 	{
 	public:
 		IRenderPass()
-			: m_bufferResourceMap()
+			: m_bufferOutputs()
 			, m_bufferInputs()
-			, m_imageResourceMap()
+			, m_imageOutputs()
 			, m_imageInputs()
 		{
 		}
@@ -26,47 +25,21 @@ namespace Engine::Rendering
 
 		inline const std::vector<const char*>& GetBufferInputs() const { return m_bufferInputs; }
 
-		inline const std::vector<const char*> GetBufferOutputs() const
-		{
-			std::vector<const char*> bufferResourceNames;
-			bufferResourceNames.reserve(m_bufferResourceMap.size());
-			for (const auto& [key, value] : m_bufferResourceMap)
-			{
-				bufferResourceNames.emplace_back(key);
-			}
-
-			return bufferResourceNames;
-		}
+		inline const std::vector<const char*>& GetBufferOutputs() const { return m_bufferOutputs; }
 
 		inline const std::vector<const char*>& GetImageInputs()const { return m_imageInputs; }
 
-		inline const std::vector<const char*> GetImageOutputs() const
-		{
-			std::vector<const char*> imageResourceNames;
-			imageResourceNames.reserve(m_imageResourceMap.size());
-			for (const auto& [key, value] : m_imageResourceMap)
-			{
-				imageResourceNames.emplace_back(key);
-			}
+		inline const std::vector<const char*>& GetImageOutputs() const { return m_imageOutputs; }
 
-			return imageResourceNames;
-		}
+		virtual const IRenderImage& GetImageResource(const char* name) const = 0;
 
-		inline const IRenderImage& GetImageResource(const char* name) const
-		{
-			return *m_imageResourceMap.at(name);
-		}
-
-		inline const IBuffer& GetBufferResource(const char* name) const
-		{
-			return *m_bufferResourceMap.at(name);
-		}
+		virtual const IBuffer& GetBufferResource(const char* name) const = 0;
 
 	protected:
-		std::unordered_map<const char*, IBuffer*> m_bufferResourceMap;
+		std::vector<const char*> m_bufferOutputs;
 		std::vector<const char*> m_bufferInputs;
 
-		std::unordered_map<const char*, IRenderImage*> m_imageResourceMap;
+		std::vector<const char*> m_imageOutputs;
 		std::vector<const char*> m_imageInputs;
 	};
 }

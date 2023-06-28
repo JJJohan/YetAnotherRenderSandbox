@@ -56,6 +56,9 @@ namespace Engine::Rendering
 			return false;
 		}
 
+		std::unique_ptr<TAAPass> taaPass = std::make_unique<TAAPass>();
+		m_renderPasses.emplace_back(std::move(taaPass));
+
 		return true;
 	}
 

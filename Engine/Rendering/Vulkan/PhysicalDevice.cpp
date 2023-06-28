@@ -23,7 +23,7 @@ namespace Engine::Rendering::Vulkan
 		return m_physicalDevice;
 	}
 
-	QueueFamilyIndices PhysicalDevice::GetQueueFamilyIndices() const
+	const QueueFamilyIndices& PhysicalDevice::GetQueueFamilyIndices() const
 	{
 		return m_queueFamilyIndices;
 	}
@@ -124,31 +124,44 @@ namespace Engine::Rendering::Vulkan
 		QueueFamilyIndices indices{};
 
 		uint32_t queueFamilyCount = 0;
-		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+		device.getQueueFamilyProperties2(&queueFamilyCount, nullptr);
 
-		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+		std::vector<vk::QueueFamilyProperties2> queueFamilies(queueFamilyCount);
+		device.getQueueFamilyProperties2(&queueFamilyCount, queueFamilies.data());
 
 		const vk::SurfaceKHR& surfaceImp = surface.Get();
 
+		bool asyncCompute = true;
+
+		// Attempt to find dedicated queues first.
 		uint32_t index = 0;
 		for (const auto& queueFamily : queueFamilies)
 		{
-			if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+			vk::QueueFlags flags = queueFamily.queueFamilyProperties.queueFlags;
+			if (!indices.GraphicsFamily.has_value() && flags & vk::QueueFlagBits::eGraphics)
 			{
 				indices.GraphicsFamily = index;
+			}			
+
+			uint32_t graphicsIndex = indices.GraphicsFamily.value_or(std::numeric_limits<uint32_t>::max());
+			if (!indices.ComputeFamily.has_value() && flags & vk::QueueFlagBits::eCompute && index != graphicsIndex)
+			{
+				indices.ComputeFamily = index;
 			}
 
-			VkBool32 presentSupport = false;
-			if (device.getSurfaceSupportKHR(index, surfaceImp, &presentSupport) != vk::Result::eSuccess)
+			if (!indices.PresentFamily.has_value())
 			{
-				Logger::Error("Error while fetching surface support.");
-				return indices;
-			}
+				VkBool32 presentSupport = false;
+				if (device.getSurfaceSupportKHR(index, surfaceImp, &presentSupport) != vk::Result::eSuccess)
+				{
+					Logger::Error("Error while fetching surface support.");
+					return indices;
+				}
 
-			if (presentSupport)
-			{
-				indices.PresentFamily = index;
+				if (presentSupport)
+				{
+					indices.PresentFamily = index;
+				}
 			}
 
 			if (indices.IsComplete())
@@ -157,6 +170,30 @@ namespace Engine::Rendering::Vulkan
 			}
 
 			++index;
+		}
+
+		// If indices are not complete, attempt to find shared queue with necessary support.
+		if (!indices.IsComplete())
+		{
+			asyncCompute = indices.ComputeFamily.has_value();
+
+			index = 0;
+			for (const auto& queueFamily : queueFamilies)
+			{
+				vk::QueueFlags flags = queueFamily.queueFamilyProperties.queueFlags;
+
+				if (!asyncCompute && flags & vk::QueueFlagBits::eCompute)
+				{
+					indices.ComputeFamily = index;
+				}
+
+				if (indices.IsComplete())
+				{
+					break;
+				}
+
+				++index;
+			}
 		}
 
 		return indices;
@@ -193,7 +230,7 @@ namespace Engine::Rendering::Vulkan
 	{
 		// Require graphics queue support.
 		QueueFamilyIndices indices = FindQueueFamilies(device, surface);
-		if (!indices.GraphicsFamily.has_value())
+		if (!indices.IsComplete())
 		{
 			return std::nullopt;
 		}
@@ -224,6 +261,12 @@ namespace Engine::Rendering::Vulkan
 		if (deviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu)
 		{
 			score += 1000;
+		}
+
+		// Favour dedicated compute queues.
+		if (indices.ComputeFamily.value() != indices.GraphicsFamily.value())
+		{
+			score += 100;
 		}
 
 		// Favour higher texture size limits.

@@ -312,7 +312,7 @@ namespace Engine::Rendering::Vulkan
 		vk::RenderingAttachmentInfo previousColorAttachmentInfo = colorAttachmentInfo;
 		previousColorAttachmentInfo.imageView = static_cast<const ImageView&>(taaPrevImageView).Get();
 
-		std::array< vk::RenderingAttachmentInfo, 2> attachmentInfos =
+		std::array<vk::RenderingAttachmentInfo, 2> attachmentInfos =
 		{
 			colorAttachmentInfo,
 			previousColorAttachmentInfo
@@ -489,9 +489,9 @@ namespace Engine::Rendering::Vulkan
 
 	void VulkanRenderer::SetHDRState(bool enable)
 	{
-		bool prevHDRState = m_hdr;
+		bool prevHDRState = m_renderSettings.m_hdr;
 		Renderer::SetHDRState(enable);
-		if (prevHDRState == m_hdr)
+		if (prevHDRState == m_renderSettings.m_hdr)
 		{
 			return;
 		}
@@ -535,18 +535,23 @@ namespace Engine::Rendering::Vulkan
 		m_resourceFactory = std::make_unique<ResourceFactory>(&m_allocator);
 		m_uiManager = std::make_unique<VulkanUIManager>(m_window, *this);
 
+		PhysicalDevice* vkPhysicalDevice = static_cast<PhysicalDevice*>(m_physicalDevice.get());
+		Device* vkDevice = static_cast<Device*>(m_device.get());
+
 		if (!m_instance->Initialise(title, *m_Debug, m_debug)
 			|| !m_surface->Initialise(*m_instance, m_window)
-			|| !static_cast<PhysicalDevice*>(m_physicalDevice.get())->Initialise(*m_instance, *m_surface)
-			|| !static_cast<Device*>(m_device.get())->Initialise(*m_physicalDevice))
+			|| !vkPhysicalDevice->Initialise(*m_instance, *m_surface)
+			|| !vkDevice->Initialise(*m_physicalDevice))
 		{
 			return false;
 		}
 
+		const QueueFamilyIndices& indices = vkPhysicalDevice->GetQueueFamilyIndices();
+
 		if (!CreateAllocator()
-			|| !static_cast<SwapChain*>(m_swapChain.get())->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, m_lastWindowSize, m_hdr)
-			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eTransient)
-			|| !m_renderCommandPool->Initialise(*m_physicalDevice, *m_device, vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
+			|| !static_cast<SwapChain*>(m_swapChain.get())->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, m_lastWindowSize, m_renderSettings.m_hdr)
+			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, indices.GraphicsFamily.value(), vk::CommandPoolCreateFlagBits::eTransient)
+			|| !m_renderCommandPool->Initialise(*m_physicalDevice, *m_device, indices.GraphicsFamily.value(), vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
 			|| !CreateSyncObjects())
 		{
 			return false;
@@ -621,7 +626,7 @@ namespace Engine::Rendering::Vulkan
 		m_lastWindowSize = size;
 		m_swapChainOutOfDate = false;
 
-		if (!static_cast<SwapChain*>(m_swapChain.get())->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, m_hdr))
+		if (!static_cast<SwapChain*>(m_swapChain.get())->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, size, m_renderSettings.m_hdr))
 		{
 			return false;
 		}
@@ -657,6 +662,8 @@ namespace Engine::Rendering::Vulkan
 		const vk::Device& deviceImp = vkDevice->Get();
 		vk::Queue graphicsQueue = vkDevice->GetGraphicsQueue();
 		vk::Queue presentQueue = vkDevice->GetPresentQueue();
+		vk::Queue computeQueue = vkDevice->GetComputeQueue();
+		bool asyncCompute = vkDevice->AsyncCompute();
 		const vk::PhysicalDeviceLimits& limits = vkPhysicalDevice->GetLimits();
 
 		// Exhaust action queue between frames.

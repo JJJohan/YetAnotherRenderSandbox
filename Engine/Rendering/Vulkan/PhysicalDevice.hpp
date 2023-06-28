@@ -14,7 +14,7 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		PhysicalDevice();
-		QueueFamilyIndices GetQueueFamilyIndices() const;
+		const QueueFamilyIndices& GetQueueFamilyIndices() const;
 		bool Initialise(const Instance& instance, const Surface& surface);
 		const vk::PhysicalDevice& Get() const;
 		std::vector<const char*> GetRequiredExtensions() const;

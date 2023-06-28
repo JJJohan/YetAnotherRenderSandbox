@@ -8,13 +8,26 @@ namespace Engine::Rendering
 {
 	SceneShadowPass::SceneShadowPass()
 	{
-		m_imageResourceMap = {
-			{"Shadows", nullptr}
+		m_imageOutputs = 
+		{
+			"Shadows"
 		};
 	}
 
 	void SceneShadowPass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer) const
 	{
 		// TODO
+	}
+
+	const IRenderImage& SceneShadowPass::GetImageResource(const char* name) const
+	{
+		// TODO
+		throw;
+	}
+
+	const IBuffer& SceneShadowPass::GetBufferResource(const char* name) const
+	{
+		// TODO
+		throw;
 	}
 }

@@ -7,8 +7,6 @@ namespace Engine::Rendering
 {
 	class IRenderPass;
 	class Renderer;
-	class IBuffer;
-	class IRenderImage;
 
 	class RenderGraph
 	{
@@ -20,9 +18,22 @@ namespace Engine::Rendering
 		void Draw(const Renderer& renderer) const;
 
 	private:
+		struct RenderNode
+		{
+			std::unordered_map<const char*, const IRenderPass*> InputBuffers;
+			std::unordered_map<const char*, const IRenderPass*> InputImages;
+			const IRenderPass* Pass;
+
+			RenderNode(const IRenderPass* pass) 
+				: Pass(pass)
+				, InputBuffers()
+				, InputImages()
+			{}
+		};
+
 		std::vector<const IRenderPass*> m_renderPasses;
-		std::vector<std::vector<const IRenderPass*>> m_renderGraph;
-		std::unordered_map<const char*, const IRenderPass*> m_bufferResourceMap;
-		std::unordered_map<const char*, const IRenderPass*> m_imageResourceMap;
+		std::vector<std::vector<RenderNode>> m_renderGraph;
+		std::unordered_map<const char*, const IRenderPass*> m_imageResourceNodeLookup;
+		std::unordered_map<const char*, const IRenderPass*> m_bufferResourceNodeLookup;
 	};
 }

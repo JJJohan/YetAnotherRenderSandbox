@@ -10,6 +10,7 @@
 #include "Types.hpp"
 #include "Resources/ISwapChain.hpp"
 #include "RenderGraph.hpp"
+#include "RenderSettings.hpp"
 
 namespace Engine
 {
@@ -63,8 +64,8 @@ namespace Engine::Rendering
 		inline void SetClearColour(const Colour& clearColour) { m_clearColour = clearColour.GetVec4(); };
 		inline const Colour GetClearColor() const { return Colour(m_clearColour); };
 
-		inline virtual void SetTemporalAAState(bool enabled) { m_temporalAA = enabled; };
-		inline bool GetTemporalAAState(bool enabled) const { return m_temporalAA; };
+		inline virtual void SetTemporalAAState(bool enabled) { m_renderSettings.m_temporalAA = enabled; };
+		inline bool GetTemporalAAState(bool enabled) const { return m_renderSettings.m_temporalAA; };
 
 		inline virtual void SetDebugMode(uint32_t mode) { m_debugMode = mode; };
 		inline uint32_t GetDebugMode() const { return m_debugMode; };
@@ -72,8 +73,8 @@ namespace Engine::Rendering
 		inline virtual void SetMultiSampleCount(uint32_t multiSampleCount);;
 		inline uint32_t GetMaxMultiSampleCount() const { return m_maxMultiSampleCount; };
 
-		inline virtual void SetHDRState(bool enable) { m_hdr = enable; };
-		inline bool GetHDRState() const { return m_hdr; };
+		inline virtual void SetHDRState(bool enable) { m_renderSettings.m_hdr = enable; };
+		inline bool GetHDRState() const { return m_renderSettings.m_hdr; };
 		bool IsHDRSupported() const { return m_swapChain->IsHDRCapable(); };
 
 		inline void SetSunLightDirection(const glm::vec3& dir) { m_sunDirection = glm::normalize(dir); };
@@ -116,21 +117,19 @@ namespace Engine::Rendering
 		Colour m_sunColour;
 		float m_sunIntensity;
 		uint32_t m_debugMode;
-		uint32_t m_multiSampleCount;
 		uint32_t m_maxMultiSampleCount;
 		const Engine::OS::Window& m_window;
-		bool m_temporalAA;
 		bool m_debug;
-		bool m_hdr;
 		Camera m_camera;
 		glm::vec4 m_clearColour;
 		Format m_depthFormat;
+		RenderSettings m_renderSettings;
 
 		std::vector<std::unique_ptr<IBuffer>> m_frameInfoBuffers;
 		std::vector<std::unique_ptr<IBuffer>> m_lightBuffers;
 		std::vector<FrameInfoUniformBuffer*> m_frameInfoBufferData;
 		std::vector<LightUniformBuffer*> m_lightBufferData;
-		std::vector<std::unique_ptr<IRenderPass>*> m_renderPasses;
+		std::vector<std::unique_ptr<IRenderPass>> m_renderPasses;
 		std::unique_ptr<RenderGraph> m_renderGraph;
 
 		std::unique_ptr<SceneManager> m_sceneManager;

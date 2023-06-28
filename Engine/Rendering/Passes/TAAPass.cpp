@@ -8,21 +8,35 @@ namespace Engine::Rendering
 {
 	TAAPass::TAAPass()
 	{
-		m_imageInputs = {
+		m_imageInputs = 
+		{
 			"Combined",
 			"Velocity",
 			"Depth",
 			"History"
 		};
 
-		m_imageResourceMap = {
-			{"Final", nullptr},
-			{"History", nullptr}
+		m_imageOutputs =
+		{
+			"Final",
+			"History"
 		};
 	}
 
 	void TAAPass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer) const
 	{
 		// TODO
+	}
+
+	const IRenderImage& TAAPass::GetImageResource(const char* name) const
+	{
+		// TODO
+		throw;
+	}
+
+	const IBuffer& TAAPass::GetBufferResource(const char* name) const
+	{
+		// TODO
+		throw;
 	}
 }

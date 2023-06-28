@@ -34,9 +34,9 @@ namespace Engine::Rendering
 
 		void Draw(const ICommandBuffer& commandBuffer, uint32_t frameIndex) const;
 
-		inline std::vector<IRenderPass*> GetRenderPasses() const
+		inline std::vector<const IRenderPass*> GetRenderPasses() const
 		{
-			std::vector<IRenderPass*> passes(m_renderPasses.size());
+			std::vector<const IRenderPass*> passes(m_renderPasses.size());
 			for (size_t i = 0; i < m_renderPasses.size(); ++i)
 			{
 				passes[i] = m_renderPasses[i].get();

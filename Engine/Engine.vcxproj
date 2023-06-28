@@ -255,6 +255,7 @@
     <ClInclude Include="Rendering\PostProcessing.hpp" />
     <ClInclude Include="Rendering\RenderGraph.hpp" />
     <ClInclude Include="Rendering\RenderMeshInfo.hpp" />
+    <ClInclude Include="Rendering\RenderSettings.hpp" />
     <ClInclude Include="Rendering\Resources\AttachmentInfo.hpp" />
     <ClInclude Include="Rendering\Resources\FrameInfoUniformBuffer.hpp" />
     <ClInclude Include="Rendering\Resources\ICommandBuffer.hpp" />

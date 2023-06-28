@@ -537,5 +537,8 @@
     <ClInclude Include="Core\TangentCalculator.hpp">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Rendering\RenderSettings.hpp">
+      <Filter>Rendering</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
