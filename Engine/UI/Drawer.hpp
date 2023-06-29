@@ -4,7 +4,9 @@
 #include "Core/Colour.hpp"
 #include <vector>
 #include "ScrollingGraphBuffer.hpp"
+#include "NodeManager.hpp"
 #include <memory>
+#include <unordered_map>
 
 namespace Engine
 {
@@ -31,6 +33,7 @@ namespace Engine::UI
 		EXPORT bool Checkbox(const char* label, bool* value) const;
 		EXPORT bool ComboBox(const char* label, const std::vector<const char*>& entries, int32_t* index) const;
 		EXPORT void Progress(const ProgressInfo& progress) const;
+		EXPORT void Rectangle(const glm::vec2& min, const glm::vec2& max, const Colour& colour) const;
 
 		EXPORT bool BeginTabBar(const char* label) const;
 		EXPORT void EndTabBar() const;
@@ -38,16 +41,20 @@ namespace Engine::UI
 		EXPORT void EndTabItem() const;
 		EXPORT bool CollapsingHeader(const char* label, bool startOpen) const;
 
-		EXPORT void PlotGraphs(const char* label, const std::vector<ScrollingGraphBuffer>& buffers, const glm::vec2& size = glm::vec2(-1, 0)) const;
-		EXPORT glm::vec2 GetContentRegionAvailable() const;
+		EXPORT void PlotGraphs(const char* label, const std::unordered_map<const char*, ScrollingGraphBuffer>& buffers,
+			const glm::vec2& size = glm::vec2(-1, 0)) const;
 
 		EXPORT bool BeginNodeEditor(const char* label) const;
-		EXPORT void NodeSetupLink(const char* outputNodeName, const char* outputPinName, const char* inputNodeName, const char* inputPinName) const;
-		EXPORT void DrawNode(const char* label, const glm::vec2& pos, const std::vector<const char*>& inputs, 
-			const std::vector<const char*>& outputs, const Colour& colour = {0.5f, 0.5f, 0.5f}) const;
+		EXPORT void NodeSetupLink(const char* outputNodeName, const char* outputPinName, const char* inputNodeName,
+			const char* inputPinName, const Colour& colour = {1.0f, 1.0f, 1.0f}) const;
+		EXPORT void DrawNode(const char* label, const glm::vec2& pos, const std::vector<NodePin>& inputs, 
+			const std::vector<NodePin>& outputs, const Colour& colour = {0.5f, 0.5f, 0.5f}) const;
 		EXPORT void EndNodeEditor() const;
+		EXPORT glm::vec2 GetNodeSize(const char* label) const;
 		EXPORT void NodeEditorZoomToContent() const;
 
+		EXPORT glm::vec2 GetContentRegionAvailable() const;
+		EXPORT void SetCursorPos(const glm::vec2& pos) const;
 		EXPORT void BeginDisabled(bool disabled = true) const;
 		EXPORT void EndDisabled() const;
 

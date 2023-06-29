@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include "Core/Macros.hpp"
 
 namespace Engine::Rendering
 {
@@ -17,11 +18,17 @@ namespace Engine::Rendering
 			, m_bufferInputs()
 			, m_imageOutputs()
 			, m_imageInputs()
+			, m_name("")
+			, m_frameTime(0.0f)
 		{
 		}
 
 		virtual ~IRenderPass() = default;
 		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer) const = 0;
+		EXPORT inline const char* GetName() const { return m_name; }
+
+		EXPORT inline float GetFrameTime() const { return m_frameTime; }
+		inline void SetFrameTime(float time) { m_frameTime = time; }
 
 		inline const std::vector<const char*>& GetBufferInputs() const { return m_bufferInputs; }
 
@@ -38,8 +45,9 @@ namespace Engine::Rendering
 	protected:
 		std::vector<const char*> m_bufferOutputs;
 		std::vector<const char*> m_bufferInputs;
-
 		std::vector<const char*> m_imageOutputs;
 		std::vector<const char*> m_imageInputs;
+		const char* m_name;
+		float m_frameTime;
 	};
 }

@@ -69,7 +69,7 @@ int main()
 
 	const auto& uiDrawCallback = std::bind(&Sandbox::UI::Draw, ui.get(), std::placeholders::_1);
 
-	bool drawUI = false;
+	bool drawUI = window->InputState.KeyDown(KeyCode::Escape);
 	while (!window->IsClosed())
 	{
 		if (g_sceneLoad.State == AsyncState::Failed)

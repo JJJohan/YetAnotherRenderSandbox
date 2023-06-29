@@ -28,28 +28,12 @@ namespace Engine::UI
 		}
 	}
 
-	ImColor NodeManager::GetIconColor(PinType type)
+	void NodeManager::DrawPinIcon(const Pin& pin, bool connected, uint8_t alpha, const Colour& colour)
 	{
-		switch (type)
-		{
-		default:
-		case PinType::Flow:     return ImColor(255, 255, 255);
-		case PinType::Bool:     return ImColor(220, 48, 48);
-		case PinType::Int:      return ImColor(68, 201, 156);
-		case PinType::Float:    return ImColor(147, 226, 74);
-		case PinType::String:   return ImColor(124, 21, 153);
-		case PinType::Object:   return ImColor(51, 150, 215);
-		case PinType::Function: return ImColor(218, 0, 183);
-		case PinType::Delegate: return ImColor(255, 48, 48);
-		}
-	};
-
-	void NodeManager::DrawPinIcon(const Pin& pin, bool connected, uint8_t alpha)
-	{
-		ImColor  color = GetIconColor(pin.Type);
+		ImColor color = ImColor(colour);
 		color.Value.w = alpha / 255.0f;
 
-		DrawIcon(ImVec2(24.0f, 24.0f), connected, color, ImColor(32, 32, 32, alpha));
+		DrawIcon(glm::vec2(24.0f, 24.0f), connected, color, ImColor(colour.R / 8, colour.G / 8, colour.B / 8, alpha));
 	};
 
 	bool NodeManager::Begin(const char* label)
@@ -72,7 +56,7 @@ namespace Engine::UI
 	void NodeManager::End()
 	{
 		for (auto& link : m_links)
-			ax::NodeEditor::Link(link.ID, link.StartPinID, link.EndPinID, link.Color, 2.0f);
+			ax::NodeEditor::Link(link.ID, link.StartPinID, link.EndPinID, ImColor(link.Colour), 2.0f);
 
 		ax::NodeEditor::End();
 	}
@@ -99,11 +83,12 @@ namespace Engine::UI
 		}
 
 		auto& pin = pinMap[pinName] = Pin();
-		pin.Setup(m_currentId++, PinType::Flow);
+		pin.Setup(m_currentId++);
 		return pin;
 	}
 
-	void NodeManager::SetupLink(const char* outputNodeName, const char* outputPinName, const char* inputNodeName, const char* inputPinName)
+	void NodeManager::SetupLink(const char* outputNodeName, const char* outputPinName, const char* inputNodeName, 
+		const char* inputPinName, const Colour& colour)
 	{
 		Node& outputNode = GetOrCreateNode(outputNodeName);
 		Node& inputNode = GetOrCreateNode(inputNodeName);
@@ -113,15 +98,27 @@ namespace Engine::UI
 		startPin.Node = &inputNode;
 		endPin.Node = &outputNode;
 
-		m_links.emplace_back(Link(m_currentId++, startPin.ID, endPin.ID));
+		m_links.emplace_back(Link(m_currentId++, startPin.ID, endPin.ID, colour));
 	}
 
-	void NodeManager::DrawNode(const char* label, const ImVec2& pos, const std::vector<const char*>& inputs,
-		const std::vector<const char*>& outputs, const Colour& colour)
+	glm::vec2 NodeManager::GetNodeSize(const char* label) const
+	{
+		const auto& search = m_nodeMap.find(label);
+		if (search != m_nodeMap.cend())
+		{
+			const ImVec2& size = ax::NodeEditor::GetNodeSize(search->second.ID);
+			return glm::vec2(size.x, size.y);
+		}
+
+		return glm::vec2();
+	}
+
+	void NodeManager::DrawNode(const char* label, const glm::vec2& pos, const std::vector<NodePin>& inputs,
+		const std::vector<NodePin>& outputs, const Colour& colour)
 	{
 		Node& node = GetOrCreateNode(label);
 
-		ax::NodeEditor::SetNodePosition(node.ID, pos);
+		ax::NodeEditor::SetNodePosition(node.ID, ImVec2(pos.x, pos.y));
 		m_builder->Begin(node.ID);
 
 		const ImColor nodeColor(colour);
@@ -133,30 +130,30 @@ namespace Engine::UI
 		ImGui::Spring(0);
 		m_builder->EndHeader();
 
-		for (auto& inputName : inputs)
+		for (auto& inputPin : inputs)
 		{
-			Pin& input = GetOrCreatePin(node.Inputs, inputName);
+			Pin& input = GetOrCreatePin(node.Inputs, inputPin.Name);
 			float alpha = ImGui::GetStyle().Alpha;
 			m_builder->Input(input.ID);
 			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
-			DrawPinIcon(input, input.Node != nullptr, static_cast<uint8_t>(alpha * 255.0f));
+			DrawPinIcon(input, input.Node != nullptr, static_cast<uint8_t>(alpha * 255.0f), inputPin.Colour);
 			ImGui::Spring(0);
-			ImGui::TextUnformatted(inputName);
+			ImGui::TextUnformatted(inputPin.Name);
 			ImGui::Spring(0);
 			ImGui::PopStyleVar();
 			m_builder->EndInput();
 		}
 
-		for (auto& outputName : outputs)
+		for (auto& outputPin : outputs)
 		{
-			Pin& output = GetOrCreatePin(node.Outputs, outputName);
+			Pin& output = GetOrCreatePin(node.Outputs, outputPin.Name);
 			float alpha = ImGui::GetStyle().Alpha;
 			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
 			m_builder->Output(output.ID);
 			ImGui::Spring(0);
-			ImGui::TextUnformatted(outputName);
+			ImGui::TextUnformatted(outputPin.Name);
 			ImGui::Spring(0);
-			DrawPinIcon(output, output.Node != nullptr, static_cast<uint8_t>(alpha * 255.0f));
+			DrawPinIcon(output, output.Node != nullptr, static_cast<uint8_t>(alpha * 255.0f), outputPin.Colour);
 			ImGui::PopStyleVar();
 			m_builder->EndOutput();
 		}
@@ -164,10 +161,10 @@ namespace Engine::UI
 		m_builder->End();
 	}
 
-	void NodeManager::DrawIcon(const ImVec2& size, bool filled, ImU32 color, ImU32 innerColor)
+	void NodeManager::DrawIcon(const glm::vec2& size, bool filled, uint32_t color, uint32_t innerColor)
 	{
 		const ImVec2& a = ImGui::GetCursorScreenPos();
-		const ImVec2& b = a + size;
+		const ImVec2& b = a + ImVec2(size.x, size.y);
 		if (!ImGui::IsRectVisible(a, b))
 			return;
 
@@ -238,6 +235,6 @@ namespace Engine::UI
 		else
 			drawList->PathFillConvex(color);
 
-		ImGui::Dummy(size);
+		ImGui::Dummy(ImVec2(size.x, size.y));
 	}
 }

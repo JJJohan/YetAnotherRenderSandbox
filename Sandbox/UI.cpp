@@ -1,10 +1,14 @@
 #include "UI.hpp"
 #include "Options.hpp"
+#include <Core/Colour.hpp>
 #include <UI/UIManager.hpp>
-#include <Rendering/RenderStats.hpp>
 #include <UI/ScrollingGraphBuffer.hpp>
+#include <UI/NodeManager.hpp>
+#include <Rendering/RenderStats.hpp>
 #include <Rendering/Renderer.hpp>
+#include <Rendering/Passes/IRenderPass.hpp>
 
+using namespace Engine;
 using namespace Engine::Rendering;
 using namespace Engine::UI;
 
@@ -14,20 +18,8 @@ namespace Sandbox
 		: m_options(options)
 		, m_renderer(renderer)
 		, m_prevTabIndex(-1)
+		, m_statGraphBuffers()
 	{
-		m_statGraphBuffers = std::vector<ScrollingGraphBuffer>
-		{
-			ScrollingGraphBuffer("Scene", 1000),
-			ScrollingGraphBuffer("Shadow Cascade 1", 1000),
-			ScrollingGraphBuffer("Shadow Cascade 2", 1000),
-			ScrollingGraphBuffer("Shadow Cascade 3", 1000),
-			ScrollingGraphBuffer("Shadow Cascade 4", 1000),
-			ScrollingGraphBuffer("Combine", 1000),
-			ScrollingGraphBuffer("TAA", 1000),
-			ScrollingGraphBuffer("UI", 1000),
-			ScrollingGraphBuffer("Total", 1000)
-		};
-
 		m_debugModes = { "None", "Albedo", "Normal", "WorldPos", "MetalRoughness", "Cascade Index" };
 	}
 
@@ -37,7 +29,7 @@ namespace Sandbox
 		{
 			if (drawer.BeginTabBar("##uiTabBar"))
 			{
-				uint32_t tabIndex;
+				uint32_t tabIndex = std::numeric_limits<uint32_t>::max();
 				if (drawer.BeginTabItem("Options"))
 				{
 					tabIndex = 0;
@@ -127,19 +119,52 @@ namespace Sandbox
 		{
 			drawer.Text("FPS: %.2f", m_renderer->GetUIManager().GetFPS());
 
-			const std::vector<FrameStats>& statsArray = m_renderer->GetRenderStats();
-			if (!statsArray.empty())
+			std::unordered_map<const char*, const IRenderPass*> passMap(m_renderer->GetRenderGraph().GetPasses());
+			passMap.emplace("Total", nullptr);
+
+			// Iterate over the unordered map of graphs by reference and remove any that are no longer in the render graph.
+			for (auto it = m_statGraphBuffers.begin(); it != m_statGraphBuffers.end();)
 			{
-				for (size_t pass = 0; pass < statsArray.size(); ++pass)
+				if (!passMap.contains(it->first))
 				{
-					const FrameStats& stats = statsArray[pass];
-					ScrollingGraphBuffer& buffer = m_statGraphBuffers[pass];
-					buffer.AddValue(stats.RenderTime);
+					it = m_statGraphBuffers.erase(it);
+				}
+				else
+				{
+					++it;
+				}
+			}
+
+			// Iterate over the set and add new map entries if they do not exist.
+			for (const auto& pass : passMap)
+			{
+				if (m_statGraphBuffers.find(pass.first) == m_statGraphBuffers.end())
+				{
+					m_statGraphBuffers.emplace(pass.first, ScrollingGraphBuffer(pass.first, 1000));
+				}
+			}
+
+			float total = 0.0f;
+			ScrollingGraphBuffer* totalBuffer = nullptr;
+			for (auto buffer : m_statGraphBuffers)
+			{
+				// Skip 'Total' entry
+				if (strcmp(buffer.first, "Total") == 0)
+				{
+					totalBuffer = &buffer.second;
+					continue;
 				}
 
-				const glm::vec2& space = drawer.GetContentRegionAvailable();
-				drawer.PlotGraphs("Frame Times (ms)", m_statGraphBuffers, space);
+				const IRenderPass* pass = passMap[buffer.first];
+				float passFrameTime = pass->GetFrameTime();
+				buffer.second.AddValue(passFrameTime);
+				total += passFrameTime;
 			}
+
+			totalBuffer->AddValue(total);
+
+			const glm::vec2& space = drawer.GetContentRegionAvailable();
+			drawer.PlotGraphs("Frame Times (ms)", m_statGraphBuffers, space);
 		}
 	}
 
@@ -147,16 +172,96 @@ namespace Sandbox
 	{
 		if (drawer.BeginNodeEditor("Render Graph"))
 		{
-			drawer.NodeSetupLink("SceneOpaque", "Albedo", "Combine", "Albedo");
-			drawer.NodeSetupLink("SceneOpaque", "WorldNormal", "Combine", "WorldNormal");
-			drawer.NodeSetupLink("SceneOpaque", "WorldPos", "Combine", "WorldPos");
-			drawer.NodeSetupLink("SceneOpaque", "MetalRoughness", "Combine", "MetalRoughness");
-			drawer.NodeSetupLink("SceneOpaque", "Velocity", "Combine", "Velocity");
-			drawer.NodeSetupLink("SceneShadow", "Shadows", "Combine", "Shadows");
+			const Colour bufferPinColour(0.5f, 1.0f, 0.5f);
+			const Colour imagePinColour(0.2f, 0.5f, 1.0f);
 
-			drawer.DrawNode("SceneOpaque", glm::vec2(-120, -100), {}, { "Albedo", "WorldNormal", "WorldPos", "MetalRoughness", "Velocity" });
-			drawer.DrawNode("SceneShadow", glm::vec2(-120, 100), {}, { "Shadows" });
-			drawer.DrawNode("Combine", glm::vec2(120, 0), { "Albedo", "WorldNormal", "WorldPos", "MetalRoughness", "Velocity", "Shadows" }, { "FinalColour" });
+			const std::vector<std::vector<RenderNode>>& graph = m_renderer->GetRenderGraph().GetBuiltGraph();
+
+			// Setup links.
+			bool outputLinked = false;
+			for (const auto& stage : graph)
+			{
+				for (const auto& node : stage)
+				{
+					const char* nodeName = node.Pass->GetName();
+
+					for (const char* input : node.Pass->GetBufferInputs())
+					{
+						const char* inputNodeName = node.InputBuffers.at(input)->GetName();
+						drawer.NodeSetupLink(nodeName, input, inputNodeName, input, bufferPinColour);
+					}
+
+					for (const char* input : node.Pass->GetImageInputs())
+					{
+						const char* inputNodeName = node.InputImages.at(input)->GetName();
+						drawer.NodeSetupLink(inputNodeName, input, nodeName, input, imagePinColour);
+					}
+
+					if (!outputLinked)
+					{
+						// Implicitly link output to 'screen' end node.
+						for (const char* output : node.Pass->GetImageOutputs())
+						{
+							if (strcmp(output, "Final") == 0)
+							{
+								drawer.NodeSetupLink(nodeName, output, "Screen", "Final", imagePinColour);
+								outputLinked = true;
+								break;
+							}
+						}
+					}
+				}
+			}
+
+			glm::vec2 offset{};
+
+			// Horizontally place stages.
+			for (const auto& stage : graph)
+			{
+				float stageMaxNodeWidth = 0.0f;
+
+				// Vertically place nodes.
+				for (const auto& node : stage)
+				{
+					const char* nodeName = node.Pass->GetName();
+
+					std::vector<NodePin> inputPins;
+
+					for (const char* input : node.Pass->GetBufferInputs())
+					{
+						inputPins.emplace_back(NodePin(input, bufferPinColour));
+					}
+
+					for (const char* input : node.Pass->GetImageInputs())
+					{
+						inputPins.emplace_back(NodePin(input, imagePinColour));
+					}
+
+					std::vector<NodePin> outputPins;
+
+					for (const char* output : node.Pass->GetBufferOutputs())
+					{
+						outputPins.emplace_back(NodePin(output, bufferPinColour));
+					}
+
+					for (const char* output : node.Pass->GetImageOutputs())
+					{
+						outputPins.emplace_back(NodePin(output, imagePinColour));
+					}
+
+					drawer.DrawNode(nodeName, offset, inputPins, outputPins);
+					glm::vec2 nodeSize = drawer.GetNodeSize(nodeName);
+
+					stageMaxNodeWidth = std::max(stageMaxNodeWidth, nodeSize.x);
+					offset.y += nodeSize.y + 50.0f;
+				}
+
+				offset.y = 0.0f;
+				offset.x += stageMaxNodeWidth + 50.0f;
+			}
+
+			// Draw 'Screen' node.
+			drawer.DrawNode("Screen", offset, { NodePin("Final", imagePinColour) }, {}, imagePinColour);
 
 			if (appearing)
 				drawer.NodeEditorZoomToContent();

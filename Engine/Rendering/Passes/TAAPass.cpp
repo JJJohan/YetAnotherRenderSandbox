@@ -8,6 +8,8 @@ namespace Engine::Rendering
 {
 	TAAPass::TAAPass()
 	{
+		m_name = "TAA";
+
 		m_imageInputs = 
 		{
 			"Combined",

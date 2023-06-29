@@ -17,6 +17,12 @@ namespace Engine::Rendering
 
 	bool RenderGraph::AddPass(const IRenderPass* renderPass)
 	{
+		if (m_renderPasses.contains(renderPass->GetName()))
+		{
+			Logger::Error("Render pass with name '{}' already exists in the render graph.", renderPass->GetName());
+			return false;
+		}
+
 		for (const char* bufferResourceName : renderPass->GetBufferOutputs())
 		{
 			if (m_bufferResourceNodeLookup.contains(bufferResourceName))
@@ -39,14 +45,20 @@ namespace Engine::Rendering
 			m_imageResourceNodeLookup[imageResourceName] = renderPass;
 		}
 
-		m_renderPasses.emplace_back(renderPass);
+		m_renderPasses[renderPass->GetName()] = renderPass;
 		return true;
 	}
 
 	bool RenderGraph::Build()
 	{
 		m_renderGraph.clear();
-		std::vector<const IRenderPass*> renderPassStack(m_renderPasses.begin(), m_renderPasses.end());
+		std::vector<const IRenderPass*> renderPassStack;
+		renderPassStack.reserve(m_renderPasses.size());
+		for (const auto& pass : m_renderPasses)
+		{
+			renderPassStack.emplace_back(pass.second);
+		}
+
 		std::unordered_map<const char*, const IRenderPass*> availableBufferSources{};
 		std::unordered_map<const char*, const IRenderPass*> availableImageSources{};
 
@@ -109,7 +121,7 @@ namespace Engine::Rendering
 
 				if (satisfied)
 				{
-					stage.emplace_back(renderPass);
+					stage.emplace_back(std::move(node));
 					it = renderPassStack.erase(it);
 				}
 				else

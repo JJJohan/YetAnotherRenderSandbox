@@ -1,6 +1,5 @@
 #include "Drawer.hpp"
 #include "Core/AsyncData.hpp"
-#include "NodeManager.hpp"
 #include <imgui.h>
 #include <implot.h>
 
@@ -83,9 +82,10 @@ namespace Engine::UI
 		return m_nodeManager->Begin(label);
 	}
 
-	void Drawer::NodeSetupLink(const char* outputNodeName, const char* outputPinName, const char* inputNodeName, const char* inputPinName) const
+	void Drawer::NodeSetupLink(const char* outputNodeName, const char* outputPinName, const char* inputNodeName,
+		const char* inputPinName, const Colour& colour) const
 	{
-		m_nodeManager->SetupLink(outputNodeName, outputPinName, inputNodeName, inputPinName);
+		m_nodeManager->SetupLink(outputNodeName, outputPinName, inputNodeName, inputPinName, colour);
 	}
 
 	void Drawer::NodeEditorZoomToContent() const
@@ -93,15 +93,25 @@ namespace Engine::UI
 		m_nodeManager->ZoomToContent();
 	}
 
-	void Drawer::DrawNode(const char* label, const glm::vec2& pos, const std::vector<const char*>& inputs,
-		const std::vector<const char*>& outputs, const Colour& colour) const
+	void Drawer::DrawNode(const char* label, const glm::vec2& pos, const std::vector<NodePin>& inputs,
+		const std::vector<NodePin>& outputs, const Colour& colour) const
 	{
-		m_nodeManager->DrawNode(label, ImVec2(pos.x, pos.y), inputs, outputs, colour);
+		m_nodeManager->DrawNode(label, pos, inputs, outputs, colour);
+	}
+
+	glm::vec2 Drawer::GetNodeSize(const char* label) const
+	{
+		return m_nodeManager->GetNodeSize(label);
 	}
 
 	void Drawer::EndNodeEditor() const
 	{
 		m_nodeManager->End();
+	}
+
+	void Drawer::SetCursorPos(const glm::vec2& pos) const
+	{
+		ImGui::SetCursorPos(ImVec2(pos.x, pos.y));
 	}
 
 	void Drawer::BeginDisabled(bool disabled) const
@@ -139,7 +149,8 @@ namespace Engine::UI
 		return ImGui::CollapsingHeader(label, startOpen ? ImGuiTreeNodeFlags_DefaultOpen : 0);
 	}
 
-	void Drawer::PlotGraphs(const char* label, const std::vector<ScrollingGraphBuffer>& buffers, const glm::vec2& size) const
+	void Drawer::PlotGraphs(const char* label, const std::unordered_map<const char*, ScrollingGraphBuffer>& buffers,
+		const glm::vec2& size) const
 	{
 		if (buffers.empty())
 			return;
@@ -149,10 +160,10 @@ namespace Engine::UI
 		if (ImPlot::BeginPlot(label, ImVec2(size.x, size.y), flags))
 		{
 			ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickLabels, ImPlotAxisFlags_AutoFit);
-			ImPlot::SetupAxisLimits(ImAxis_X1, 0.0f, static_cast<float>(buffers[0].Capacity), ImGuiCond_Always);
+			ImPlot::SetupAxisLimits(ImAxis_X1, 0.0f, static_cast<float>(buffers.begin()->second.Capacity), ImGuiCond_Always);
 			for (const auto& buffer : buffers)
 			{
-				ImPlot::PlotLine(buffer.Label.c_str(), buffer.Values.data(), static_cast<int32_t>(buffers[0].Values.size()));
+				ImPlot::PlotLine(buffer.first, buffer.second.Values.data(), static_cast<int32_t>(buffer.second.Values.size()));
 			}
 			ImPlot::EndPlot();
 		}

@@ -8,6 +8,8 @@ namespace Engine::Rendering
 {
 	SceneOpaquePass::SceneOpaquePass()
 	{
+		m_name = "SceneOpaque";
+
 		m_imageOutputs =
 		{
 			"Albedo",

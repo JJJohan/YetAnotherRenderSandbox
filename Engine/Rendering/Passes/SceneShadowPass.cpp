@@ -8,6 +8,8 @@ namespace Engine::Rendering
 {
 	SceneShadowPass::SceneShadowPass()
 	{
+		m_name = "SceneShadow";
+
 		m_imageOutputs = 
 		{
 			"Shadows"

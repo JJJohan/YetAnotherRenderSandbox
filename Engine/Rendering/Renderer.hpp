@@ -60,6 +60,7 @@ namespace Engine::Rendering
 		inline virtual bool Render() = 0;
 		inline const std::vector<FrameStats>& GetRenderStats() const { return m_renderStats->GetFrameStats(); };
 		inline const MemoryStats& GetMemoryStats() const { return m_renderStats->GetMemoryStats(); };
+		inline const RenderGraph& GetRenderGraph() const { return *m_renderGraph; }
 
 		inline void SetClearColour(const Colour& clearColour) { m_clearColour = clearColour.GetVec4(); };
 		inline const Colour GetClearColor() const { return Colour(m_clearColour); };

@@ -8,13 +8,14 @@ namespace Engine::Rendering
 {
 	CombinePass::CombinePass()
 	{
+		m_name = "Combine";
+
 		m_imageInputs =
 		{
 			"Albedo",
 			"WorldNormal",
 			"WorldPos",
 			"MetalRoughness",
-			"Velocity",
 			"Shadows"
 		};
 

@@ -172,9 +172,6 @@
     <ClCompile Include="Rendering\Vulkan\VulkanRenderStats.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="Rendering\RenderStats.cpp">
-      <Filter>Rendering</Filter>
-    </ClCompile>
     <ClCompile Include="UI\implot\implot.cpp">
       <Filter>UI\implot</Filter>
     </ClCompile>
@@ -252,6 +249,9 @@
     </ClCompile>
     <ClCompile Include="Core\TangentCalculator.cpp">
       <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\RenderStats.cpp">
+      <Filter>Rendering</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

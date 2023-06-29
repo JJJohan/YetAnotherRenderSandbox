@@ -8,6 +8,20 @@ namespace Engine::Rendering
 	class IRenderPass;
 	class Renderer;
 
+	struct RenderNode
+	{
+		std::unordered_map<const char*, const IRenderPass*> InputBuffers;
+		std::unordered_map<const char*, const IRenderPass*> InputImages;
+		const IRenderPass* Pass;
+
+		RenderNode(const IRenderPass* pass)
+			: Pass(pass)
+			, InputBuffers()
+			, InputImages()
+		{
+		}
+	};
+
 	class RenderGraph
 	{
 	public:
@@ -17,21 +31,22 @@ namespace Engine::Rendering
 		bool Build();
 		void Draw(const Renderer& renderer) const;
 
-	private:
-		struct RenderNode
+		inline const std::unordered_map<const char*, const IRenderPass*>& GetPasses() const { return m_renderPasses; }
+		inline const std::vector<std::vector<RenderNode>>& GetBuiltGraph() const { return m_renderGraph; }
+		inline bool TryGetPass(const char* name, const IRenderPass** result) const
 		{
-			std::unordered_map<const char*, const IRenderPass*> InputBuffers;
-			std::unordered_map<const char*, const IRenderPass*> InputImages;
-			const IRenderPass* Pass;
+			const auto& search = m_renderPasses.find(name);
+			if (search != m_renderPasses.end())
+			{
+				*result = search->second;
+				return true;
+			}
 
-			RenderNode(const IRenderPass* pass) 
-				: Pass(pass)
-				, InputBuffers()
-				, InputImages()
-			{}
-		};
+			return false;
+		}
 
-		std::vector<const IRenderPass*> m_renderPasses;
+	private:
+		std::unordered_map<const char*, const IRenderPass*> m_renderPasses;
 		std::vector<std::vector<RenderNode>> m_renderGraph;
 		std::unordered_map<const char*, const IRenderPass*> m_imageResourceNodeLookup;
 		std::unordered_map<const char*, const IRenderPass*> m_bufferResourceNodeLookup;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <unordered_map>
 
 namespace Engine::UI
 {
@@ -30,7 +31,7 @@ namespace Sandbox
 
 		Engine::Rendering::Renderer* m_renderer;
 		Options& m_options;
-		std::vector<Engine::UI::ScrollingGraphBuffer> m_statGraphBuffers;
+		std::unordered_map<const char*, Engine::UI::ScrollingGraphBuffer> m_statGraphBuffers;
 		std::vector<const char*> m_debugModes;
 		uint32_t m_prevTabIndex;
 	};
