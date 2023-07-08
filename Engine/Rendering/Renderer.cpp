@@ -3,20 +3,22 @@
 #include "Core/Logging/Logger.hpp"
 #include "Vulkan/VulkanRenderer.hpp"
 #include "OS/Window.hpp"
-#include "Resources/IDevice.hpp"
-#include "Resources/IPhysicalDevice.hpp"
-#include "Resources/IResourceFactory.hpp"
+#include "IDevice.hpp"
+#include "IPhysicalDevice.hpp"
+#include "IResourceFactory.hpp"
+#include "Resources/IImageSampler.hpp"
 #include "Resources/IBuffer.hpp"
-#include "Resources/IMaterialManager.hpp"
-#include "Resources/ISwapChain.hpp"
+#include "IMaterialManager.hpp"
+#include "ISwapChain.hpp"
 #include "Resources/FrameInfoUniformBuffer.hpp"
 #include "Resources/LightUniformBuffer.hpp"
+#include "Resources/GeometryBatch.hpp"
 #include "Passes/IRenderPass.hpp"
 #include "Passes/SceneOpaquePass.hpp"
 #include "Passes/SceneShadowPass.hpp"
 #include "Passes/CombinePass.hpp"
-#include "ShadowMap.hpp"
-#include "GBuffer.hpp"
+#include "RenderResources/ShadowMap.hpp"
+#include "RenderResources/GBuffer.hpp"
 #include "PostProcessing.hpp"
 
 using namespace Engine::OS;
@@ -48,7 +50,7 @@ namespace Engine::Rendering
 		, m_lightBufferData()
 		, m_gBuffer(std::make_unique<GBuffer>())
 		, m_shadowMap(std::make_unique<ShadowMap>())
-		, m_postProcessing(nullptr)
+		, m_postProcessing(std::make_unique<PostProcessing>())
 		, m_renderGraph(std::make_unique<RenderGraph>())
 		, m_materialManager(nullptr)
 		, m_physicalDevice(nullptr)
@@ -57,10 +59,12 @@ namespace Engine::Rendering
 		, m_renderStats(nullptr)
 		, m_uiManager(nullptr)
 		, m_renderPasses()
-		, m_sceneGeometryBatch()
 		, m_sceneManager(std::make_unique<SceneManager>())
+		, m_linearSampler(nullptr)
+		, m_nearestSampler(nullptr)
+		, m_shadowSampler(nullptr)
+		, m_sceneGeometryBatch(std::make_unique<GeometryBatch>(*this))
 	{
-		m_postProcessing = std::make_unique<PostProcessing>(*m_gBuffer);
 	}
 
 	Renderer::~Renderer()
@@ -75,6 +79,9 @@ namespace Engine::Rendering
 		m_lightBufferData.clear();
 		m_renderPasses.clear();
 
+		m_linearSampler.reset();
+		m_nearestSampler.reset();
+		m_shadowSampler.reset();
 		m_sceneGeometryBatch.reset();
 		m_postProcessing.reset();
 		m_shadowMap.reset();
@@ -153,7 +160,7 @@ namespace Engine::Rendering
 		frameInfo->prevViewProj = frameInfo->viewProj;
 		frameInfo->viewSize = size;
 		frameInfo->viewProj = m_camera.GetViewProjection();
-		frameInfo->jitter = m_postProcessing->IsEnabled() ? m_postProcessing->GetTAAJitter(size) : glm::vec2();
+		frameInfo->jitter = m_postProcessing->IsEnabled() ? m_postProcessing->GetTAAJitter() : glm::vec2();
 	}
 
 	bool Renderer::Initialise()
@@ -164,10 +171,39 @@ namespace Engine::Rendering
 		if (!m_materialManager->Initialise(*m_physicalDevice, *m_device, m_maxConcurrentFrames, m_swapChain->GetFormat(), m_depthFormat)
 			|| !CreateFrameInfoUniformBuffer()
 			|| !CreateLightUniformBuffer()
-		    || !m_shadowMap->Rebuild(*m_device, *m_resourceFactory, m_depthFormat)
-			|| !m_gBuffer->Initialise(*m_physicalDevice, *m_device, *m_materialManager, *m_resourceFactory,
-				m_depthFormat, m_lastWindowSize, m_frameInfoBuffers, m_lightBuffers, *m_shadowMap)
-			|| !m_postProcessing->Initialise(*m_physicalDevice, *m_device, *m_materialManager, *m_resourceFactory, m_lastWindowSize))
+			|| !m_postProcessing->Initialise())
+		{
+			return false;
+		}
+
+		if (!m_renderGraph->AddResource(m_gBuffer.get()))
+		{
+			Logger::Error("Failed to add GBuffer to render graph.");
+			return false;
+		}
+
+		if (!m_renderGraph->AddResource(m_shadowMap.get()))
+		{
+			Logger::Error("Failed to add Shadow Map to render graph.");
+			return false;
+		}
+
+		m_linearSampler = std::move(m_resourceFactory->CreateImageSampler());
+		if (!m_linearSampler->Initialise(*m_device, Filter::Linear, Filter::Linear, SamplerMipmapMode::Linear,
+			SamplerAddressMode::Repeat, 1))
+		{
+			return false;
+		}
+
+		m_nearestSampler = std::move(m_resourceFactory->CreateImageSampler());
+		if (!m_nearestSampler->Initialise(*m_device, Filter::Nearest, Filter::Nearest, SamplerMipmapMode::Nearest,
+			SamplerAddressMode::Repeat, 1))
+		{
+			return false;
+		}
+		m_shadowSampler = std::move(m_resourceFactory->CreateImageSampler());
+		if (!m_shadowSampler->Initialise(*m_device, Filter::Linear, Filter::Linear, SamplerMipmapMode::Linear,
+			SamplerAddressMode::ClampToBorder, 1))
 		{
 			return false;
 		}
@@ -178,35 +214,30 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		std::unique_ptr<SceneOpaquePass> sceneOpaquePass = std::make_unique<SceneOpaquePass>();
-		m_renderPasses.emplace_back(std::move(sceneOpaquePass));
+		m_renderPasses["SceneOpaque"] = std::make_unique<SceneOpaquePass>(*m_sceneGeometryBatch);
+		m_renderPasses["SceneShadow"] = std::make_unique<SceneShadowPass>(*m_sceneGeometryBatch);
+		m_renderPasses["Combine"] = std::make_unique<CombinePass>();
 
-		std::unique_ptr<SceneShadowPass> sceneShadowPass = std::make_unique<SceneShadowPass>();
-		m_renderPasses.emplace_back(std::move(sceneShadowPass));
-
-		std::unique_ptr<CombinePass> combinePass = std::make_unique<CombinePass>();
-		m_renderPasses.emplace_back(std::move(combinePass));
-
-		for (const std::unique_ptr<IRenderPass>& pass : m_renderPasses)
+		for (const auto& pair : m_renderPasses)
 		{
-			if (!m_renderGraph->AddPass(pass.get()))
+			if (!m_renderGraph->AddPass(pair.second.get(), *m_materialManager))
 			{
-				Logger::Error("Failed to add pass to render graph.");
+				Logger::Error("Failed to add pass '{}' to render graph.", pair.first);
 				return false;
 			}
 		}
 
-		std::vector<const IRenderPass*> postProcessPasses = m_postProcessing->GetRenderPasses();
-		for (const IRenderPass* pass : postProcessPasses)
+		std::vector<IRenderPass*> postProcessPasses = m_postProcessing->GetRenderPasses();
+		for (IRenderPass* pass : postProcessPasses)
 		{
-			if (!m_renderGraph->AddPass(pass))
+			if (!m_renderGraph->AddPass(pass, *m_materialManager))
 			{
 				Logger::Error("Failed to add post process pass to render graph.");
 				return false;
 			}
 		}
 
-		if (!m_renderGraph->Build())
+		if (!m_renderGraph->Build(*this))
 		{
 			Logger::Error("Failed to build render graph.");
 			return false;

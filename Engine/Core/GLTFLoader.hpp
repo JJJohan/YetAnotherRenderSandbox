@@ -4,7 +4,7 @@
 
 namespace Engine::Rendering
 {
-	class IGeometryBatch;
+	class GeometryBatch;
 }
 
 namespace Engine
@@ -14,6 +14,6 @@ namespace Engine
 	class GLTFLoader
 	{
 	public:
-		bool LoadGLTF(const std::filesystem::path& filePath, Engine::Rendering::IGeometryBatch* geometryBatch, AsyncData* asyncData);
+		bool LoadGLTF(const std::filesystem::path& filePath, Engine::Rendering::GeometryBatch& geometryBatch, AsyncData* asyncData);
 	};
 }

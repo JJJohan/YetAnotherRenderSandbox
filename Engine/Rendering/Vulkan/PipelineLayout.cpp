@@ -216,7 +216,17 @@ namespace Engine::Rendering::Vulkan
 
 		std::vector<vk::DescriptorImageInfo>& imageInfos = m_descriptorImageInfos.emplace_back(std::vector<vk::DescriptorImageInfo>(imageViews.size()));
 		for (size_t i = 0; i < imageViews.size(); ++i)
+		{
+			uint32_t layerCount = imageViews[i]->GetLayerCount();
+			if (layerCount != 1 && !bindingInfo->IsImageArray || layerCount == 1 && bindingInfo->IsImageArray)
+			{
+				Logger::Error("Binding at index {} for material '{}' image array state mismatch. (Shader expects array: {}, Image view layer count: {}).",
+					binding, GetName(), bindingInfo->IsImageArray, layerCount);
+				return false;
+			}
+
 			imageInfos[i] = vk::DescriptorImageInfo(nullptr, static_cast<const ImageView&>(*imageViews[i]).Get(), vk::ImageLayout::eShaderReadOnlyOptimal);
+		}
 
 		if (m_writeDescriptorSets.empty())
 			m_writeDescriptorSets.resize(m_concurrentFrames);
@@ -581,6 +591,7 @@ namespace Engine::Rendering::Vulkan
 							layoutBinding.descriptorCount *= spvBinding.array.dims[k];
 						layoutBinding.stageFlags = stage;
 
+						bindingInfo.IsImageArray = spvBinding.image.arrayed > 0;
 						bindingInfo.BlockSize = spvBinding.block.size;
 						if (spvBinding.block.member_count > 0)
 						{

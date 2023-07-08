@@ -1,8 +1,8 @@
 #include "VulkanRenderStats.hpp"
 #include "Device.hpp"
 #include "PhysicalDevice.hpp"
-#include "../GBuffer.hpp"
-#include "../ShadowMap.hpp"
+#include "../RenderResources/GBuffer.hpp"
+#include "../RenderResources/ShadowMap.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "CommandBuffer.hpp"
 

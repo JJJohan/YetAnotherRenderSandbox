@@ -60,6 +60,12 @@ namespace Engine::Rendering::Vulkan
 			return;
 		}
 
+		if (m_layerCount != 1)
+		{
+			Logger::Error("Generating mip maps for texture arrays is currently not supported.");
+			return;
+		}
+
 		vk::ImageMemoryBarrier barrier;
 		barrier.image = m_image;
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -116,16 +122,17 @@ namespace Engine::Rendering::Vulkan
 			nullptr, nullptr, { barrier });
 	}
 
-	bool RenderImage::Initialise(const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions, uint32_t mipLevels, ImageTiling tiling,
-		ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags, MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode)
+	bool RenderImage::Initialise(const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
+		uint32_t mipLevels, uint32_t layerCount, ImageTiling tiling, ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags,
+		MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode)
 	{
 		m_format = format;
 		m_dimensions = dimensions;
-
 		m_mipLevels = mipLevels;
+		m_layerCount = layerCount;
 
 		vk::ImageCreateInfo RenderImageInfo(vk::ImageCreateFlags(), GetImageType(imageType), GetVulkanFormat(format), GetExtent3D(dimensions),
-			m_mipLevels, 1, vk::SampleCountFlagBits::e1, GetImageTiling(tiling), static_cast<vk::ImageUsageFlagBits>(imageUsage), GetSharingMode(sharingMode));
+			mipLevels, layerCount, vk::SampleCountFlagBits::e1, GetImageTiling(tiling), static_cast<vk::ImageUsageFlagBits>(imageUsage), GetSharingMode(sharingMode));
 
 		VmaAllocationCreateInfo allocCreateInfo = {};
 		allocCreateInfo.usage = GetVmaMemoryUsage(memoryUsage);
@@ -140,7 +147,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		m_imageView = std::make_unique<ImageView>();
-		if (!m_imageView->Initialise(device, *this, mipLevels, format, aspectFlags))
+		if (!m_imageView->Initialise(device, *this, mipLevels, layerCount, format, aspectFlags))
 		{
 			Logger::Error("Failed to create image view.");
 			return false;
@@ -228,14 +235,14 @@ namespace Engine::Rendering::Vulkan
 			aspectFlags = vk::ImageAspectFlagBits::eColor;
 		}
 
-		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, 1);
+		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, m_layerCount);
 
 		vk::ImageMemoryBarrier barrier(srcAccessMask, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
 			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
 
 		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);
 		vulkanCommandBuffer.Get().pipelineBarrier(srcStage, dstStage,
-			vk::DependencyFlagBits::eByRegion, nullptr, nullptr, {barrier});
+			vk::DependencyFlagBits::eByRegion, nullptr, nullptr, { barrier });
 
 		m_layout = newLayout;
 	}

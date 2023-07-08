@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
-#include "../Resources/IMaterialManager.hpp"
+#include "../IMaterialManager.hpp"
 
 namespace Engine::Rendering::Vulkan
 {

@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 #include "QueueFamilyIndices.hpp"
-#include "../Resources/IPhysicalDevice.hpp"
+#include "../IPhysicalDevice.hpp"
 #include "../Types.hpp"
 
 namespace Engine::Rendering::Vulkan

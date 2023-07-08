@@ -1,5 +1,6 @@
 #version 460
 #extension GL_EXT_nonuniform_qualifier : require
+#extension GL_ARB_shader_viewport_layer_array : require
 
 layout(binding = 0) uniform FrameInfo
 {
@@ -55,4 +56,6 @@ void main()
 	fragDiffuseImageIndex = infoBuffer.meshInfo[gl_DrawID].diffuseImageIndex;
 	fragColor = infoBuffer.meshInfo[gl_DrawID].color;
 	fragUv = uv;
+
+	gl_Layer = int(pushConsts.cascadeIndex);
 }

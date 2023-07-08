@@ -6,7 +6,7 @@
 #include <filesystem>
 #include "GltfLoader.hpp"
 #include "Rendering/Renderer.hpp"
-#include "Rendering/Resources/IGeometryBatch.hpp"
+#include "Rendering/Resources/GeometryBatch.hpp"
 
 using namespace Engine::Logging;
 using namespace Engine::Rendering;
@@ -18,7 +18,7 @@ namespace Engine
 	{
 	}
 
-	void SceneManager::LoadSceneImp(const std::string& filePath, IGeometryBatch* geometryBatch, bool cache, AsyncData& asyncData)
+	void SceneManager::LoadSceneImp(const std::string& filePath, GeometryBatch& geometryBatch, bool cache, AsyncData& asyncData)
 	{
 		std::filesystem::path path(filePath);
 		std::filesystem::path chunkPath(path);
@@ -40,7 +40,7 @@ namespace Engine
 					if (chunkData.Parse(chunkPath, &asyncData))
 					{
 						asyncData.InitSubProgress("Uploading Cache Data", 500.0f);
-						if (geometryBatch->Build(&chunkData, asyncData))
+						if (geometryBatch.Build(&chunkData, asyncData))
 						{
 							m_creating = false;
 							asyncData.State = AsyncState::Completed;
@@ -90,7 +90,7 @@ namespace Engine
 		}
 
 		asyncData.InitSubProgress("Optimising Mesh", 100.0f);
-		if (!geometryBatch->Optimise())
+		if (!geometryBatch.Optimise())
 		{
 			Logger::Error("Error occurred while optimising mesh.");
 			asyncData.State = AsyncState::Failed;
@@ -106,7 +106,7 @@ namespace Engine
 
 		asyncData.InitSubProgress("Building Graphics Resources", 100.0f);
 		ChunkData chunkData{};
-		bool buildSuccess = geometryBatch->Build(cache ? &chunkData : nullptr, asyncData);
+		bool buildSuccess = geometryBatch.Build(cache ? &chunkData : nullptr, asyncData);
 		if (buildSuccess && cache && asyncData.State == AsyncState::InProgress)
 		{
 			asyncData.InitSubProgress("Writing Cache", 500.0f);
@@ -129,17 +129,11 @@ namespace Engine
 			return;
 		}
 
-		IGeometryBatch* geometryBatch = nullptr;
-		if (!renderer->PrepareSceneGeometryBatch(&geometryBatch))
-		{
-			Logger::Error("Failed to prepare scene geometry batch.");
-			asyncData.State = AsyncState::Failed;
-			return;
-		}
+		GeometryBatch& geometryBatch = renderer->GetSceneGeometryBatch();
 
 		m_creating = true;
 		asyncData.State = AsyncState::InProgress;
 		asyncData.InitProgress("Loading Scene", cache ? 1500.0f : 1000.0f);
-		asyncData.SetFuture(std::move(std::async(std::launch::async, [filePath, geometryBatch, cache, &asyncData, this] { LoadSceneImp(filePath, geometryBatch, cache, asyncData); })));
+		asyncData.SetFuture(std::move(std::async(std::launch::async, [filePath, &geometryBatch, cache, &asyncData, this] { LoadSceneImp(filePath, geometryBatch, cache, asyncData); })));
 	}
 }

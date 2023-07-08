@@ -1,7 +1,7 @@
 #include "GLTFLoader.hpp"
 #include "Logging/Logger.hpp"
 #include "AsyncData.hpp"
-#include "Rendering/Resources/IGeometryBatch.hpp"
+#include "Rendering/Resources/GeometryBatch.hpp"
 #include "VertexData.hpp"
 #include "Image.hpp"
 #include "Colour.hpp"
@@ -25,19 +25,18 @@ namespace Engine
 	struct ImportState
 	{
 		const fastgltf::Asset* asset;
-		IGeometryBatch* geometryBatch;
+		GeometryBatch& geometryBatch;
 		std::vector<std::shared_ptr<Image>> loadedImages;
 		std::unordered_map<size_t, VertexData> bufferMap;
 		std::unordered_map<size_t, std::vector<uint32_t>> indexBufferMap;
 
-		ImportState(const fastgltf::Asset* asset, IGeometryBatch* geometryBatch)
+		ImportState(const fastgltf::Asset* asset, GeometryBatch& geometryBatch)
+			: geometryBatch(geometryBatch)
+			, asset(asset)
+			, bufferMap()
+			, indexBufferMap()
+			, loadedImages(asset->images.size())
 		{
-			this->asset = asset;
-			this->geometryBatch = geometryBatch;
-			bufferMap = {};
-			indexBufferMap = {};
-
-			loadedImages.resize(asset->images.size());
 		}
 	};
 
@@ -229,7 +228,7 @@ namespace Engine
 				}
 			}
 
-			importState.geometryBatch->CreateMesh(vertexDataArrays, indices, transform, colour, diffuseImage, normalImage, metallicRoughnessImage);
+			importState.geometryBatch.CreateMesh(vertexDataArrays, indices, transform, colour, diffuseImage, normalImage, metallicRoughnessImage);
 		}
 
 		return true;
@@ -275,7 +274,7 @@ namespace Engine
 		return true;
 	}
 
-	bool GLTFLoader::LoadGLTF(const std::filesystem::path& filePath, IGeometryBatch* geometryBatch, AsyncData* asyncData)
+	bool GLTFLoader::LoadGLTF(const std::filesystem::path& filePath, GeometryBatch& geometryBatch, AsyncData* asyncData)
 	{
 		if (!std::filesystem::exists(filePath))
 		{

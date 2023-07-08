@@ -3,7 +3,7 @@
 #include <memory>
 #include <unordered_map>
 #include "Core/Logging/Logger.hpp"
-#include "../Types.hpp"
+#include "Types.hpp"
 
 namespace Engine::Rendering
 {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Resources/IResourceFactory.hpp"
+#include "../IResourceFactory.hpp"
 #include <vma/vk_mem_alloc.h>
 
 namespace Engine::Rendering::Vulkan

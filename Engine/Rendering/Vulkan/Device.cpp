@@ -36,32 +36,25 @@ namespace Engine::Rendering::Vulkan
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
-		vk::PhysicalDeviceTimelineSemaphoreFeatures timelineSemaphoreFeatures;
-		timelineSemaphoreFeatures.timelineSemaphore = true;
+		vk::PhysicalDeviceVulkan13Features vulkan13Features;
+		vulkan13Features.dynamicRendering = true;
+		vulkan13Features.synchronization2 = true;
 
-		vk::PhysicalDeviceSynchronization2Features syncFeatures;
-		syncFeatures.synchronization2 = true;
-		syncFeatures.pNext = &timelineSemaphoreFeatures;
-
-		vk::PhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures;
-		dynamicRenderingFeatures.dynamicRendering = true;
-		dynamicRenderingFeatures.pNext = &syncFeatures;
-
-		vk::PhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures;
-		descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = true;
-		descriptorIndexingFeatures.shaderUniformBufferArrayNonUniformIndexing = true;
-		descriptorIndexingFeatures.shaderStorageBufferArrayNonUniformIndexing = true;
-		descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = true;
-		descriptorIndexingFeatures.runtimeDescriptorArray = true;
-		descriptorIndexingFeatures.pNext = &dynamicRenderingFeatures;
-
-		vk::PhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures;
-		bufferDeviceAddressFeatures.bufferDeviceAddress = true;
-		bufferDeviceAddressFeatures.pNext = &descriptorIndexingFeatures;
+		vk::PhysicalDeviceVulkan12Features vulkan12Features;
+		vulkan12Features.bufferDeviceAddress = true;
+		vulkan12Features.timelineSemaphore = true;
+		vulkan12Features.shaderSampledImageArrayNonUniformIndexing = true;
+		vulkan12Features.shaderUniformBufferArrayNonUniformIndexing = true;
+		vulkan12Features.shaderStorageBufferArrayNonUniformIndexing = true;
+		vulkan12Features.descriptorBindingVariableDescriptorCount = true;
+		vulkan12Features.runtimeDescriptorArray = true;
+		vulkan12Features.shaderOutputViewportIndex = true;
+		vulkan12Features.shaderOutputLayer = true;
+		vulkan12Features.pNext = &vulkan13Features;
 
 		vk::PhysicalDeviceVulkan11Features vulkan11Features;
 		vulkan11Features.shaderDrawParameters = true;
-		vulkan11Features.pNext = &bufferDeviceAddressFeatures;
+		vulkan11Features.pNext = &vulkan12Features;
 
 		vk::PhysicalDeviceFeatures2 deviceFeatures2;
 		deviceFeatures2.features.samplerAnisotropy = availableFeatures.samplerAnisotropy;

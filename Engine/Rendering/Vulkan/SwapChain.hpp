@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 #include "SwapChainSupportDetails.hpp"
-#include "../Resources/ISwapChain.hpp"
+#include "../ISwapChain.hpp"
 
 struct VmaAllocator_T;
 typedef struct VmaAllocator_T* VmaAllocator;

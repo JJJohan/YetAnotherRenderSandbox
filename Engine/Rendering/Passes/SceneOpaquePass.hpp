@@ -4,15 +4,20 @@
 
 namespace Engine::Rendering
 {
+	class GeometryBatch;
+
 	class SceneOpaquePass : public IRenderPass
 	{
 	public:
-		SceneOpaquePass();
+		SceneOpaquePass(const GeometryBatch& sceneGeometryBatch);
 
-		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer) const override;
+		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IBuffer*>& bufferInputs) override;
 
-		virtual const IRenderImage& GetImageResource(const char* name) const override;
+		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer, uint32_t frameIndex) const override;
 
-		virtual const IBuffer& GetBufferResource(const char* name) const override;
+	private:
+		const GeometryBatch& m_sceneGeometryBatch;
+		bool m_built;
 	};
 }

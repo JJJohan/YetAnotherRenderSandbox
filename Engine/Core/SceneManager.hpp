@@ -5,7 +5,7 @@
 #include "Colour.hpp"
 #include "Image.hpp"
 #include "VertexData.hpp"
-#include "Rendering/MeshInfo.hpp"
+#include "Rendering/Resources/MeshInfo.hpp"
 #include <vector>
 #include <stack>
 #include <mutex>
@@ -17,7 +17,7 @@
 namespace Engine::Rendering
 {
 	class Renderer;
-	class IGeometryBatch;
+	class GeometryBatch;
 }
 
 namespace Engine
@@ -33,7 +33,7 @@ namespace Engine
 		EXPORT void LoadScene(const std::string& filePath, Engine::Rendering::Renderer* renderer, bool cache, AsyncData& asyncData);
 
 	private:
-		void LoadSceneImp(const std::string& filePath, Engine::Rendering::IGeometryBatch* geometryBatch, bool cache, AsyncData& asyncData);
+		void LoadSceneImp(const std::string& filePath, Engine::Rendering::GeometryBatch& geometryBatch, bool cache, AsyncData& asyncData);
 		std::atomic<bool> m_creating;
 	};
 }

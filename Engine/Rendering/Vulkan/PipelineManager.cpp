@@ -3,7 +3,7 @@
 #include "DescriptorPool.hpp"
 #include "PipelineLayout.hpp"
 #include "OS/Files.hpp"
-#include "../Resources/IPhysicalDevice.hpp"
+#include "../IPhysicalDevice.hpp"
 #include "../Resources/Material.hpp"
 #include <filesystem>
 

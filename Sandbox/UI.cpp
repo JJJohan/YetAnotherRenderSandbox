@@ -119,7 +119,7 @@ namespace Sandbox
 		{
 			drawer.Text("FPS: %.2f", m_renderer->GetUIManager().GetFPS());
 
-			std::unordered_map<const char*, const IRenderPass*> passMap(m_renderer->GetRenderGraph().GetPasses());
+			std::unordered_map<const char*, IRenderPass*> passMap(m_renderer->GetRenderGraph().GetPasses());
 			passMap.emplace("Total", nullptr);
 
 			// Iterate over the unordered map of graphs by reference and remove any that are no longer in the render graph.
@@ -183,6 +183,9 @@ namespace Sandbox
 			{
 				for (const auto& node : stage)
 				{
+					if (node.Pass == nullptr) 
+						continue;
+
 					const char* nodeName = node.Pass->GetName();
 
 					for (const char* input : node.Pass->GetBufferInputs())
@@ -223,33 +226,44 @@ namespace Sandbox
 				// Vertically place nodes.
 				for (const auto& node : stage)
 				{
-					const char* nodeName = node.Pass->GetName();
+					bool isPass = node.Pass != nullptr;
+					const char* nodeName = node.Resource->GetName();
+					Colour nodeColour;
 
 					std::vector<NodePin> inputPins;
 
-					for (const char* input : node.Pass->GetBufferInputs())
+					if (isPass)
 					{
-						inputPins.emplace_back(NodePin(input, bufferPinColour));
-					}
+						for (const char* input : node.Pass->GetBufferInputs())
+						{
+							inputPins.emplace_back(NodePin(input, bufferPinColour));
+						}
 
-					for (const char* input : node.Pass->GetImageInputs())
+						for (const char* input : node.Pass->GetImageInputs())
+						{
+							inputPins.emplace_back(NodePin(input, imagePinColour));
+						}
+
+						nodeColour = Colour(0.5f, 0.5f, 0.5f);
+					}
+					else
 					{
-						inputPins.emplace_back(NodePin(input, imagePinColour));
+						nodeColour = Colour(0.4f, 0.6f, 0.4f);
 					}
 
 					std::vector<NodePin> outputPins;
 
-					for (const char* output : node.Pass->GetBufferOutputs())
+					for (const char* output : node.Resource->GetBufferOutputs())
 					{
 						outputPins.emplace_back(NodePin(output, bufferPinColour));
 					}
 
-					for (const char* output : node.Pass->GetImageOutputs())
+					for (const char* output : node.Resource->GetImageOutputs())
 					{
 						outputPins.emplace_back(NodePin(output, imagePinColour));
 					}
 
-					drawer.DrawNode(nodeName, offset, inputPins, outputPins);
+					drawer.DrawNode(nodeName, offset, inputPins, outputPins, nodeColour);
 					glm::vec2 nodeSize = drawer.GetNodeSize(nodeName);
 
 					stageMaxNodeWidth = std::max(stageMaxNodeWidth, nodeSize.x);

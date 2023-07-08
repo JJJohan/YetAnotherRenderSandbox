@@ -1,7 +1,11 @@
 #pragma once
 
 #include <vector>
-#include "Core/Macros.hpp"
+#include <unordered_map>
+#include "../IMaterialManager.hpp"
+#include "Core/Logging/Logger.hpp"
+#include "../Resources/Material.hpp"
+#include "../RenderResources/IRenderResource.hpp"
 
 namespace Engine::Rendering
 {
@@ -9,45 +13,56 @@ namespace Engine::Rendering
 	class IRenderImage;
 	class IDevice;
 	class ICommandBuffer;
+	class Renderer;
 
-	class IRenderPass
+	class IRenderPass : public IRenderResource
 	{
 	public:
-		IRenderPass()
-			: m_bufferOutputs()
-			, m_bufferInputs()
-			, m_imageOutputs()
-			, m_imageInputs()
-			, m_name("")
-			, m_frameTime(0.0f)
+		virtual ~IRenderPass() = default;
+
+		inline bool Initialise(const IMaterialManager& materialManager)
 		{
+			if (!materialManager.TryGetMaterial(m_materialName, &m_material))
+			{
+				Engine::Logging::Logger::Error("Failed to find material '{}' for render pass '{}'.", m_materialName, GetName());
+				return false;
+			}
+
+			return true;
 		}
 
-		virtual ~IRenderPass() = default;
-		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer) const = 0;
-		EXPORT inline const char* GetName() const { return m_name; }
+		inline virtual bool Build(const Renderer& renderer) override { return false; }
 
-		EXPORT inline float GetFrameTime() const { return m_frameTime; }
+		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IBuffer*>& bufferInputs) = 0;
+
+		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer, uint32_t frameIndex) const = 0;
+
+		inline float GetFrameTime() const { return m_frameTime; }
+
 		inline void SetFrameTime(float time) { m_frameTime = time; }
 
 		inline const std::vector<const char*>& GetBufferInputs() const { return m_bufferInputs; }
 
-		inline const std::vector<const char*>& GetBufferOutputs() const { return m_bufferOutputs; }
-
-		inline const std::vector<const char*>& GetImageInputs()const { return m_imageInputs; }
-
-		inline const std::vector<const char*>& GetImageOutputs() const { return m_imageOutputs; }
-
-		virtual const IRenderImage& GetImageResource(const char* name) const = 0;
-
-		virtual const IBuffer& GetBufferResource(const char* name) const = 0;
+		inline const std::vector<const char*>& GetImageInputs() const { return m_imageInputs; }
 
 	protected:
-		std::vector<const char*> m_bufferOutputs;
+		IRenderPass(const char* name, const char* materialName)
+			: IRenderResource(name)
+			, m_bufferInputs()
+			, m_imageInputs()
+			, m_frameTime(0.0f)
+			, m_material(nullptr)
+			, m_materialName(materialName)
+		{
+		}
+
 		std::vector<const char*> m_bufferInputs;
-		std::vector<const char*> m_imageOutputs;
 		std::vector<const char*> m_imageInputs;
-		const char* m_name;
 		float m_frameTime;
+		Material* m_material;
+
+	private:
+		const char* m_materialName;
 	};
 }

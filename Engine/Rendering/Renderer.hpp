@@ -2,15 +2,17 @@
 
 #include <memory>
 #include <vector>
+#include <unordered_map>
 #include "Core/Colour.hpp"
 #include "Core/Macros.hpp"
 #include <glm/glm.hpp>
 #include "Camera.hpp"
 #include "RenderStats.hpp"
 #include "Types.hpp"
-#include "Resources/ISwapChain.hpp"
+#include "ISwapChain.hpp"
 #include "RenderGraph.hpp"
 #include "RenderSettings.hpp"
+#include <functional>
 
 namespace Engine
 {
@@ -43,7 +45,8 @@ namespace Engine::Rendering
 	class IBuffer;
 	class ISwapChain;
 	class IRenderPass;
-	class IGeometryBatch;
+	class IImageSampler;
+	class GeometryBatch;
 
 	enum class RendererType
 	{
@@ -58,49 +61,60 @@ namespace Engine::Rendering
 
 		inline virtual bool Initialise();
 		inline virtual bool Render() = 0;
-		inline const std::vector<FrameStats>& GetRenderStats() const { return m_renderStats->GetFrameStats(); };
-		inline const MemoryStats& GetMemoryStats() const { return m_renderStats->GetMemoryStats(); };
+		inline const std::vector<FrameStats>& GetRenderStats() const { return m_renderStats->GetFrameStats(); }
+		inline const MemoryStats& GetMemoryStats() const { return m_renderStats->GetMemoryStats(); }
 		inline const RenderGraph& GetRenderGraph() const { return *m_renderGraph; }
 
-		inline void SetClearColour(const Colour& clearColour) { m_clearColour = clearColour.GetVec4(); };
-		inline const Colour GetClearColor() const { return Colour(m_clearColour); };
+		inline void SetClearColour(const Colour& clearColour) { m_clearColour = clearColour.GetVec4(); }
+		inline const Colour GetClearColor() const { return Colour(m_clearColour); }
 
-		inline virtual void SetTemporalAAState(bool enabled) { m_renderSettings.m_temporalAA = enabled; };
-		inline bool GetTemporalAAState(bool enabled) const { return m_renderSettings.m_temporalAA; };
+		inline virtual void SetTemporalAAState(bool enabled) { m_renderSettings.m_temporalAA = enabled; }
+		inline bool GetTemporalAAState(bool enabled) const { return m_renderSettings.m_temporalAA; }
 
-		inline virtual void SetDebugMode(uint32_t mode) { m_debugMode = mode; };
-		inline uint32_t GetDebugMode() const { return m_debugMode; };
+		inline virtual void SetDebugMode(uint32_t mode) { m_debugMode = mode; }
+		inline uint32_t GetDebugMode() const { return m_debugMode; }
 
 		inline virtual void SetMultiSampleCount(uint32_t multiSampleCount);;
-		inline uint32_t GetMaxMultiSampleCount() const { return m_maxMultiSampleCount; };
+		inline uint32_t GetMaxMultiSampleCount() const { return m_maxMultiSampleCount; }
 
-		inline virtual void SetHDRState(bool enable) { m_renderSettings.m_hdr = enable; };
-		inline bool GetHDRState() const { return m_renderSettings.m_hdr; };
-		bool IsHDRSupported() const { return m_swapChain->IsHDRCapable(); };
+		inline virtual void SetHDRState(bool enable) { m_renderSettings.m_hdr = enable; }
+		inline bool GetHDRState() const { return m_renderSettings.m_hdr; }
+		bool IsHDRSupported() const { return m_swapChain->IsHDRCapable(); }
 
-		inline void SetSunLightDirection(const glm::vec3& dir) { m_sunDirection = glm::normalize(dir); };
-		inline void SetSunLightColour(const Colour& colour) { m_sunColour = colour; };
-		inline void SetSunLightIntensity(float intensity) { m_sunIntensity = intensity; };
+		inline void SetSunLightDirection(const glm::vec3& dir) { m_sunDirection = glm::normalize(dir); }
+		inline void SetSunLightColour(const Colour& colour) { m_sunColour = colour; }
+		inline void SetSunLightIntensity(float intensity) { m_sunIntensity = intensity; }
 
-		inline const GBuffer& GetGBuffer() const { return *m_gBuffer; };
+		inline const GBuffer& GetGBuffer() const { return *m_gBuffer; }
+		inline const ShadowMap& GetShadowMap() const { return *m_shadowMap; }
 
-		inline void SetCamera(const Camera& camera) { m_camera = camera; };
-		inline Camera& GetCamera() { return m_camera; };
+		inline void SetCamera(const Camera& camera) { m_camera = camera; }
+		inline Camera& GetCamera() { return m_camera; }
 
 		inline const IResourceFactory& GetResourceFactory() const { return *m_resourceFactory; }
 
-		inline SceneManager& GetSceneManager() const { return *m_sceneManager; };
-		inline Engine::UI::UIManager& GetUIManager() const { return *m_uiManager; };
+		inline SceneManager& GetSceneManager() const { return *m_sceneManager; }
+		inline IMaterialManager& GetMaterialManager() const { return *m_materialManager; }
+		inline Engine::UI::UIManager& GetUIManager() const { return *m_uiManager; }
 
-		inline const IDevice& GetDevice() const { return *m_device; };
-		inline const IPhysicalDevice& GetPhysicalDevice() const { return *m_physicalDevice; };
-		inline const ISwapChain& GetSwapChain() const { return *m_swapChain; };
-		inline uint32_t GetConcurrentFrameCount() const { return m_maxConcurrentFrames; };
+		inline const IDevice& GetDevice() const { return *m_device; }
+		inline const IPhysicalDevice& GetPhysicalDevice() const { return *m_physicalDevice; }
+		inline const ISwapChain& GetSwapChain() const { return *m_swapChain; }
+		inline uint32_t GetConcurrentFrameCount() const { return m_maxConcurrentFrames; }
+		inline Format GetDepthFormat() const { return m_depthFormat; }
 
-		inline const std::vector<std::unique_ptr<IBuffer>>& GetFrameInfoBuffers() const { return m_frameInfoBuffers; };
-		inline const std::vector<std::unique_ptr<IBuffer>>& GetLightBuffers() const { return m_lightBuffers; };
+		inline const std::vector<std::unique_ptr<IBuffer>>& GetFrameInfoBuffers() const { return m_frameInfoBuffers; }
+		inline const std::vector<std::unique_ptr<IBuffer>>& GetLightBuffers() const { return m_lightBuffers; }
 
-		virtual bool PrepareSceneGeometryBatch(IGeometryBatch** geometryBatch) = 0;
+		inline const IImageSampler& GetLinearSampler() const { return *m_linearSampler; }
+		inline const IImageSampler& GetNearestSampler() const { return *m_nearestSampler; }
+		inline const IImageSampler& GetShadowSampler() const { return *m_shadowSampler; }
+
+		inline GeometryBatch& GetSceneGeometryBatch() const { return *m_sceneGeometryBatch; }
+
+		virtual bool SubmitResourceCommand(std::function<bool(const IDevice& device, const IPhysicalDevice& physicalDevice,
+			const ICommandBuffer&, std::vector<std::unique_ptr<IBuffer>>&)> command,
+			std::optional<std::function<void()>> postAction = std::nullopt) = 0;
 
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);
@@ -130,11 +144,14 @@ namespace Engine::Rendering
 		std::vector<std::unique_ptr<IBuffer>> m_lightBuffers;
 		std::vector<FrameInfoUniformBuffer*> m_frameInfoBufferData;
 		std::vector<LightUniformBuffer*> m_lightBufferData;
-		std::vector<std::unique_ptr<IRenderPass>> m_renderPasses;
+		std::unordered_map<const char*, std::unique_ptr<IRenderPass>> m_renderPasses;
 		std::unique_ptr<RenderGraph> m_renderGraph;
+		std::unique_ptr<IImageSampler> m_linearSampler;
+		std::unique_ptr<IImageSampler> m_nearestSampler;
+		std::unique_ptr<IImageSampler> m_shadowSampler;
 
 		std::unique_ptr<SceneManager> m_sceneManager;
-		std::unique_ptr<IGeometryBatch> m_sceneGeometryBatch;
+		std::unique_ptr<GeometryBatch> m_sceneGeometryBatch;
 		std::unique_ptr<IResourceFactory> m_resourceFactory;
 		std::unique_ptr<GBuffer> m_gBuffer;
 		std::unique_ptr<ShadowMap> m_shadowMap;

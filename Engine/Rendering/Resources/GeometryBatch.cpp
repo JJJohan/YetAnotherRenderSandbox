@@ -1,19 +1,16 @@
 #include "GeometryBatch.hpp"
-#include "../Resources/IPhysicalDevice.hpp"
-#include "../Resources/IDevice.hpp"
+#include "../IPhysicalDevice.hpp"
+#include "../IDevice.hpp"
 #include "../Resources/IBuffer.hpp"
 #include "../Resources/IRenderImage.hpp"
 #include "../Resources/IImageSampler.hpp"
-#include "../Resources/IResourceFactory.hpp"
-#include "../Resources/IMaterialManager.hpp"
+#include "../IResourceFactory.hpp"
 #include "../Resources/ICommandBuffer.hpp"
-#include "../Resources/Material.hpp"
-#include "../MeshInfo.hpp"
+#include "../Resources/MeshInfo.hpp"
 #include "Core/MeshOptimiser.hpp"
 #include "Core/Image.hpp"
-#include "VulkanRenderer.hpp"
-#include "../RenderMeshInfo.hpp"
-#include "../GBuffer.hpp"
+#include "../Renderer.hpp"
+#include "../Resources/RenderMeshInfo.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "Core/ChunkData.hpp"
 #include "Core/AsyncData.hpp"
@@ -22,34 +19,33 @@
 #include <execution>
 
 using namespace Engine::Logging;
-using namespace Engine::OS;
 
-namespace Engine::Rendering::Vulkan
+namespace Engine::Rendering
 {
-	GeometryBatch::GeometryBatch(VulkanRenderer& renderer)
+	GeometryBatch::GeometryBatch(Renderer& renderer)
 		: m_renderer(renderer)
-		, m_sampler()
-		, m_indirectDrawBuffer()
+		, m_indirectDrawBuffer(nullptr)
 		, m_vertexBuffers()
-		, m_indexBuffer()
-		, m_meshInfoBuffer()
+		, m_indexBuffer(nullptr)
+		, m_meshInfoBuffer(nullptr)
 		, m_imageArray()
-		, m_indirectDrawCommands()
 		, m_vertexOffsets()
 		, m_indexOffsets()
 		, m_indexCounts()
-		, m_shadowMaterial(nullptr)
-		, m_pbrMaterial(nullptr)
 		, m_recycledIds()
 		, m_active()
-		, m_meshCapacity()
+		, m_creating(true)
+		, m_meshCapacity(0)
 		, m_vertexDataArrays()
 		, m_indexArrays()
 		, m_meshInfos()
 		, m_images()
-		, m_vertexDataHashTable()
+		, m_vertexBufferOffsets()
+		, m_indexBufferOffsets()
 		, m_imageHashTable()
-		, m_creating(true)
+		, m_vertexDataHashTable()
+		, m_indexDataHashTable()
+		, m_indirectDrawCommands()
 	{
 	}
 
@@ -173,26 +169,6 @@ namespace Engine::Rendering::Vulkan
 		std::vector<uint32_t>& indices = *m_indexArrays.back();
 		std::vector<std::unique_ptr<VertexData>>& vertexDataArray = m_vertexDataArrays.back();
 		return MeshOptimiser::Optimise(indices, vertexDataArray);
-	}
-
-	bool GeometryBatch::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device,
-		const IResourceFactory& resourceFactory, const IMaterialManager& materialManager)
-	{
-		m_sampler = std::move(resourceFactory.CreateImageSampler());
-		bool samplerInitialised = m_sampler->Initialise(device, Filter::Linear, Filter::Linear,
-			SamplerMipmapMode::Linear, SamplerAddressMode::Repeat, physicalDevice.GetMaxAnisotropy());
-		if (!samplerInitialised)
-		{
-			return false;
-		}
-
-		if (!materialManager.TryGetMaterial("PBR", &m_pbrMaterial) ||
-			!materialManager.TryGetMaterial("Shadow", &m_shadowMaterial))
-		{
-			return false;
-		}
-
-		return true;
 	}
 
 	bool GeometryBatch::SetupIndirectDrawBuffer(const ICommandBuffer& commandBuffer,
@@ -562,11 +538,10 @@ namespace Engine::Rendering::Vulkan
 				}
 
 				std::unique_ptr<IRenderImage>& renderImage = m_imageArray.emplace_back(std::move(resourceFactory.CreateRenderImage()));
-				bool imageInitialised = renderImage->Initialise(device, ImageType::e2D, format, dimensions, imageData.Header.MipLevels, ImageTiling::Optimal,
+				bool imageInitialised = renderImage->Initialise(device, ImageType::e2D, format, dimensions,
+					imageData.Header.MipLevels, 1, ImageTiling::Optimal,
 					ImageUsageFlags::TransferSrc | ImageUsageFlags::TransferDst | ImageUsageFlags::Sampled, ImageAspectFlags::Color,
-					MemoryUsage::AutoPreferDevice,
-					AllocationCreateFlags::None,
-					SharingMode::Exclusive);
+					MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive);
 
 				if (!imageInitialised)
 				{
@@ -678,11 +653,10 @@ namespace Engine::Rendering::Vulkan
 			glm::uvec3 dimensions(size.x, size.y, 1);
 
 			std::unique_ptr<IRenderImage>& renderImage = m_imageArray.emplace_back(std::move(resourceFactory.CreateRenderImage()));
-			bool imageInitialised = renderImage->Initialise(device, ImageType::e2D, format, dimensions, static_cast<uint32_t>(pixels.size()), ImageTiling::Optimal,
+			bool imageInitialised = renderImage->Initialise(device, ImageType::e2D, format, dimensions,
+				static_cast<uint32_t>(pixels.size()), 1, ImageTiling::Optimal,
 				ImageUsageFlags::TransferSrc | ImageUsageFlags::TransferDst | ImageUsageFlags::Sampled, ImageAspectFlags::Color,
-				MemoryUsage::AutoPreferDevice,
-				AllocationCreateFlags::None,
-				SharingMode::Exclusive);
+				MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive);
 
 			if (!imageInitialised)
 			{
@@ -818,14 +792,10 @@ namespace Engine::Rendering::Vulkan
 
 		auto startTime = std::chrono::high_resolution_clock::now();
 
-		return m_renderer.SubmitResourceCommand([this, chunkData, &asyncData](const IDevice& device, const IPhysicalDevice& physicalDevice, 
+		return m_renderer.SubmitResourceCommand([this, chunkData, &asyncData](const IDevice& device, const IPhysicalDevice& physicalDevice,
 			const ICommandBuffer& commandBuffer, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers)
 			{
-				const GBuffer& gBuffer = m_renderer.GetGBuffer();
-				uint32_t concurrentFrames = m_renderer.GetConcurrentFrameCount();
 				const IResourceFactory& resourceFactory = m_renderer.GetResourceFactory();
-				const std::vector<std::unique_ptr<IBuffer>>& frameInfoBuffers = m_renderer.GetFrameInfoBuffers();
-				const std::vector<std::unique_ptr<IBuffer>>& lightBuffers = m_renderer.GetLightBuffers();
 
 				uint32_t imageCount;
 				if (!SetupVertexBuffers(commandBuffer, chunkData, temporaryBuffers, resourceFactory))
@@ -851,28 +821,6 @@ namespace Engine::Rendering::Vulkan
 					return false;
 				}
 
-				if (asyncData.State == AsyncState::Cancelled)
-				{
-					return false;
-				}
-
-				std::vector<const IImageView*> imageViews(m_imageArray.size());
-				for (size_t i = 0; i < m_imageArray.size(); ++i)
-					imageViews[i] = &m_imageArray[i]->GetView();
-
-				if (!m_pbrMaterial->BindUniformBuffers(0, frameInfoBuffers) ||
-					!m_pbrMaterial->BindStorageBuffer(1, m_meshInfoBuffer) ||
-					!m_pbrMaterial->BindSampler(2, m_sampler) ||
-					!m_pbrMaterial->BindImageViews(3, imageViews))
-					return false;
-
-				if (!m_shadowMaterial->BindUniformBuffers(0, frameInfoBuffers) ||
-					!m_shadowMaterial->BindUniformBuffers(1, lightBuffers) ||
-					!m_shadowMaterial->BindStorageBuffer(2, m_meshInfoBuffer) ||
-					!m_shadowMaterial->BindSampler(3, m_sampler) ||
-					!m_shadowMaterial->BindImageViews(4, imageViews))
-					return false;
-
 				return true;
 			}, [this, startTime]()
 				{
@@ -881,51 +829,5 @@ namespace Engine::Rendering::Vulkan
 					float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
 					Logger::Verbose("Scene manager build finished in {} seconds.", deltaTime);
 				});
-	}
-
-	void GeometryBatch::Draw(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex)
-	{
-		if (m_vertexBuffers.empty() || m_creating)
-			return;
-
-		m_pbrMaterial->BindMaterial(commandBuffer, currentFrameIndex);
-		uint32_t vertexBufferCount = static_cast<uint32_t>(m_vertexBuffers.size());
-
-		std::vector<size_t> vertexBufferOffsets;
-		vertexBufferOffsets.resize(vertexBufferCount);
-		std::vector<IBuffer*> vertexBufferViews;
-		vertexBufferViews.reserve(vertexBufferCount);
-		for (const auto& buffer : m_vertexBuffers)
-		{
-			vertexBufferViews.emplace_back(buffer.get());
-		}
-
-		commandBuffer.BindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
-		commandBuffer.BindIndexBuffer(*m_indexBuffer, 0, IndexType::Uint32);
-
-		uint32_t drawCount = m_meshCapacity; // TODO: Compute counted, after culling, etc.
-		commandBuffer.DrawIndexedIndirect(*m_indirectDrawBuffer, 0, drawCount, sizeof(IndexedIndirectCommand));
-	}
-
-	void GeometryBatch::DrawShadows(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex)
-	{
-		if (m_vertexBuffers.empty() || m_creating)
-			return;
-
-		commandBuffer.PushConstants(m_shadowMaterial, ShaderStageFlags::Vertex, 0, sizeof(uint32_t), &cascadeIndex);
-
-		if (cascadeIndex == 0)
-		{
-			std::vector<size_t> vertexBufferOffsets;
-			vertexBufferOffsets.resize(2);
-			std::vector<IBuffer*> vertexBufferViews = { m_vertexBuffers[0].get(), m_vertexBuffers[1].get()};
-
-			m_shadowMaterial->BindMaterial(commandBuffer, currentFrameIndex);
-			commandBuffer.BindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
-			commandBuffer.BindIndexBuffer(*m_indexBuffer, 0, IndexType::Uint32);
-		}
-
-		uint32_t drawCount = m_meshCapacity; // TODO: Compute counted, after culling, etc.
-		commandBuffer.DrawIndexedIndirect(*m_indirectDrawBuffer, 0, drawCount, sizeof(IndexedIndirectCommand));
 	}
 }

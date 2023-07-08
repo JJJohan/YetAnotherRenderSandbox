@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
-#include "../Resources/IDevice.hpp"
+#include "../IDevice.hpp"
 
 namespace Engine::Rendering
 {

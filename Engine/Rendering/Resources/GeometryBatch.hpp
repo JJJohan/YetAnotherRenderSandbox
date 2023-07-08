@@ -1,17 +1,20 @@
 #pragma once
 
-#include "../Resources/IGeometryBatch.hpp"
-#include "../Resources/IndexedIndirectCommand.hpp"
 #include <memory>
 #include <vector>
 #include <stack>
 #include <unordered_map>
 #include <glm/glm.hpp>
+#include "../Resources/IndexedIndirectCommand.hpp"
+#include "Core/VertexData.hpp"
+#include "../Resources/MeshInfo.hpp"
 
 namespace Engine
 {
 	class ChunkData;
 	class AsyncData;
+	class Image;
+	struct Colour;
 }
 
 namespace Engine::Rendering
@@ -20,40 +23,35 @@ namespace Engine::Rendering
 	class IDevice;
 	class IPhysicalDevice;
 	class ICommandBuffer;
+	class IResourceFactory;
+	class Renderer;
 	class IBuffer;
 	class IRenderImage;
-	class IImageSampler;
-	class IResourceFactory;
-	class IMaterialManager;
-	class Material;
-	struct MeshInfo;
-}
 
-namespace Engine::Rendering::Vulkan
-{
-	class VulkanRenderer;
-
-	class GeometryBatch : public IGeometryBatch
+	class GeometryBatch
 	{
 	public:
-		GeometryBatch(VulkanRenderer& renderer);
+		GeometryBatch(Renderer& renderer);
 
-		bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, 
-			const IResourceFactory& resourceFactory, const IMaterialManager& materialManager);
-
-		virtual bool CreateMesh(const std::vector<VertexData>& vertexData,
+		bool CreateMesh(const std::vector<VertexData>& vertexData,
 			const std::vector<uint32_t>& indices,
 			const glm::mat4& transform,
 			const Colour& colour,
 			std::shared_ptr<Image> diffuseImage,
 			std::shared_ptr<Image> normalImage,
-			std::shared_ptr<Image> metallicRoughnessImage) override;
+			std::shared_ptr<Image> metallicRoughnessImage);
 
-		virtual bool Optimise() override;
-		virtual bool Build(ChunkData* chunkData, AsyncData& asyncData) override;
+		bool Optimise();
+		bool Build(ChunkData* chunkData, AsyncData& asyncData);
 
-		virtual void Draw(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex) override;
-		virtual void DrawShadows(const ICommandBuffer& commandBuffer, uint32_t currentFrameIndex, uint32_t cascadeIndex) override;
+		inline const IBuffer& GetIndirectDrawBuffer() const { return *m_indirectDrawBuffer; }
+		inline const std::vector<std::unique_ptr<IBuffer>>& GetVertexBuffers() const { return m_vertexBuffers; }
+		inline const IBuffer& GetIndexBuffer() const { return *m_indexBuffer; }
+		inline const IBuffer& GetMeshInfoBuffer() const { return *m_meshInfoBuffer; }
+		inline const std::vector<std::unique_ptr<IRenderImage>>& GetImages() const { return m_imageArray; }
+		inline bool IsBuilt() const { return !m_creating; }
+		inline uint32_t GetMeshCapacity() const { return m_meshCapacity; }
+
 	private:
 		enum class CachedDataType
 		{
@@ -85,8 +83,8 @@ namespace Engine::Rendering::Vulkan
 			const ICommandBuffer& commandBuffer, const IRenderImage* destinationImage, uint32_t mipLevel, const void* data, uint64_t size,
 			std::vector<std::unique_ptr<IBuffer>>& copyBufferCollection);
 
-		VulkanRenderer& m_renderer;
-		std::unique_ptr<IImageSampler> m_sampler;
+		Renderer& m_renderer;
+
 		std::unique_ptr<IBuffer> m_indirectDrawBuffer;
 		std::vector<std::unique_ptr<IBuffer>> m_vertexBuffers;
 		std::unique_ptr<IBuffer> m_indexBuffer;
@@ -114,7 +112,5 @@ namespace Engine::Rendering::Vulkan
 		std::unordered_map<uint64_t, size_t> m_indexDataHashTable;
 
 		std::vector<IndexedIndirectCommand> m_indirectDrawCommands;
-		Material* m_pbrMaterial;
-		Material* m_shadowMaterial;
 	};
 }

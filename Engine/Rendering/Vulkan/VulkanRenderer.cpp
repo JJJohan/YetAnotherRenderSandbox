@@ -5,7 +5,7 @@
 #include "Core/Colour.hpp"
 #include "OS/Window.hpp"
 #include "Core/Logging/Logger.hpp"
-#include "GeometryBatch.hpp"
+#include "../Resources/GeometryBatch.hpp"
 #include "UI/Vulkan/VulkanUIManager.hpp"
 #include "Debug.hpp"
 #include "Device.hpp"
@@ -23,12 +23,17 @@
 #include "RenderImage.hpp"
 #include "PipelineManager.hpp"
 #include "../Resources/LightUniformBuffer.hpp"
-#include "../GBuffer.hpp"
-#include "../ShadowMap.hpp"
+#include "../RenderResources/GBuffer.hpp"
+#include "../RenderResources/ShadowMap.hpp"
 #include "../PostProcessing.hpp"
 #include "VulkanRenderStats.hpp"
 #include "ResourceFactory.hpp"
 #include "VulkanTypesInterop.hpp"
+
+#include "../Passes/TAAPass.hpp"
+#include "../Passes/CombinePass.hpp"
+#include "../Passes/SceneOpaquePass.hpp"
+#include "../Passes/SceneShadowPass.hpp"
 
 #define DEFAULT_MAX_CONCURRENT_FRAMES 2
 
@@ -173,7 +178,8 @@ namespace Engine::Rendering::Vulkan
 			lightInfo->cascadeSplits[i] = cascadeData.CascadeSplits[i];
 		}
 
-		m_sceneGeometryBatch->Draw(commandBuffer, m_currentFrame);
+		const std::unique_ptr<SceneOpaquePass>& sceneOpaquePass = reinterpret_cast<const std::unique_ptr<SceneOpaquePass>&>(m_renderPasses.at("SceneOpaque"));
+		sceneOpaquePass->Draw(*m_device, commandBuffer, m_currentFrame);
 
 		vkCommandBuffer.endRendering();
 		m_renderStats->End(commandBuffer);
@@ -195,7 +201,8 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		const glm::uvec3& extents = m_shadowMap->GetShadowImage(0).GetDimensions();
+		m_renderStats->Begin(commandBuffer);
+		const glm::uvec3& extents = m_shadowMap->GetShadowImage().GetDimensions();
 		float width = static_cast<float>(extents.x);
 		float height = static_cast<float>(extents.y);
 		vk::Viewport viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
@@ -204,32 +211,35 @@ namespace Engine::Rendering::Vulkan
 		vk::RenderingInfo renderingInfo{};
 		renderingInfo.renderArea.offset = vk::Offset2D();
 		renderingInfo.renderArea.extent = vk::Extent2D(extents.x, extents.y);
-		renderingInfo.layerCount = 1;
 
 		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
 		vkCommandBuffer.setScissor(0, 1, &scissor);
 
-		// TODO: single pass?
+		const std::unique_ptr<SceneShadowPass>& sceneShadowPass = reinterpret_cast<const std::unique_ptr<SceneShadowPass>&>(m_renderPasses.at("SceneShadow"));
+
+		IRenderImage& shadowImage = m_shadowMap->GetShadowImage();
+		shadowImage.TransitionImageLayout(*m_device, commandBuffer, ImageLayout::DepthStencilAttachment);
+
+		vk::RenderingAttachmentInfo shadowAttachment = GetAttachmentInfo(m_shadowMap->GetShadowAttachment());
+		renderingInfo.pDepthAttachment = &shadowAttachment;
+
 		uint32_t cascadeCount = m_shadowMap->GetCascadeCount();
+		renderingInfo.layerCount = cascadeCount;
 		for (uint32_t i = 0; i < cascadeCount; ++i)
 		{
-			IRenderImage& shadowImage = m_shadowMap->GetShadowImage(i);
-			shadowImage.TransitionImageLayout(*m_device, commandBuffer, ImageLayout::DepthStencilAttachment);
+			if (i > 0) // Only clear once.
+				shadowAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
 
-			vk::RenderingAttachmentInfo shadowAttachment = GetAttachmentInfo(m_shadowMap->GetShadowAttachment(i));
-			renderingInfo.pDepthAttachment = &shadowAttachment;
-
-			m_renderStats->Begin(commandBuffer);
 			vkCommandBuffer.beginRendering(renderingInfo);
 
-			m_sceneGeometryBatch->DrawShadows(commandBuffer, m_currentFrame, i);
+			sceneShadowPass->SetShadowCascadeIndex(i);
+			sceneShadowPass->Draw(*m_device, commandBuffer, m_currentFrame);
 
 			vkCommandBuffer.endRendering();
-			m_renderStats->End(commandBuffer);
-
-			shadowImage.TransitionImageLayout(*m_device, commandBuffer, ImageLayout::ShaderReadOnly);
 		}
 
+		shadowImage.TransitionImageLayout(*m_device, commandBuffer, ImageLayout::ShaderReadOnly);
+		m_renderStats->End(commandBuffer);
 		vkCommandBuffer.end();
 
 		return true;
@@ -245,8 +255,10 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		IRenderImage& outputImage = m_gBuffer->GetOutputImage();
-		const IImageView& outputImageView = m_gBuffer->GetOutputImageView();
+		const std::unique_ptr<CombinePass>& combinePass = reinterpret_cast<const std::unique_ptr<CombinePass>&>(m_renderPasses.at("Combine"));
+
+		IRenderImage& outputImage = combinePass->GetOutputImage();
+		const IImageView& outputImageView = combinePass->GetOutputImageView();
 		outputImage.TransitionImageLayout(*m_device, commandBuffer, ImageLayout::ColorAttachment);
 
 		vk::ClearValue clearValue = vk::ClearValue(vk::ClearColorValue(m_clearColour.r, m_clearColour.g, m_clearColour.b, m_clearColour.a));
@@ -276,7 +288,7 @@ namespace Engine::Rendering::Vulkan
 		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
 		vkCommandBuffer.setScissor(0, 1, &scissor);
 
-		m_gBuffer->DrawFinalImage(commandBuffer, m_currentFrame);
+		combinePass->Draw(*m_device, commandBuffer, m_currentFrame);
 
 		vkCommandBuffer.endRendering();
 		m_renderStats->End(commandBuffer);
@@ -296,11 +308,14 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		const IImageView& taaPrevImageView = m_postProcessing->GetTAAPrevImageView();
+		const std::unique_ptr<CombinePass>& combinePass = reinterpret_cast<const std::unique_ptr<CombinePass>&>(m_renderPasses.at("Combine"));
+		const TAAPass* taaPass = reinterpret_cast<const TAAPass*>(m_postProcessing->GetRenderPasses()[0]);
+
+		const IImageView& taaPrevImageView = taaPass->GetImageResource("History")->GetView();
 
 		colorImage.TransitionImageLayout(*m_device, commandBuffer, ImageLayout::ColorAttachment);
-		m_postProcessing->TransitionTAAImageLayouts(*m_device, commandBuffer);
-		m_gBuffer->GetOutputImage().TransitionImageLayout(*m_device, commandBuffer, ImageLayout::ShaderReadOnly);
+		taaPass->TransitionTAAImageLayouts(*m_device, commandBuffer);
+		combinePass->GetOutputImage().TransitionImageLayout(*m_device, commandBuffer, ImageLayout::ShaderReadOnly);
 		m_gBuffer->TransitionDepthLayout(*m_device, commandBuffer, ImageLayout::ShaderReadOnly);
 
 		vk::RenderingAttachmentInfo colorAttachmentInfo{};
@@ -336,12 +351,12 @@ namespace Engine::Rendering::Vulkan
 		vk::Rect2D scissor(renderingInfo.renderArea.offset, renderingInfo.renderArea.extent);
 		vkCommandBuffer.setScissor(0, 1, &scissor);
 
-		m_postProcessing->Draw(commandBuffer, m_currentFrame);
+		taaPass->Draw(*m_device, commandBuffer, m_currentFrame);
 
 		vkCommandBuffer.endRendering();
 		m_renderStats->End(commandBuffer);
 
-		m_postProcessing->BlitTAA(*m_device, commandBuffer);
+		taaPass->BlitTAA(*m_device, commandBuffer);
 
 		vkCommandBuffer.end();
 
@@ -353,7 +368,8 @@ namespace Engine::Rendering::Vulkan
 		if (!m_gBuffer.get())
 			return;
 
-		m_gBuffer->SetDebugMode(mode);
+		const std::unique_ptr<CombinePass>& combinePass = reinterpret_cast<const std::unique_ptr<CombinePass>&>(m_renderPasses.at("Combine"));
+		combinePass->SetDebugMode(mode);
 		Renderer::SetDebugMode(mode);
 	}
 
@@ -606,19 +622,6 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool VulkanRenderer::PrepareSceneGeometryBatch(IGeometryBatch** geometryBatch)
-	{
-		m_sceneGeometryBatch = std::make_unique<GeometryBatch>(*this);
-
-		if (!static_cast<GeometryBatch*>(m_sceneGeometryBatch.get())->Initialise(*m_physicalDevice, *m_device, *m_resourceFactory, *m_materialManager))
-		{
-			return false;
-		}
-
-		*geometryBatch = m_sceneGeometryBatch.get();
-		return true;
-	}
-
 	bool VulkanRenderer::RecreateSwapChain(const glm::uvec2& size, bool rebuildPipelines)
 	{
 		static_cast<Device*>(m_device.get())->Get().waitIdle(); // Recreating swapchain warrants stalling GPU pipeline.
@@ -631,13 +634,7 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (!m_gBuffer->Rebuild(*m_physicalDevice, *m_device, *m_resourceFactory, size,
-			m_frameInfoBuffers, m_lightBuffers, *m_shadowMap))
-		{
-			return false;
-		}
-
-		if (!m_postProcessing->Rebuild(*m_physicalDevice, *m_device, *m_resourceFactory, size))
+		if (!m_postProcessing->Rebuild(size))
 		{
 			return false;
 		}
@@ -650,6 +647,8 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 		}
+
+		m_renderGraph->MarkDirty();
 
 		return true;
 	}
@@ -691,6 +690,9 @@ namespace Engine::Rendering::Vulkan
 					{
 						resource.postAction.value()();
 					}
+
+					// Rebuild render graph when new resources are built. Might want to revisit..
+					m_renderGraph->MarkDirty();
 				}
 
 				m_inFlightResources.erase(m_inFlightResources.begin() + i);
@@ -744,7 +746,10 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		if (static_cast<PipelineManager*>(m_materialManager.get())->CheckDirty())
+		bool materialManagerDirty = static_cast<PipelineManager*>(m_materialManager.get())->CheckDirty();
+		bool renderGraphDirty = m_renderGraph->CheckDirty();
+
+		if (materialManagerDirty || renderGraphDirty)
 		{
 			// Wait for both fences.
 			if (deviceImp.waitForFences(1, &m_inFlightFences[(m_currentFrame + 1) % m_maxConcurrentFrames].get(), true, UINT64_MAX) != vk::Result::eSuccess)
@@ -753,7 +758,18 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
-			if (!m_materialManager->Update(*m_physicalDevice, *m_device, m_swapChain->GetFormat(), m_gBuffer->GetDepthFormat()))
+			if (renderGraphDirty)
+			{
+				if (!m_renderGraph->Build(*this))
+				{
+					Logger::Error("Failed to build render graph.");
+					return false;
+				}
+
+				materialManagerDirty = true;
+			}
+
+			if (materialManagerDirty && !m_materialManager->Update(*m_physicalDevice, *m_device, m_swapChain->GetFormat(), m_depthFormat))
 			{
 				Logger::Error("Failed to update pipeline manager.");
 				return false;
@@ -780,69 +796,69 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		m_renderCommandBuffers[m_currentFrame]->reset();
 		std::array<vk::Semaphore, 1> timelineSemaphore = { m_timelineSemaphore.get() };
-
-		m_camera.Update(windowSize);
-
-		std::vector<vk::SubmitInfo> submitInfos;
-
-		if (!RecordRenderCommandBuffer(CommandBuffer(m_renderCommandBuffers[m_currentFrame].get())))
-		{
-			return false;
-		}
-
-		std::array<uint64_t, 1> renderIncrements = { ++m_timelineValue };
-		vk::TimelineSemaphoreSubmitInfo renderTimelineInfo({}, renderIncrements);
-		std::array<vk::CommandBuffer, 1> renderCommandBuffer = { m_renderCommandBuffers[m_currentFrame].get() };
-		submitInfos.emplace_back(vk::SubmitInfo({}, {}, renderCommandBuffer, timelineSemaphore, &renderTimelineInfo));
-
-		m_shadowCommandBuffers[m_currentFrame]->reset();
-
-		if (!RecordShadowCommandBuffer(CommandBuffer(m_shadowCommandBuffers[m_currentFrame].get())))
-		{
-			return false;
-		}
-
-		std::array<uint64_t, 1> shadowIncrements = { ++m_timelineValue };
-		vk::TimelineSemaphoreSubmitInfo shadowTimelineInfo({}, shadowIncrements);
-		std::array<vk::CommandBuffer, 1> shadowCommandBuffer = { m_shadowCommandBuffers[m_currentFrame].get() };
-		submitInfos.emplace_back(vk::SubmitInfo({}, {}, shadowCommandBuffer, timelineSemaphore, &shadowTimelineInfo));
-
-		m_combineCommandBuffers[m_currentFrame]->reset();
-
-		if (!RecordPresentCommandBuffer(CommandBuffer(m_combineCommandBuffers[m_currentFrame].get())))
-		{
-			return false;
-		}
-
-		std::array<uint64_t, 1> combineWaits = { m_timelineValue };
-		std::array<uint64_t, 1> combineIncrements = { ++m_timelineValue };
-		std::array<vk::PipelineStageFlags, 1> combineWaitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
-		vk::TimelineSemaphoreSubmitInfo combineTimelineInfo(combineWaits, combineIncrements);
-		std::array<vk::CommandBuffer, 1> combineCommandBuffer = { m_combineCommandBuffers[m_currentFrame].get() };
-		submitInfos.emplace_back(vk::SubmitInfo(timelineSemaphore, combineWaitStages, combineCommandBuffer, timelineSemaphore, &combineTimelineInfo));
 
 		uint32_t imageIndex = acquireNextImageResult.value;
 		IRenderImage& colorImage = m_swapChain->GetSwapChainImage(imageIndex);
 		const IImageView& imageView = m_swapChain->GetSwapChainImageView(imageIndex);
 
-		m_postProcessingCommandBuffers[m_currentFrame]->reset();
+		m_camera.Update(windowSize);
 
-		if (!RecordPostProcessingCommandBuffer(CommandBuffer(m_postProcessingCommandBuffers[m_currentFrame].get()), colorImage, imageView))
+		std::vector<vk::SubmitInfo> submitInfos;
+
+		// TODO: Remove once render graph handles the rendering.
+		if (!m_renderGraph->GetBuiltGraph().empty())
 		{
-			return false;
+			m_renderCommandBuffers[m_currentFrame]->reset();
+			if (!RecordRenderCommandBuffer(CommandBuffer(m_renderCommandBuffers[m_currentFrame].get())))
+			{
+				return false;
+			}
+
+			std::array<uint64_t, 1> renderIncrements = { ++m_timelineValue };
+			vk::TimelineSemaphoreSubmitInfo renderTimelineInfo({}, renderIncrements);
+			std::array<vk::CommandBuffer, 1> renderCommandBuffer = { m_renderCommandBuffers[m_currentFrame].get() };
+			submitInfos.emplace_back(vk::SubmitInfo({}, {}, renderCommandBuffer, timelineSemaphore, &renderTimelineInfo));
+
+			m_shadowCommandBuffers[m_currentFrame]->reset();
+			if (!RecordShadowCommandBuffer(CommandBuffer(m_shadowCommandBuffers[m_currentFrame].get())))
+			{
+				return false;
+			}
+
+			std::array<uint64_t, 1> shadowIncrements = { ++m_timelineValue };
+			vk::TimelineSemaphoreSubmitInfo shadowTimelineInfo({}, shadowIncrements);
+			std::array<vk::CommandBuffer, 1> shadowCommandBuffer = { m_shadowCommandBuffers[m_currentFrame].get() };
+			submitInfos.emplace_back(vk::SubmitInfo({}, {}, shadowCommandBuffer, timelineSemaphore, &shadowTimelineInfo));
+
+			m_combineCommandBuffers[m_currentFrame]->reset();
+			if (!RecordPresentCommandBuffer(CommandBuffer(m_combineCommandBuffers[m_currentFrame].get())))
+			{
+				return false;
+			}
+
+			std::array<uint64_t, 1> combineWaits = { m_timelineValue };
+			std::array<uint64_t, 1> combineIncrements = { ++m_timelineValue };
+			std::array<vk::PipelineStageFlags, 1> combineWaitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+			vk::TimelineSemaphoreSubmitInfo combineTimelineInfo(combineWaits, combineIncrements);
+			std::array<vk::CommandBuffer, 1> combineCommandBuffer = { m_combineCommandBuffers[m_currentFrame].get() };
+			submitInfos.emplace_back(vk::SubmitInfo(timelineSemaphore, combineWaitStages, combineCommandBuffer, timelineSemaphore, &combineTimelineInfo));
+
+			m_postProcessingCommandBuffers[m_currentFrame]->reset();
+			if (!RecordPostProcessingCommandBuffer(CommandBuffer(m_postProcessingCommandBuffers[m_currentFrame].get()), colorImage, imageView))
+			{
+				return false;
+			}
+
+			std::array<uint64_t, 1> postProcessingWaits = { m_timelineValue };
+			std::array<uint64_t, 1> postProcessIncrements = { ++m_timelineValue };
+			std::array<vk::PipelineStageFlags, 1> postProcessWaitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+			vk::TimelineSemaphoreSubmitInfo postProcessTimelineInfo(postProcessingWaits, postProcessIncrements);
+			std::array<vk::CommandBuffer, 1> postProcessCommandBuffer = { m_postProcessingCommandBuffers[m_currentFrame].get() };
+			submitInfos.emplace_back(vk::SubmitInfo(timelineSemaphore, postProcessWaitStages, postProcessCommandBuffer, timelineSemaphore, &postProcessTimelineInfo));
 		}
 
-		std::array<uint64_t, 1> postProcessingWaits = { m_timelineValue };
-		std::array<uint64_t, 1> postProcessIncrements = { ++m_timelineValue };
-		std::array<vk::PipelineStageFlags, 1> postProcessWaitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
-		vk::TimelineSemaphoreSubmitInfo postProcessTimelineInfo(postProcessingWaits, postProcessIncrements);
-		std::array<vk::CommandBuffer, 1> postProcessCommandBuffer = { m_postProcessingCommandBuffers[m_currentFrame].get() };
-		submitInfos.emplace_back(vk::SubmitInfo(timelineSemaphore, postProcessWaitStages, postProcessCommandBuffer, timelineSemaphore, &postProcessTimelineInfo));
-
 		m_uiCommandBuffers[m_currentFrame]->reset();
-
 		if (!RecordUICommandBuffer(CommandBuffer(m_uiCommandBuffers[m_currentFrame].get()), colorImage, imageView))
 		{
 			return false;

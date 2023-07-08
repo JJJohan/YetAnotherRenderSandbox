@@ -24,7 +24,7 @@ layout(binding = 1) uniform LightData
 layout(binding = 2) uniform sampler samp;
 layout(binding = 3) uniform texture2D textures[];
 layout(binding = 4) uniform sampler shadowSampler;
-layout(binding = 5) uniform texture2D shadowMap[];
+layout(binding = 5) uniform texture2DArray shadowMap;
 
 layout(location = 0) in vec2 fragUv;
 
@@ -46,7 +46,7 @@ float textureProj(vec4 shadowCoord, vec2 offset, uint cascadeIndex)
 {
 	if (shadowCoord.z > -1.0 && shadowCoord.z < 1.0)
 	{
-		float dist = texture(sampler2D(shadowMap[cascadeIndex], shadowSampler), shadowCoord.st + offset).r;
+		float dist = texture(sampler2DArray(shadowMap, shadowSampler), vec3(shadowCoord.st + offset, cascadeIndex)).r;
 		if (shadowCoord.w > 0 && dist < shadowCoord.z)
 		{
 			return 1.0;
@@ -58,7 +58,7 @@ float textureProj(vec4 shadowCoord, vec2 offset, uint cascadeIndex)
 
 float filterPCF(vec4 sc, uint cascadeIndex)
 {
-	ivec2 texDim = textureSize(shadowMap[0], 0).xy;
+	ivec2 texDim = textureSize(shadowMap, 0).xy;
 	float scale = 0.75;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);

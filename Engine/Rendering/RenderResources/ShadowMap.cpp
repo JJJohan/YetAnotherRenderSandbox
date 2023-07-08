@@ -1,9 +1,10 @@
 #include "ShadowMap.hpp"
 #include "Core/Logging/Logger.hpp"
-#include "Camera.hpp"
-#include "Resources/IDevice.hpp"
-#include "Resources/IResourceFactory.hpp"
+#include "../Camera.hpp"
+#include "../IDevice.hpp"
+#include "../IResourceFactory.hpp"
 #include <glm/gtc/matrix_transform.hpp>
+#include "../Renderer.hpp"
 
 using namespace Engine::Logging;
 
@@ -12,12 +13,17 @@ namespace Engine::Rendering
 	constexpr int DefaultCascadeCount = 4;
 
 	ShadowMap::ShadowMap()
-		: m_shadowImages()
+		: IRenderResource("ShadowMap")
+		, m_shadowImage(nullptr)
 		, m_cascadeMatrices(DefaultCascadeCount)
 		, m_cascadeSplits(DefaultCascadeCount)
 		, m_cascadeCount(DefaultCascadeCount)
 		, m_extent(4096, 4096, 1) // TODO: Make configurable
 	{
+		m_imageOutputs =
+		{
+			"Shadows"
+		};
 	}
 
 	ShadowCascadeData ShadowMap::UpdateCascades(const Camera& camera, const glm::vec3& lightDir)
@@ -112,29 +118,34 @@ namespace Engine::Rendering
 
 	bool ShadowMap::CreateShadowImages(const IDevice& device, const IResourceFactory& resourceFactory, Format depthFormat)
 	{
-		for (uint32_t i = 0; i < m_cascadeCount; ++i)
+		m_shadowImage = std::move(resourceFactory.CreateRenderImage());
+		if (!m_shadowImage->Initialise(device, ImageType::e2D, depthFormat, m_extent, 1, m_cascadeCount, ImageTiling::Optimal,
+			ImageUsageFlags::Sampled | ImageUsageFlags::DepthStencilAttachment,
+			ImageAspectFlags::Depth, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
-			std::unique_ptr<IRenderImage>& image = m_shadowImages.emplace_back(std::move(resourceFactory.CreateRenderImage()));
-			if (!image->Initialise(device, ImageType::e2D, depthFormat, m_extent, 1, ImageTiling::Optimal,
-				ImageUsageFlags::Sampled | ImageUsageFlags::DepthStencilAttachment,
-				ImageAspectFlags::Depth, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
-			{
-				Logger::Error("Failed to create shadow image.");
-				return false;
-			}
+			Logger::Error("Failed to create shadow image.");
+			return false;
 		}
 
 		return true;
 	}
 
-	bool ShadowMap::Rebuild(const IDevice& device, const IResourceFactory& resourceFactory, Format depthFormat)
+
+	bool ShadowMap::Build(const Renderer& renderer)
 	{
-		m_shadowImages.clear();
+		m_shadowImage.reset();
+		m_imageResources.clear();
+
+		const IDevice& device = renderer.GetDevice();
+		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();
+		Format depthFormat = renderer.GetDepthFormat();
 
 		if (!CreateShadowImages(device, resourceFactory, depthFormat))
 		{
 			return false;
 		}
+
+		m_imageResources["Shadows"] = m_shadowImage.get();
 
 		return true;
 	}

@@ -49,6 +49,7 @@ namespace Engine::Rendering::Vulkan
 
 		struct DescriptorBindingInfo
 		{
+			bool IsImageArray;
 			uint32_t BlockSize;
 			std::vector<uint32_t> BlockMemberOffsets;
 			vk::DescriptorSetLayoutBinding Binding;

@@ -32,14 +32,9 @@ namespace Engine::Rendering
 			return BindImageViewsImp(binding, { imageView.get() });
 		}
 
-		inline bool BindSampler(uint32_t binding, const std::unique_ptr<IImageSampler>& sampler)
+		inline bool BindImageView(uint32_t binding, const IImageView* imageView)
 		{
-			return BindSamplersImp(binding, { sampler.get() });
-		}
-
-		inline bool BindStorageBuffer(uint32_t binding, const std::unique_ptr<IBuffer>& storageBuffer)
-		{
-			return BindStorageBuffersImp(binding, { storageBuffer.get() });
+			return BindImageViewsImp(binding, { imageView });
 		}
 
 		inline bool BindImageView(uint32_t binding, const IImageView& imageView)
@@ -47,9 +42,29 @@ namespace Engine::Rendering
 			return BindImageViewsImp(binding, { &imageView });
 		}
 
+		inline bool BindSampler(uint32_t binding, const std::unique_ptr<IImageSampler>& sampler)
+		{
+			return BindSamplersImp(binding, { sampler.get() });
+		}
+
 		inline bool BindSampler(uint32_t binding, const IImageSampler& sampler)
 		{
 			return BindSamplersImp(binding, { &sampler });
+		}
+
+		inline bool BindSampler(uint32_t binding, const IImageSampler* sampler)
+		{
+			return BindSamplersImp(binding, { sampler });
+		}
+
+		inline bool BindStorageBuffer(uint32_t binding, const std::unique_ptr<IBuffer>& storageBuffer)
+		{
+			return BindStorageBuffersImp(binding, { storageBuffer.get() });
+		}
+
+		inline bool BindStorageBuffer(uint32_t binding, const IBuffer* storageBuffer)
+		{
+			return BindStorageBuffersImp(binding, { storageBuffer });
 		}
 
 		inline bool BindStorageBuffer(uint32_t binding, const IBuffer& storageBuffer)

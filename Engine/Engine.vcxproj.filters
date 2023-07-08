@@ -46,6 +46,9 @@
     <Filter Include="Rendering\Passes">
       <UniqueIdentifier>{4d4a72b5-74f1-476f-b176-04d71be28621}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Rendering\RenderResources">
+      <UniqueIdentifier>{45b88c64-94ec-4f23-8c51-5016ea57e7d7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
@@ -95,9 +98,6 @@
       <Filter>OS</Filter>
     </ClCompile>
     <ClCompile Include="Rendering\Vulkan\CommandPool.cpp">
-      <Filter>Rendering\Vulkan</Filter>
-    </ClCompile>
-    <ClCompile Include="Rendering\Vulkan\GeometryBatch.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="Core\Colour.cpp">
@@ -208,12 +208,6 @@
     <ClCompile Include="Rendering\PostProcessing.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="Rendering\ShadowMap.cpp">
-      <Filter>Rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="Rendering\GBuffer.cpp">
-      <Filter>Rendering</Filter>
-    </ClCompile>
     <ClCompile Include="Rendering\Vulkan\ResourceFactory.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
@@ -235,9 +229,6 @@
     <ClCompile Include="Rendering\Passes\SceneShadowPass.cpp">
       <Filter>Rendering\Passes</Filter>
     </ClCompile>
-    <ClCompile Include="Rendering\Resources\Material.cpp">
-      <Filter>Rendering\Resources</Filter>
-    </ClCompile>
     <ClCompile Include="Core\VertexData.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -252,6 +243,18 @@
     </ClCompile>
     <ClCompile Include="Rendering\RenderStats.cpp">
       <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Resources\Material.cpp">
+      <Filter>Rendering\Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\RenderResources\GBuffer.cpp">
+      <Filter>Rendering\RenderResources</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Resources\GeometryBatch.cpp">
+      <Filter>Rendering\Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\RenderResources\ShadowMap.cpp">
+      <Filter>Rendering\RenderResources</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -309,9 +312,6 @@
     <ClInclude Include="Rendering\Vulkan\CommandPool.hpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\Vulkan\GeometryBatch.hpp">
-      <Filter>Rendering\Vulkan</Filter>
-    </ClInclude>
     <ClInclude Include="Core\Colour.hpp">
       <Filter>Core</Filter>
     </ClInclude>
@@ -339,8 +339,8 @@
     <ClInclude Include="Core\Hash.hpp">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\MeshInfo.hpp">
-      <Filter>Rendering</Filter>
+    <ClInclude Include="Rendering\Resources\MeshInfo.hpp">
+      <Filter>Rendering\Resources</Filter>
     </ClInclude>
     <ClInclude Include="UI\UIManager.hpp">
       <Filter>UI</Filter>
@@ -459,23 +459,17 @@
     <ClInclude Include="Rendering\Resources\ICommandBuffer.hpp">
       <Filter>Rendering\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\Resources\IDevice.hpp">
-      <Filter>Rendering\Resources</Filter>
+    <ClInclude Include="Rendering\IDevice.hpp">
+      <Filter>Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\Resources\IPhysicalDevice.hpp">
-      <Filter>Rendering\Resources</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\GBuffer.hpp">
+    <ClInclude Include="Rendering\IPhysicalDevice.hpp">
       <Filter>Rendering</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\PostProcessing.hpp">
       <Filter>Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\ShadowMap.hpp">
+    <ClInclude Include="Rendering\IResourceFactory.hpp">
       <Filter>Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\Resources\IResourceFactory.hpp">
-      <Filter>Rendering\Resources</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\Vulkan\ResourceFactory.hpp">
       <Filter>Rendering\Vulkan</Filter>
@@ -486,10 +480,7 @@
     <ClInclude Include="Rendering\Vulkan\CommandBuffer.hpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\RenderMeshInfo.hpp">
-      <Filter>Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\Resources\IndexedIndirectCommand.hpp">
+    <ClInclude Include="Rendering\Resources\RenderMeshInfo.hpp">
       <Filter>Rendering\Resources</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\Passes\IRenderPass.hpp">
@@ -510,8 +501,8 @@
     <ClInclude Include="Rendering\Passes\CombinePass.hpp">
       <Filter>Rendering\Passes</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\Resources\ISwapChain.hpp">
-      <Filter>Rendering\Resources</Filter>
+    <ClInclude Include="Rendering\ISwapChain.hpp">
+      <Filter>Rendering</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\Resources\FrameInfoUniformBuffer.hpp">
       <Filter>Rendering\Resources</Filter>
@@ -520,9 +511,6 @@
       <Filter>Rendering\Resources</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\Resources\Material.hpp">
-      <Filter>Rendering\Resources</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\Resources\IGeometryBatch.hpp">
       <Filter>Rendering\Resources</Filter>
     </ClInclude>
     <ClInclude Include="Core\SceneManager.hpp">
@@ -539,6 +527,24 @@
     </ClInclude>
     <ClInclude Include="Rendering\RenderSettings.hpp">
       <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\IMaterialManager.hpp">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\RenderResources\GBuffer.hpp">
+      <Filter>Rendering\RenderResources</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Resources\GeometryBatch.hpp">
+      <Filter>Rendering\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Resources\IndexedIndirectCommand.hpp">
+      <Filter>Rendering\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\RenderResources\IRenderResource.hpp">
+      <Filter>Rendering\RenderResources</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\RenderResources\ShadowMap.hpp">
+      <Filter>Rendering\RenderResources</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

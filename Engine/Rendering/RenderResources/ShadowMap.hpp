@@ -1,11 +1,12 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include "Types.hpp"
+#include "../Types.hpp"
 #include <vector>
 #include <memory>
-#include "Resources/AttachmentInfo.hpp"
-#include "Resources/IRenderImage.hpp"
+#include "../Resources/AttachmentInfo.hpp"
+#include "../Resources/IRenderImage.hpp"
+#include "IRenderResource.hpp"
 
 namespace Engine::Rendering
 {
@@ -26,30 +27,25 @@ namespace Engine::Rendering
 		}
 	};
 
-	class ShadowMap
+	class ShadowMap : public IRenderResource
 	{
 	public:
 		ShadowMap();
-		bool Rebuild(const IDevice& device, const IResourceFactory& resourceFactory, Format depthFormat);
+
+		virtual bool Build(const Renderer& renderer) override;
+
 		ShadowCascadeData UpdateCascades(const Camera& camera, const glm::vec3& lightDir);
 
-		inline IRenderImage& GetShadowImage(uint32_t index) const { return *m_shadowImages[index]; }
-		inline std::vector<const IImageView*> GetShadowImageViews() const 
-		{
-
-			std::vector<const IImageView*> imageViews(m_shadowImages.size());
-			for (size_t i = 0; i < m_shadowImages.size(); ++i)
-				imageViews[i] = &m_shadowImages[i]->GetView();
-			return imageViews;
-		}
+		inline IRenderImage& GetShadowImage() const { return *m_shadowImage; }
+		inline const IImageView& GetShadowImageView() const { return m_shadowImage->GetView(); }
 
 		inline ShadowCascadeData GetShadowCascadeData() const { return ShadowCascadeData(m_cascadeSplits, m_cascadeMatrices); }
 		inline uint32_t GetCascadeCount() const { return m_cascadeCount; }
 
-		inline AttachmentInfo GetShadowAttachment(uint32_t index) const
+		inline AttachmentInfo GetShadowAttachment() const
 		{
 			AttachmentInfo attachment{};
-			attachment.imageView = &m_shadowImages[index]->GetView();
+			attachment.imageView = &m_shadowImage->GetView();
 			attachment.imageLayout = ImageLayout::DepthAttachment;
 			attachment.loadOp = AttachmentLoadOp::Clear;
 			attachment.storeOp = AttachmentStoreOp::Store;
@@ -70,6 +66,6 @@ namespace Engine::Rendering
 		uint32_t m_cascadeCount;
 		std::vector<float> m_cascadeSplits;
 		std::vector<glm::mat4> m_cascadeMatrices;
-		std::vector<std::unique_ptr<IRenderImage>> m_shadowImages;
+		std::unique_ptr<IRenderImage> m_shadowImage;
 	};
 }

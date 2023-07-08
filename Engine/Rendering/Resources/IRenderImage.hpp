@@ -18,6 +18,7 @@ namespace Engine::Rendering
 		IRenderImage()
 			: m_format(Format::Undefined)
 			, m_mipLevels(1)
+			, m_layerCount(1)
 			, m_dimensions()
 			, m_layout(ImageLayout::Undefined)
 			, m_imageView(nullptr)
@@ -27,7 +28,7 @@ namespace Engine::Rendering
 		virtual ~IRenderImage() = default;
 
 		virtual bool Initialise(const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
-			uint32_t mipLevels, ImageTiling tiling, ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags,
+			uint32_t mipLevels, uint32_t layerCount, ImageTiling tiling, ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags,
 			MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode) = 0;
 		virtual bool UpdateContents(const void* data, uint64_t size) = 0;
 		virtual void TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout) = 0;
@@ -36,12 +37,14 @@ namespace Engine::Rendering
 		inline const glm::uvec3& GetDimensions() const { return m_dimensions; }
 		inline const Format& GetFormat() const { return m_format; }
 		inline uint32_t GetMiplevels() const { return m_mipLevels; }
+		inline uint32_t GetLayerCount() const { return m_layerCount; }
 		inline const ImageLayout& GetLayout() const { return m_layout; }
 		inline const IImageView& GetView() const { return *m_imageView; }
 
 	protected:
 		Format m_format;
 		uint32_t m_mipLevels;
+		uint32_t m_layerCount;
 		glm::uvec3 m_dimensions;
 		ImageLayout m_layout;
 		std::unique_ptr<IImageView> m_imageView;

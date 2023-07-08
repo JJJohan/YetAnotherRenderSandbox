@@ -1,12 +1,12 @@
 #pragma once
 
-#include "../Types.hpp"
+#include "Types.hpp"
 #include <optional>
 #include <vector>
 #include <memory>
 #include <glm/glm.hpp>
-#include "IImageView.hpp"
-#include "IRenderImage.hpp"
+#include "Resources/IImageView.hpp"
+#include "Resources/IRenderImage.hpp"
 
 namespace Engine::Rendering
 {
