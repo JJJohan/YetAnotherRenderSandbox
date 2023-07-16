@@ -2,7 +2,7 @@
 #include "Core/Logging/Logger.hpp"
 #include "Device.hpp"
 #include "PhysicalDevice.hpp"
-#include "QueueFamilyIndices.hpp"
+#include "CommandBuffer.hpp"
 
 using namespace Engine::Logging;
 
@@ -13,14 +13,17 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	bool CommandPool::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t queueFamilyIndex, vk::CommandPoolCreateFlagBits flags)
+	CommandPool::~CommandPool()
+	{
+		m_commandPool.reset();
+	}
+
+	bool CommandPool::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t queueFamilyIndex, CommandPoolFlags flags)
 	{
 		const Device& vkDevice = static_cast<const Device&>(device);
 		const PhysicalDevice& vkPhysicalDevice = static_cast<const PhysicalDevice&>(physicalDevice);
 
-		QueueFamilyIndices queueFamilyIndices = vkPhysicalDevice.GetQueueFamilyIndices();
-
-		vk::CommandPoolCreateInfo poolInfo(flags, queueFamilyIndex);
+		vk::CommandPoolCreateInfo poolInfo(static_cast<vk::CommandPoolCreateFlagBits>(flags), queueFamilyIndex);
 		m_commandPool = vkDevice.Get().createCommandPoolUnique(poolInfo);
 		if (!m_commandPool.get())
 		{
@@ -31,14 +34,22 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	std::vector<vk::UniqueCommandBuffer> CommandPool::CreateCommandBuffers(const IDevice& device, uint32_t bufferCount)
+	std::vector<std::unique_ptr<ICommandBuffer>> CommandPool::CreateCommandBuffers(const IDevice& device, uint32_t count) const
 	{
 		const Device& vkDevice = static_cast<const Device&>(device);
-		vk::CommandBufferAllocateInfo allocInfo(m_commandPool.get(), vk::CommandBufferLevel::ePrimary, bufferCount);
-		return vkDevice.Get().allocateCommandBuffersUnique(allocInfo);
+		vk::CommandBufferAllocateInfo allocInfo(m_commandPool.get(), vk::CommandBufferLevel::ePrimary, count);
+		std::vector<vk::UniqueCommandBuffer> commandBuffers = vkDevice.Get().allocateCommandBuffersUnique(allocInfo);
+
+		std::vector<std::unique_ptr<ICommandBuffer>> results;
+		for (vk::UniqueCommandBuffer& commandBuffer : commandBuffers)
+		{
+			results.emplace_back(std::make_unique<CommandBuffer>(std::move(commandBuffer)));
+		}
+
+		return results;
 	}
 
-	vk::UniqueCommandBuffer CommandPool::BeginResourceCommandBuffer(const IDevice& device) const
+	std::unique_ptr<ICommandBuffer> CommandPool::BeginResourceCommandBuffer(const IDevice& device) const
 	{
 		const Device& vkDevice = static_cast<const Device&>(device);
 		vk::CommandBufferAllocateInfo allocInfo(m_commandPool.get(), vk::CommandBufferLevel::ePrimary, 1);
@@ -47,7 +58,12 @@ namespace Engine::Rendering::Vulkan
 
 		vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 		commandBuffer->begin(beginInfo);
-		return commandBuffer;
+		return std::make_unique<CommandBuffer>(std::move(commandBuffer));
 	}
 
+	void CommandPool::Reset(const IDevice& device) const
+	{
+		vk::Device deviceImp = static_cast<const Device&>(device).Get();
+		deviceImp.resetCommandPool(m_commandPool.get());
+	}
 }

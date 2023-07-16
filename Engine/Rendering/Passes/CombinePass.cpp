@@ -19,16 +19,16 @@ namespace Engine::Rendering
 	{
 		m_imageInputs =
 		{
-			"Albedo",
-			"WorldNormal",
-			"WorldPos",
-			"MetalRoughness",
-			"Shadows"
+			{"Albedo", nullptr},
+			{"WorldNormal", nullptr},
+			{"WorldPos", nullptr},
+			{"MetalRoughness", nullptr},
+			{"Shadows", nullptr}
 		};
 
 		m_imageOutputs = 
 		{
-			"Combined"
+			{"Output", nullptr}
 		};
 	}
 
@@ -37,7 +37,7 @@ namespace Engine::Rendering
 		m_outputImage = std::move(resourceFactory.CreateRenderImage());
 		glm::uvec3 extent(size.x, size.y, 1);
 		if (!m_outputImage->Initialise(device, ImageType::e2D, OutputImageFormat, extent, 1, 1,
-			ImageTiling::Optimal, ImageUsageFlags::ColorAttachment | ImageUsageFlags::Sampled,
+			ImageTiling::Optimal, ImageUsageFlags::ColorAttachment | ImageUsageFlags::Sampled | ImageUsageFlags::TransferSrc,
 			ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to create image.");
@@ -50,7 +50,6 @@ namespace Engine::Rendering
 	bool CombinePass::Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
 		const std::unordered_map<const char*, IBuffer*>& bufferInputs)
 	{
-		m_imageResources.clear();
 		m_outputImage.reset();
 
 		const IDevice& device = renderer.GetDevice();
@@ -63,7 +62,13 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		m_imageResources["Combined"] = m_outputImage.get();
+		if (!IRenderPass::Build(renderer, imageInputs, bufferInputs))
+			return false;
+
+		m_imageOutputs["Output"] = m_outputImage.get();
+
+		m_colourAttachments.clear();
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, m_outputImage.get()));
 
 		const std::vector<std::unique_ptr<IBuffer>>& frameInfoBuffers = renderer.GetFrameInfoBuffers();
 		const std::vector<std::unique_ptr<IBuffer>>& lightBuffers = renderer.GetLightBuffers();
@@ -72,13 +77,13 @@ namespace Engine::Rendering
 
 		std::vector<const IImageView*> imageViews =
 		{
-			&imageInputs.at("Albedo")->GetView(),
-			&imageInputs.at("WorldNormal")->GetView(),
-			&imageInputs.at("WorldPos")->GetView(),
-			&imageInputs.at("MetalRoughness")->GetView()
+			&m_imageInputs.at("Albedo")->GetView(),
+			&m_imageInputs.at("WorldNormal")->GetView(),
+			&m_imageInputs.at("WorldPos")->GetView(),
+			&m_imageInputs.at("MetalRoughness")->GetView()
 		};
 
-		const IImageView& shadowImageView = imageInputs.at("Shadows")->GetView();
+		const IImageView& shadowImageView = m_imageInputs.at("Shadows")->GetView();
 
 		if (!m_material->BindUniformBuffers(0, frameInfoBuffers) ||
 			!m_material->BindUniformBuffers(1, lightBuffers) ||
@@ -91,7 +96,8 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	void CombinePass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer, uint32_t frameIndex) const
+	void CombinePass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
+		const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex)
 	{
 		m_material->BindMaterial(commandBuffer, frameIndex);
 		commandBuffer.Draw(3, 1, 0, 0);

@@ -1,19 +1,23 @@
 #pragma once
 
 #include "IRenderPass.hpp"
+#include <array>
 #include <glm/glm.hpp>
-#include "../Resources/IImageView.hpp"
-#include "../Resources/IRenderImage.hpp"
-#include "../Types.hpp"
+#include <memory>
+
+namespace Engine::UI
+{
+	class UIManager;
+}
 
 namespace Engine::Rendering
 {
 	class IResourceFactory;
 
-	class CombinePass : public IRenderPass
+	class UIPass : public IRenderPass
 	{
 	public:
-		CombinePass();
+		UIPass(Engine::UI::UIManager& uiManager);
 
 		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
 			const std::unordered_map<const char*, IBuffer*>& bufferInputs) override;
@@ -21,11 +25,7 @@ namespace Engine::Rendering
 		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer, 
 			const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex) override;
 
-		void SetDebugMode(uint32_t value) const;
-
 	private:
-		bool CreateOutputImage(const IDevice& device, const IResourceFactory& resourceFactory, const glm::uvec2& size);
-
-		std::unique_ptr<IRenderImage> m_outputImage;
+		Engine::UI::UIManager& m_uiManager;
 	};
 }

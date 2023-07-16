@@ -61,7 +61,7 @@ namespace Engine::Rendering
 		Concurrent
 	};
 
-	enum class ShaderStageFlags : uint32_t
+	enum class ShaderStageFlags
 	{
 		Vertex = 1,
 		TessellationControl = 2,
@@ -97,6 +97,49 @@ namespace Engine::Rendering
 	}
 
 	inline ShaderStageFlags operator&(ShaderStageFlags a, ShaderStageFlags b)
+	{
+		return a &= b;
+	}
+
+	enum class MaterialStageFlags
+	{
+		None = 0,
+		TopOfPipe = 1,
+		DrawIndirect = 2,
+		VertexInput = 4,
+		VertexShader = 8,
+		FragmentShader = 128,
+		EarlyFragmentTests = 256,
+		LateFragmentTests = 512,
+		ColorAttachmentOutput = 1024,
+		ComputeShader = 2048,
+		Transfer = 4096,
+		BottomOfPipe = 8192,
+		Host = 16384,
+		TaskShader = 524288,
+		MeshShader = 1048576,
+		RayTracingShader = 2097152,
+		AccelerationStructureBuild = 33554432
+	};
+
+	inline MaterialStageFlags& operator&=(MaterialStageFlags& a, MaterialStageFlags b)
+	{
+		a = static_cast<MaterialStageFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+		return a;
+	}
+
+	inline MaterialStageFlags& operator|=(MaterialStageFlags& a, MaterialStageFlags b)
+	{
+		a = static_cast<MaterialStageFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+		return a;
+	}
+
+	inline MaterialStageFlags operator|(MaterialStageFlags a, MaterialStageFlags b)
+	{
+		return a |= b;
+	}
+
+	inline MaterialStageFlags operator&(MaterialStageFlags a, MaterialStageFlags b)
 	{
 		return a &= b;
 	}

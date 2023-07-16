@@ -14,14 +14,18 @@ namespace Engine::Rendering
 		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
 			const std::unordered_map<const char*, IBuffer*>& bufferInputs) override;
 
-		// Temp
-		inline void SetShadowCascadeIndex(int index) { m_cascadeIndex = index; }
+		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
+			const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex) override;
 
-		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer, uint32_t frameIndex) const override;
+		virtual inline bool GetCustomSize(glm::uvec2& outSize) const override 
+		{
+			outSize = m_shadowResolution;
+			return true; 
+		}
 
 	private:
-		uint32_t m_cascadeIndex;
 		const GeometryBatch& m_sceneGeometryBatch;
+		glm::uvec2 m_shadowResolution;
 		bool m_built;
 	};
 }

@@ -12,6 +12,8 @@ namespace Engine::Rendering::Vulkan
 		virtual std::unique_ptr<IBuffer> CreateBuffer() const override;
 		virtual std::unique_ptr<IRenderImage> CreateRenderImage() const override;
 		virtual std::unique_ptr<IImageSampler> CreateImageSampler() const override;
+		virtual std::unique_ptr<ICommandPool> CreateCommandPool() const override;
+		virtual std::unique_ptr<ISemaphore> CreateGraphicsSemaphore() const override;
 
 	private:
 		VmaAllocator* m_allocator;

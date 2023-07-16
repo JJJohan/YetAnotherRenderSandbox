@@ -4,6 +4,8 @@
 
 namespace Engine::Rendering
 {
+	struct QueueFamilyIndices;
+
 	class IPhysicalDevice
 	{
 	public:
@@ -14,5 +16,6 @@ namespace Engine::Rendering
 		virtual bool FormatSupported(Format format) const = 0;
 		virtual float GetMaxAnisotropy() const = 0;
 		virtual bool SupportsBCTextureCompression() const = 0;
+		virtual const QueueFamilyIndices& GetQueueFamilyIndices() const = 0;
 	};
 }

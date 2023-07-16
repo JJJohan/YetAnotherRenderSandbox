@@ -1,10 +1,9 @@
 #include "VulkanRenderStats.hpp"
 #include "Device.hpp"
 #include "PhysicalDevice.hpp"
-#include "../RenderResources/GBuffer.hpp"
-#include "../RenderResources/ShadowMap.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "CommandBuffer.hpp"
+#include "../RenderResources/IRenderResource.hpp"
 
 using namespace Engine::Logging;
 
@@ -12,17 +11,16 @@ namespace Engine::Rendering::Vulkan
 {
 	const int statisticsCount = 4;
 
-	VulkanRenderStats::VulkanRenderStats(const GBuffer& gBuffer, const ShadowMap& shadowMap)
+	VulkanRenderStats::VulkanRenderStats()
 		: RenderStats()
 		, m_statisticsQueryPool()
 		, m_timestampQueryPool()
 		, m_timestampSupported(false)
 		, m_statisticsSupported(false)
-		, m_gBuffer(gBuffer)
-		, m_shadowMap(shadowMap)
 		, m_timestampPeriod(0.0f)
 		, m_renderPassCount(0)
 		, m_renderPassIndex(0)
+		, m_renderPassNames()
 	{
 	}
 
@@ -80,7 +78,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	void VulkanRenderStats::Begin(const ICommandBuffer& commandBuffer)
+	void VulkanRenderStats::Begin(const ICommandBuffer& commandBuffer, const char* passName)
 	{
 		const vk::CommandBuffer& vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
 
@@ -95,6 +93,8 @@ namespace Engine::Rendering::Vulkan
 			vkCommandBuffer.resetQueryPool(m_statisticsQueryPool.get(), m_renderPassIndex, 1);
 			vkCommandBuffer.beginQuery(m_statisticsQueryPool.get(), m_renderPassIndex, vk::QueryControlFlags());
 		}
+
+		m_renderPassNames.emplace_back(passName);
 	}
 
 	void VulkanRenderStats::End(const ICommandBuffer& commandBuffer)
@@ -110,15 +110,25 @@ namespace Engine::Rendering::Vulkan
 		++m_renderPassIndex;
 	}
 
-	void VulkanRenderStats::FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device)
+	void VulkanRenderStats::FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device, 
+		const std::unordered_map<const char*, IRenderResource*>& renderResources)
 	{
 		const Device& vkDevice = static_cast<const Device&>(device);
 		const PhysicalDevice& vkPhysicalDevice = static_cast<const PhysicalDevice&>(physicalDevice);
 
-		memset(&m_memoryStats, 0, sizeof(MemoryStats));
+		m_memoryStats.DedicatedBudget = 0;
+		m_memoryStats.DedicatedUsage = 0;
+		m_memoryStats.SharedBudget = 0;
+		m_memoryStats.SharedUsage = 0;
+		m_memoryStats.ResourceMemoryUsage.clear();
 
-		m_memoryStats.GBuffer = m_gBuffer.GetMemoryUsage();
-		m_memoryStats.ShadowMap = m_shadowMap.GetMemoryUsage();
+		for (const auto& renderResource : renderResources)
+		{
+			const char* name = renderResource.first;
+			size_t size = renderResource.second->GetMemoryUsage();
+			m_memoryStats.ResourceMemoryUsage.emplace(name, size);
+		}
+
 		vk::PhysicalDeviceMemoryBudgetPropertiesEXT budgetProperties{};
 		vk::PhysicalDeviceMemoryProperties2 memoryProperties{};
 		memoryProperties.pNext = &budgetProperties;
@@ -146,13 +156,11 @@ namespace Engine::Rendering::Vulkan
 
 		m_renderPassIndex = 0;
 		m_statsData.clear();
-		m_statsData.resize(static_cast<size_t>(m_renderPassCount) + 1);
 		const vk::Device& deviceImp = vkDevice.Get();
-
 
 		for (uint32_t i = 0; i < m_renderPassCount; ++i)
 		{
-			FrameStats& data = m_statsData[i];
+			FrameStats& data = m_statsData[m_renderPassNames[i]];
 			std::vector<uint64_t> buffer(static_cast<size_t>(statisticsCount) + 1);
 
 			if (m_timestampSupported)
@@ -181,16 +189,20 @@ namespace Engine::Rendering::Vulkan
 			}
 		}
 
-		// The final entry contains the totals.
-		FrameStats& total = m_statsData[m_renderPassCount];
-		for (size_t i = 0; i < m_renderPassCount; ++i)
+		m_renderPassNames.clear();
+
+		// Add a 'Total' entry.
+		FrameStats total = {};
+		for (const auto& entry : m_statsData)
 		{
-			FrameStats& data = m_statsData[i];
+			const FrameStats& data = entry.second;
 			total.InputAssemblyVertexCount += data.InputAssemblyVertexCount;
 			total.InputAssemblyPrimitivesCount += data.InputAssemblyPrimitivesCount;
 			total.VertexShaderInvocations += data.VertexShaderInvocations;
 			total.FragmentShaderInvocations += data.FragmentShaderInvocations;
 			total.RenderTime += data.RenderTime;
 		}
+
+		m_statsData["Total"] = total;
 	}
 }

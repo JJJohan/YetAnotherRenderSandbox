@@ -15,18 +15,18 @@ namespace Engine::Rendering::Vulkan
 	class VulkanRenderStats : public RenderStats
 	{
 	public:
-		VulkanRenderStats(const GBuffer& gBuffer, const ShadowMap& shadowMap);
+		VulkanRenderStats();
 		virtual bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t renderPassCount) override;
-		virtual void Begin(const ICommandBuffer& commandBuffer) override;
+		virtual void Begin(const ICommandBuffer& commandBuffer, const char* passName) override;
 		virtual void End(const ICommandBuffer& commandBuffer) override;
-		virtual void FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device) override;
+		virtual void FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device,
+			const std::unordered_map<const char*, IRenderResource*>& renderResources) override;
 
 	private:
 		vk::UniqueQueryPool m_statisticsQueryPool;
 		vk::UniqueQueryPool m_timestampQueryPool;
+		std::vector<const char*> m_renderPassNames;
 
-		const GBuffer& m_gBuffer;
-		const ShadowMap& m_shadowMap;
 		bool m_timestampSupported;
 		bool m_statisticsSupported;
 		float m_timestampPeriod;

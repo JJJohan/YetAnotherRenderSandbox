@@ -91,6 +91,8 @@ namespace Engine::Rendering::Vulkan
 
 		vk::UniqueSwapchainKHR oldSwapChain = std::move(m_swapChain);
 
+		ImageUsageFlags usageFlags = ImageUsageFlags::ColorAttachment | ImageUsageFlags::TransferDst;
+
 		vk::SwapchainCreateInfoKHR createInfo{};
 		createInfo.surface = surface.Get();
 		createInfo.minImageCount = imageCount;
@@ -98,7 +100,7 @@ namespace Engine::Rendering::Vulkan
 		createInfo.imageColorSpace = surfaceFormat.colorSpace;
 		createInfo.imageExtent = vk::Extent2D(m_swapChainExtent.x, m_swapChainExtent.y);
 		createInfo.imageArrayLayers = 1;
-		createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
+		createInfo.imageUsage = static_cast<vk::ImageUsageFlagBits>(usageFlags);
 		createInfo.preTransform = swapChainSupportDetails.Capabilities.currentTransform;
 		createInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
 		createInfo.presentMode = presentMode;
@@ -133,7 +135,6 @@ namespace Engine::Rendering::Vulkan
 
 		oldSwapChain.reset();
 		m_swapChainImages.clear();
-		m_swapChainImageViews.clear();
 
 		std::vector<vk::Image> images = deviceImp.getSwapchainImagesKHR(m_swapChain.get());
 		if (images.empty())
@@ -143,19 +144,15 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		m_swapChainImages.reserve(imageCount);
-		m_swapChainImageViews.reserve(imageCount);
 		for (const auto& image : images)
 		{
-			std::unique_ptr<ImageView> imageView = std::make_unique<ImageView>();
-			std::unique_ptr<RenderImage> renderImage = std::make_unique<RenderImage>(image, surfaceFormat.format);
-			if (!imageView->Initialise(device, *renderImage, 1, 1, FromVulkanFormat(surfaceFormat.format), ImageAspectFlags::Color))
+			std::unique_ptr<RenderImage> renderImage = std::make_unique<RenderImage>(image, surfaceFormat.format, usageFlags);
+			if (!renderImage->InitialiseView(device, ImageAspectFlags::Color))
 			{
-				Logger::Error("Failed to create image view for swap chain image.");
 				return false;
 			}
 
 			m_swapChainImages.push_back(std::move(renderImage));
-			m_swapChainImageViews.push_back(std::move(imageView));
 		}
 
 		if (hdr)

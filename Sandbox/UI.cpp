@@ -109,8 +109,11 @@ namespace Sandbox
 			float sharedBudget = static_cast<float>(memoryStats.SharedBudget) / 1024.0f / 1024.0f;
 			float sharedPercent = sharedUsage / sharedBudget * 100.0f;
 
-			drawer.Text("GBuffer Usage: %.2f MB", static_cast<float>(memoryStats.GBuffer) / 1024.0f / 1024.0f);
-			drawer.Text("Shadow Map Usage: %.2f MB", static_cast<float>(memoryStats.ShadowMap) / 1024.0f / 1024.0f);
+			for (const auto& resource : memoryStats.ResourceMemoryUsage)
+			{
+				drawer.Text("%s Usage: %.2f MB", resource.first, static_cast<float>(resource.second) / 1024.0f / 1024.0f);
+			}
+
 			drawer.Text("Dedicated VRAM Usage: %.2f MB / %.2f MB (%.2f%%)", dedicatedUsage, dedicatedBudget, dedicatedPercent);
 			drawer.Text("Shared VRAM Usage: %.2f MB / %.2f MB (%.2f%%)", sharedUsage, sharedBudget, sharedPercent);
 		}
@@ -119,13 +122,12 @@ namespace Sandbox
 		{
 			drawer.Text("FPS: %.2f", m_renderer->GetUIManager().GetFPS());
 
-			std::unordered_map<const char*, IRenderPass*> passMap(m_renderer->GetRenderGraph().GetPasses());
-			passMap.emplace("Total", nullptr);
+			const std::unordered_map<const char*, FrameStats>& frameStats = m_renderer->GetRenderStats();
 
 			// Iterate over the unordered map of graphs by reference and remove any that are no longer in the render graph.
 			for (auto it = m_statGraphBuffers.begin(); it != m_statGraphBuffers.end();)
 			{
-				if (!passMap.contains(it->first))
+				if (!frameStats.contains(it->first))
 				{
 					it = m_statGraphBuffers.erase(it);
 				}
@@ -136,7 +138,7 @@ namespace Sandbox
 			}
 
 			// Iterate over the set and add new map entries if they do not exist.
-			for (const auto& pass : passMap)
+			for (const auto& pass : frameStats)
 			{
 				if (m_statGraphBuffers.find(pass.first) == m_statGraphBuffers.end())
 				{
@@ -144,24 +146,12 @@ namespace Sandbox
 				}
 			}
 
-			float total = 0.0f;
-			ScrollingGraphBuffer* totalBuffer = nullptr;
-			for (auto buffer : m_statGraphBuffers)
+			for (auto& buffer : m_statGraphBuffers)
 			{
-				// Skip 'Total' entry
-				if (strcmp(buffer.first, "Total") == 0)
-				{
-					totalBuffer = &buffer.second;
-					continue;
-				}
-
-				const IRenderPass* pass = passMap[buffer.first];
-				float passFrameTime = pass->GetFrameTime();
+				const FrameStats& stats = frameStats.at(buffer.first);
+				float passFrameTime = stats.RenderTime;
 				buffer.second.AddValue(passFrameTime);
-				total += passFrameTime;
 			}
-
-			totalBuffer->AddValue(total);
 
 			const glm::vec2& space = drawer.GetContentRegionAvailable();
 			drawer.PlotGraphs("Frame Times (ms)", m_statGraphBuffers, space);
@@ -188,26 +178,26 @@ namespace Sandbox
 
 					const char* nodeName = node.Pass->GetName();
 
-					for (const char* input : node.Pass->GetBufferInputs())
+					for (const  auto& input : node.Pass->GetBufferInputs())
 					{
-						const char* inputNodeName = node.InputBuffers.at(input)->GetName();
-						drawer.NodeSetupLink(nodeName, input, inputNodeName, input, bufferPinColour);
+						const char* inputNodeName = node.InputBuffers.at(input.first)->GetName();
+						drawer.NodeSetupLink(nodeName, input.first, inputNodeName, input.first, bufferPinColour);
 					}
 
-					for (const char* input : node.Pass->GetImageInputs())
+					for (const  auto& input : node.Pass->GetImageInputs())
 					{
-						const char* inputNodeName = node.InputImages.at(input)->GetName();
-						drawer.NodeSetupLink(inputNodeName, input, nodeName, input, imagePinColour);
+						const char* inputNodeName = node.InputImages.at(input.first)->GetName();
+						drawer.NodeSetupLink(inputNodeName, input.first, nodeName, input.first, imagePinColour);
 					}
 
 					if (!outputLinked)
 					{
 						// Implicitly link output to 'screen' end node.
-						for (const char* output : node.Pass->GetImageOutputs())
+						for (const auto& output : node.Pass->GetImageOutputs())
 						{
-							if (strcmp(output, "Final") == 0)
+							if (strcmp(output.first, "Output") == 0)
 							{
-								drawer.NodeSetupLink(nodeName, output, "Screen", "Final", imagePinColour);
+								drawer.NodeSetupLink(nodeName, output.first, "Screen", "Output", imagePinColour);
 								outputLinked = true;
 								break;
 							}
@@ -234,14 +224,14 @@ namespace Sandbox
 
 					if (isPass)
 					{
-						for (const char* input : node.Pass->GetBufferInputs())
+						for (const auto& input : node.Pass->GetBufferInputs())
 						{
-							inputPins.emplace_back(NodePin(input, bufferPinColour));
+							inputPins.emplace_back(NodePin(input.first, bufferPinColour));
 						}
 
-						for (const char* input : node.Pass->GetImageInputs())
+						for (const auto& input : node.Pass->GetImageInputs())
 						{
-							inputPins.emplace_back(NodePin(input, imagePinColour));
+							inputPins.emplace_back(NodePin(input.first, imagePinColour));
 						}
 
 						nodeColour = Colour(0.5f, 0.5f, 0.5f);
@@ -253,14 +243,14 @@ namespace Sandbox
 
 					std::vector<NodePin> outputPins;
 
-					for (const char* output : node.Resource->GetBufferOutputs())
+					for (const auto& output : node.Resource->GetBufferOutputs())
 					{
-						outputPins.emplace_back(NodePin(output, bufferPinColour));
+						outputPins.emplace_back(NodePin(output.first, bufferPinColour));
 					}
 
-					for (const char* output : node.Resource->GetImageOutputs())
+					for (const auto& output : node.Resource->GetImageOutputs())
 					{
-						outputPins.emplace_back(NodePin(output, imagePinColour));
+						outputPins.emplace_back(NodePin(output.first, imagePinColour));
 					}
 
 					drawer.DrawNode(nodeName, offset, inputPins, outputPins, nodeColour);
@@ -275,7 +265,7 @@ namespace Sandbox
 			}
 
 			// Draw 'Screen' node.
-			drawer.DrawNode("Screen", offset, { NodePin("Final", imagePinColour) }, {}, imagePinColour);
+			drawer.DrawNode("Screen", offset, { NodePin("Output", imagePinColour) }, {}, imagePinColour);
 
 			if (appearing)
 				drawer.NodeEditorZoomToContent();

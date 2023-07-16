@@ -22,7 +22,7 @@ namespace Engine::Rendering
 	{
 		m_imageOutputs =
 		{
-			"Shadows"
+			{"Shadows", nullptr}
 		};
 	}
 
@@ -131,10 +131,10 @@ namespace Engine::Rendering
 	}
 
 
-	bool ShadowMap::Build(const Renderer& renderer)
+	bool ShadowMap::Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+		const std::unordered_map<const char*, IBuffer*>& bufferInputs)
 	{
 		m_shadowImage.reset();
-		m_imageResources.clear();
 
 		const IDevice& device = renderer.GetDevice();
 		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();
@@ -145,7 +145,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		m_imageResources["Shadows"] = m_shadowImage.get();
+		m_imageOutputs["Shadows"] = m_shadowImage.get();
 
 		return true;
 	}

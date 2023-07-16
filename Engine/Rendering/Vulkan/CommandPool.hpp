@@ -1,25 +1,22 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
-
-namespace Engine::Rendering
-{
-	class IDevice;
-	class IPhysicalDevice;
-}
+#include "../Resources/ICommandPool.hpp"
 
 namespace Engine::Rendering::Vulkan
 {
-	class CommandPool
+	class CommandPool : public ICommandPool
 	{
 	public:
 		CommandPool();
+		~CommandPool();
 
 		inline const vk::CommandPool& Get() const { return m_commandPool.get(); }
-		bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t queueFamilyIndex, vk::CommandPoolCreateFlagBits flags);
+		virtual bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t queueFamilyIndex, CommandPoolFlags flags) override;
 
-		std::vector<vk::UniqueCommandBuffer> CreateCommandBuffers(const IDevice& device, uint32_t bufferCount);
-		vk::UniqueCommandBuffer BeginResourceCommandBuffer(const IDevice& device) const;
+		virtual std::vector<std::unique_ptr<ICommandBuffer>> CreateCommandBuffers(const IDevice& device, uint32_t count) const override;
+		virtual std::unique_ptr<ICommandBuffer> BeginResourceCommandBuffer(const IDevice& device) const override;
+		virtual void Reset(const IDevice& device) const override;
 
 	private:
 		vk::UniqueCommandPool m_commandPool;

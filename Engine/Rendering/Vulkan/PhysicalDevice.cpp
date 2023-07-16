@@ -18,16 +18,6 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	const vk::PhysicalDevice& PhysicalDevice::Get() const
-	{
-		return m_physicalDevice;
-	}
-
-	const QueueFamilyIndices& PhysicalDevice::GetQueueFamilyIndices() const
-	{
-		return m_queueFamilyIndices;
-	}
-
 	std::vector<const char*> PhysicalDevice::GetRequiredExtensions() const
 	{
 		return {
@@ -35,26 +25,6 @@ namespace Engine::Rendering::Vulkan
 			VK_EXT_HDR_METADATA_EXTENSION_NAME,
 			VK_EXT_MEMORY_BUDGET_EXTENSION_NAME
 		};
-	}
-
-	const vk::PhysicalDeviceLimits& PhysicalDevice::GetLimits() const
-	{
-		return m_deviceProperties.limits;
-	}
-
-	float PhysicalDevice::GetMaxAnisotropy() const
-	{
-		return m_deviceProperties.limits.maxSamplerAnisotropy;
-	}
-
-	bool PhysicalDevice::SupportsBCTextureCompression() const
-	{
-		return m_deviceFeatures.textureCompressionBC;
-	}
-
-	const vk::PhysicalDeviceFeatures& PhysicalDevice::GetFeatures() const
-	{
-		return m_deviceFeatures;
 	}
 
 	vk::SampleCountFlagBits PhysicalDevice::GetMaxMultiSampleCount() const

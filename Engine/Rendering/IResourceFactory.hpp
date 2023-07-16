@@ -8,6 +8,8 @@ namespace Engine::Rendering
 	class IImageSampler;
 	class IRenderImage;
 	class Renderer;
+	class ICommandPool;
+	class ISemaphore;
 
 	class IResourceFactory
 	{
@@ -17,5 +19,7 @@ namespace Engine::Rendering
 		virtual std::unique_ptr<IBuffer> CreateBuffer() const = 0;
 		virtual std::unique_ptr<IRenderImage> CreateRenderImage() const = 0;
 		virtual std::unique_ptr<IImageSampler> CreateImageSampler() const = 0;
+		virtual std::unique_ptr<ICommandPool> CreateCommandPool() const = 0;
+		virtual std::unique_ptr<ISemaphore> CreateGraphicsSemaphore() const = 0;
 	};
 }

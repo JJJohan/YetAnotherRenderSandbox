@@ -12,6 +12,7 @@
 #include "ISwapChain.hpp"
 #include "RenderGraph.hpp"
 #include "RenderSettings.hpp"
+#include "Resources/SubmitInfo.hpp"
 #include <functional>
 
 namespace Engine
@@ -36,7 +37,6 @@ namespace Engine::Rendering
 	class GBuffer;
 	class ShadowMap;
 	class PostProcessing;
-	class RenderStats;
 	class IDevice;
 	class IPhysicalDevice;
 	class IMaterialManager;
@@ -60,18 +60,18 @@ namespace Engine::Rendering
 		EXPORT virtual ~Renderer();
 
 		inline virtual bool Initialise();
-		inline virtual bool Render() = 0;
-		inline const std::vector<FrameStats>& GetRenderStats() const { return m_renderStats->GetFrameStats(); }
+		inline virtual bool Render();
+		inline const std::unordered_map<const char*, FrameStats>& GetRenderStats() const { return m_renderStats->GetFrameStats(); }
 		inline const MemoryStats& GetMemoryStats() const { return m_renderStats->GetMemoryStats(); }
 		inline const RenderGraph& GetRenderGraph() const { return *m_renderGraph; }
 
 		inline void SetClearColour(const Colour& clearColour) { m_clearColour = clearColour.GetVec4(); }
 		inline const Colour GetClearColor() const { return Colour(m_clearColour); }
 
-		inline virtual void SetTemporalAAState(bool enabled) { m_renderSettings.m_temporalAA = enabled; }
+		EXPORT void SetTemporalAAState(bool enabled);
 		inline bool GetTemporalAAState(bool enabled) const { return m_renderSettings.m_temporalAA; }
 
-		inline virtual void SetDebugMode(uint32_t mode) { m_debugMode = mode; }
+		EXPORT void SetDebugMode(uint32_t mode);
 		inline uint32_t GetDebugMode() const { return m_debugMode; }
 
 		inline virtual void SetMultiSampleCount(uint32_t multiSampleCount);;
@@ -115,6 +115,10 @@ namespace Engine::Rendering
 		virtual bool SubmitResourceCommand(std::function<bool(const IDevice& device, const IPhysicalDevice& physicalDevice,
 			const ICommandBuffer&, std::vector<std::unique_ptr<IBuffer>>&)> command,
 			std::optional<std::function<void()>> postAction = std::nullopt) = 0;
+
+		virtual IRenderImage& GetPresentImage() const = 0;
+
+		virtual bool Present(const std::vector<SubmitInfo>& submitInfos) = 0;
 
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);

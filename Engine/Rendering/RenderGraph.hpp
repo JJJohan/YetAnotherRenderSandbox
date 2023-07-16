@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <glm/glm.hpp>
 
 #include "Passes/IRenderPass.hpp"
 
@@ -9,6 +10,10 @@ namespace Engine::Rendering
 {
 	class Renderer;
 	class IMaterialManager;
+	class ICommandPool;
+	class IResourceFactory;
+	class ISemaphore;
+	class RenderStats;
 
 	struct RenderNode
 	{
@@ -37,21 +42,25 @@ namespace Engine::Rendering
 	class RenderGraph
 	{
 	public:
-		RenderGraph();
+		RenderGraph(RenderStats& renderStats);
+		virtual ~RenderGraph();
+
+		bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device,
+			const IResourceFactory& resourceFactory, uint32_t concurrentFrameCount);
 
 		bool AddPass(IRenderPass* renderPass, const IMaterialManager& materialManager);
 		bool AddResource(IRenderResource* renderResource);
 		bool Build(const Renderer& renderer);
-		void Draw(const Renderer& renderer) const;
+		bool Draw(Renderer& renderer, uint32_t frameIndex) const;
+		void SetPassEnabled(const char* passName, bool enabled);
 
-		inline const std::unordered_map<const char*, IRenderPass*>& GetPasses() const { return m_renderPasses; }
 		inline const std::vector<std::vector<RenderNode>>& GetBuiltGraph() const { return m_renderGraph; }
 		inline void MarkDirty() { m_dirty = true; }
 		inline bool CheckDirty() const { return m_dirty; }
 		inline bool TryGetPass(const char* name, const IRenderPass** result) const
 		{
-			const auto& search = m_renderPasses.find(name);
-			if (search != m_renderPasses.end())
+			const auto& search = m_renderPassLookup.find(name);
+			if (search != m_renderPassLookup.end())
 			{
 				*result = search->second;
 				return true;
@@ -62,10 +71,18 @@ namespace Engine::Rendering
 
 	private:
 		bool m_dirty;
-		std::unordered_map<const char*, IRenderPass*> m_renderPasses;
+		IRenderPass* m_finalPass;
+		IRenderImage* m_finalImage;
+		std::unordered_map<const char*, IRenderPass*> m_renderPassLookup;
+		std::vector<IRenderPass*> m_renderPasses;
 		std::unordered_map<const char*, IRenderResource*> m_renderResources;
+		std::vector<std::unique_ptr<ICommandBuffer>> m_blitCommandBuffers;
+		std::unordered_map<IRenderPass*, std::vector<std::unique_ptr<ICommandBuffer>>> m_commandBuffers;
+		std::unique_ptr<ICommandPool> m_commandPool;
+		std::unique_ptr<ISemaphore> m_semaphore;
 		std::vector<std::vector<RenderNode>> m_renderGraph;
 		std::unordered_map<const char*, const IRenderResource*> m_imageResourceNodeLookup;
 		std::unordered_map<const char*, const IRenderResource*> m_bufferResourceNodeLookup;
+		RenderStats& m_renderStats;
 	};
 }

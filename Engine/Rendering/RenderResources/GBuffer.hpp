@@ -21,30 +21,10 @@ namespace Engine::Rendering
 	public:
 		GBuffer();
 
-		virtual bool Build(const Renderer& renderer) override;
-
-		void TransitionImageLayouts(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout);
-		void TransitionDepthLayout(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout);
-		uint64_t GetMemoryUsage() const;
-
-		inline const std::vector<std::unique_ptr<IRenderImage>>& GetImages() const { return m_gBufferImages; }
-		inline std::vector<const IImageView*> GetImageViews() const
-		{
-			std::vector<const IImageView*> views(m_gBufferImages.size());
-			for (size_t i = 0; i < m_gBufferImages.size(); i++)
-			{
-				views[i] = &m_gBufferImages[i]->GetView();
-			}
-
-			return views;
-		}
-
-		std::vector<AttachmentInfo> GetRenderAttachments() const;
-		AttachmentInfo GetDepthAttachment() const;
-		inline const IImageView& GetVelocityImageView() const { return m_gBufferImages[4]->GetView(); }
-		inline const std::vector<Format>& GetImageFormats() const { return m_imageFormats; }
-		inline const IImageView& GetDepthImageView() const { return m_depthImage->GetView(); }
-		inline IRenderImage& GetDepthImage() const { return *m_depthImage; }
+		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IBuffer*>& bufferInputs) override;
+		
+		virtual size_t GetMemoryUsage() const override;
 
 	private:
 		bool CreateImageAndView(const IDevice& device, const IResourceFactory& resourceFactory, const glm::uvec2& size, Format format);

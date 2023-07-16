@@ -32,31 +32,18 @@ namespace Engine::Rendering
 	public:
 		ShadowMap();
 
-		virtual bool Build(const Renderer& renderer) override;
+		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IBuffer*>& bufferInputs) override;
 
 		ShadowCascadeData UpdateCascades(const Camera& camera, const glm::vec3& lightDir);
-
-		inline IRenderImage& GetShadowImage() const { return *m_shadowImage; }
-		inline const IImageView& GetShadowImageView() const { return m_shadowImage->GetView(); }
 
 		inline ShadowCascadeData GetShadowCascadeData() const { return ShadowCascadeData(m_cascadeSplits, m_cascadeMatrices); }
 		inline uint32_t GetCascadeCount() const { return m_cascadeCount; }
 
-		inline AttachmentInfo GetShadowAttachment() const
+		inline virtual size_t GetMemoryUsage() const override
 		{
-			AttachmentInfo attachment{};
-			attachment.imageView = &m_shadowImage->GetView();
-			attachment.imageLayout = ImageLayout::DepthAttachment;
-			attachment.loadOp = AttachmentLoadOp::Clear;
-			attachment.storeOp = AttachmentStoreOp::Store;
-			attachment.clearValue = ClearValue(1.0f);
-			return attachment;
-		}
-
-		inline uint64_t GetMemoryUsage() const
-		{
-			const uint32_t bytesPerTexel = 4;
-			return m_cascadeCount * m_extent.x * m_extent.y * bytesPerTexel;
+			const size_t bytesPerTexel = 4;
+			return bytesPerTexel * m_cascadeCount * m_extent.x * m_extent.y;
 		}
 
 	private:

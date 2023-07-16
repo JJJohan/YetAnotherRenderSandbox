@@ -8,7 +8,7 @@ namespace Engine::Rendering
 	{
 	}
 
-	const std::vector<FrameStats>& RenderStats::GetFrameStats() const
+	const std::unordered_map<const char*, FrameStats>& RenderStats::GetFrameStats() const
 	{
 		return m_statsData;
 	}

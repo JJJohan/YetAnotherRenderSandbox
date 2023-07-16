@@ -3,6 +3,8 @@
 #include "../Types.hpp"
 #include <glm/glm.hpp>
 #include <array>
+#include "AttachmentInfo.hpp"
+#include <optional>
 
 namespace Engine::Rendering
 {
@@ -32,10 +34,21 @@ namespace Engine::Rendering
 		ICommandBuffer() = default;
 		virtual ~ICommandBuffer() = default;
 
+		inline virtual void Reset() const = 0;
+
+		inline virtual bool Begin() const = 0;
+
+		inline virtual void End() const = 0;
+
+		virtual void BeginRendering(const std::vector<AttachmentInfo>& attachments, 
+			const std::optional<AttachmentInfo>& depthAttachment, const glm::uvec2& size,
+			uint32_t layerCount) const = 0;
+
+		inline virtual void EndRendering() const = 0;
+
 		virtual void Draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) const = 0;
 
-		virtual void BlitImage(const IRenderImage& srcImage, ImageLayout srcLayout,
-			const IRenderImage& dstImage, ImageLayout dstLayout, const std::vector<ImageBlit>& regions, Filter filter) const = 0;
+		virtual void BlitImage(const IRenderImage& srcImage, const IRenderImage& dstImage, const std::vector<ImageBlit>& regions, Filter filter) const = 0;
 
 		virtual void PushConstants(const Material* material, ShaderStageFlags stageFlags, uint32_t offset, uint32_t size, uint32_t* value) const = 0;
 

@@ -5,6 +5,9 @@
 #include <vector>
 #include <string>
 #include "../Types.hpp"
+#include "IRenderImage.hpp"
+#include "AttachmentInfo.hpp"
+#include "Core/Logging/Logger.hpp"
 
 namespace Engine::Rendering
 {
@@ -26,6 +29,23 @@ namespace Engine::Rendering
 		inline const std::vector<Format>& GetAttachmentFormats() const { return m_attachmentFormats; }
 		inline bool DepthWrite() const { return m_depthWrite; }
 		inline bool DepthTest() const { return m_depthTest; }
+
+		inline AttachmentInfo GetColourAttachmentInfo(uint32_t attachmentIndex, IRenderImage* image, 
+			AttachmentLoadOp loadOp = AttachmentLoadOp::Clear, AttachmentStoreOp storeOp = AttachmentStoreOp::Store,
+			ClearValue clearValue = { Colour(0,0,0,0) })
+		{
+			if (m_attachmentFormats.size() <= attachmentIndex)
+			{
+				Engine::Logging::Logger::Error("Attachment index {} exceeds attachment count of {}.", attachmentIndex, m_attachmentFormats.size());
+			}
+			
+			if (m_attachmentFormats[attachmentIndex] != image->GetFormat())
+			{
+				Engine::Logging::Logger::Error("Attachment format mismatch for provided image.");
+			}
+
+			return AttachmentInfo(image, ImageLayout::ColorAttachment, loadOp, storeOp, clearValue);
+		}
 
 		inline bool BindImageView(uint32_t binding, const std::unique_ptr<IImageView>& imageView)
 		{

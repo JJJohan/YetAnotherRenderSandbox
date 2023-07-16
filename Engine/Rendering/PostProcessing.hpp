@@ -27,11 +27,7 @@ namespace Engine::Rendering
 			return m_taaJitterOffsets[++m_taaFrameIndex % m_taaJitterOffsets.size()];
 		}
 
-		inline void SetEnabled(bool enabled) { m_enabled = enabled; };
-		inline bool IsEnabled() { return m_enabled; };
-
 	private:
-		bool m_enabled;
 
 		uint32_t m_taaFrameIndex;
 		std::array<glm::vec2, 6> m_taaJitterOffsets;

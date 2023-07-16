@@ -2,7 +2,7 @@
 
 #include <optional>
 
-namespace Engine::Rendering::Vulkan
+namespace Engine::Rendering
 {
 	struct QueueFamilyIndices
 	{

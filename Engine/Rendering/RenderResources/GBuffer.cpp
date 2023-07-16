@@ -18,12 +18,12 @@ namespace Engine::Rendering
 	{
 		m_imageOutputs = 
 		{
-			"Albedo",
-			"WorldNormal",
-			"WorldPos",
-			"MetalRoughness",
-			"Velocity",
-			"Depth"
+			{"Albedo", nullptr},
+			{"WorldNormal", nullptr},
+			{"WorldPos", nullptr},
+			{"MetalRoughness", nullptr},
+			{"Velocity", nullptr},
+			{"Depth", nullptr}
 		};
 	}
 
@@ -101,9 +101,9 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	uint64_t GBuffer::GetMemoryUsage() const
+	size_t GBuffer::GetMemoryUsage() const
 	{
-		uint64_t totalSize = 0;
+		size_t totalSize = 0;
 		const glm::uvec3& extents = m_depthImage->GetDimensions();
 
 		for (const auto& image : m_gBufferImages)
@@ -116,12 +116,12 @@ namespace Engine::Rendering
 		return totalSize;
 	}
 
-	bool GBuffer::Build(const Renderer& renderer)
+	bool GBuffer::Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+		const std::unordered_map<const char*, IBuffer*>& bufferInputs)
 	{
 		m_depthImage.reset();
 		m_gBufferImages.clear();
 		m_imageFormats.clear();
-		m_imageResources.clear();
 
 		const IDevice& device = renderer.GetDevice();
 		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();
@@ -139,43 +139,13 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		m_imageResources["Albedo"] = m_gBufferImages[0].get();
-		m_imageResources["WorldNormal"] = m_gBufferImages[1].get();
-		m_imageResources["WorldPos"] = m_gBufferImages[2].get();
-		m_imageResources["MetalRoughness"] = m_gBufferImages[3].get();
-		m_imageResources["Velocity"] = m_gBufferImages[4].get();
-		m_imageResources["Depth"] = m_depthImage.get();
+		m_imageOutputs["Albedo"] = m_gBufferImages[0].get();
+		m_imageOutputs["WorldNormal"] = m_gBufferImages[1].get();
+		m_imageOutputs["WorldPos"] = m_gBufferImages[2].get();
+		m_imageOutputs["MetalRoughness"] = m_gBufferImages[3].get();
+		m_imageOutputs["Velocity"] = m_gBufferImages[4].get();
+		m_imageOutputs["Depth"] = m_depthImage.get();
 
 		return true;
-	}
-
-	void GBuffer::TransitionImageLayouts(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout)
-	{
-		for (size_t i = 0; i < GBUFFER_SIZE; ++i)
-		{
-			m_gBufferImages[i]->TransitionImageLayout(device, commandBuffer, newLayout);
-		}
-	}
-
-	void GBuffer::TransitionDepthLayout(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout)
-	{
-		m_depthImage->TransitionImageLayout(device, commandBuffer, newLayout);
-	}
-
-	std::vector<AttachmentInfo> GBuffer::GetRenderAttachments() const
-	{
-		std::vector<AttachmentInfo> attachments(GBUFFER_SIZE);
-
-		for (uint32_t i = 0; i < GBUFFER_SIZE; ++i)
-		{
-			attachments[i] = AttachmentInfo(&m_gBufferImages[i]->GetView(), ImageLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store);
-		}
-
-		return attachments;
-	}
-
-	AttachmentInfo GBuffer::GetDepthAttachment() const
-	{
-		return AttachmentInfo(&m_depthImage->GetView(), ImageLayout::DepthAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
 	}
 }

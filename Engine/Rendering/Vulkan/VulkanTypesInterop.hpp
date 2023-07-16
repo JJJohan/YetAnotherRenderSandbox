@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.hpp>
 #include <vma/vk_mem_alloc.h>
 #include "../Types.hpp"
+#include "RenderImage.hpp"
 #include "ImageView.hpp"
 #include "../Resources/AttachmentInfo.hpp"
 
@@ -248,7 +249,7 @@ namespace Engine::Rendering::Vulkan
 	inline vk::RenderingAttachmentInfo GetAttachmentInfo(const AttachmentInfo& attachmentInfo)
 	{
 		vk::RenderingAttachmentInfo vkAttachmentInfo{};
-		vkAttachmentInfo.imageView = static_cast<const ImageView*>(attachmentInfo.imageView)->Get();
+		vkAttachmentInfo.imageView = static_cast<const ImageView*>(&attachmentInfo.renderImage->GetView())->Get();
 		vkAttachmentInfo.imageLayout = GetImageLayout(attachmentInfo.imageLayout);
 		vkAttachmentInfo.loadOp = static_cast<vk::AttachmentLoadOp>(attachmentInfo.loadOp);
 		vkAttachmentInfo.storeOp = static_cast<vk::AttachmentStoreOp>(attachmentInfo.storeOp);

@@ -16,13 +16,17 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	RenderImage::RenderImage(vk::Image image, vk::Format format)
+	RenderImage::RenderImage(vk::Image image, vk::Format format, ImageUsageFlags usageFlags)
 		: IRenderImage()
 		, m_image(image)
 		, m_imageAlloc(nullptr)
 		, m_imageAllocInfo()
 		, m_allocator(nullptr)
 	{
+		m_format = FromVulkanFormat(format);
+		m_layerCount = 1;
+		m_mipLevels = 1;
+		m_usageFlags = usageFlags;
 	}
 
 	RenderImage::~RenderImage()
@@ -130,6 +134,7 @@ namespace Engine::Rendering::Vulkan
 		m_dimensions = dimensions;
 		m_mipLevels = mipLevels;
 		m_layerCount = layerCount;
+		m_usageFlags = imageUsage;
 
 		vk::ImageCreateInfo RenderImageInfo(vk::ImageCreateFlags(), GetImageType(imageType), GetVulkanFormat(format), GetExtent3D(dimensions),
 			mipLevels, layerCount, vk::SampleCountFlagBits::e1, GetImageTiling(tiling), static_cast<vk::ImageUsageFlagBits>(imageUsage), GetSharingMode(sharingMode));
@@ -146,8 +151,7 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		m_imageView = std::make_unique<ImageView>();
-		if (!m_imageView->Initialise(device, *this, mipLevels, layerCount, format, aspectFlags))
+		if (!InitialiseView(device, aspectFlags))
 		{
 			Logger::Error("Failed to create image view.");
 			return false;
@@ -156,9 +160,26 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool HasStencilComponent(Format format)
+	bool RenderImage::InitialiseView(const IDevice& device, ImageAspectFlags aspectFlags)
+	{
+		m_imageView = std::make_unique<ImageView>();
+		if (!m_imageView->Initialise(device, *this, m_mipLevels, m_layerCount, m_format, aspectFlags))
+		{
+			Logger::Error("Failed to create image view.");
+			return false;
+		}
+
+		return true;
+	}
+
+	inline bool HasStencilComponent(Format format)
 	{
 		return format == Format::D32SfloatS8Uint || format == Format::D24UnormS8Uint;
+	}
+
+	inline bool IsDepthFormat(Format format)
+	{
+		return HasStencilComponent(format) || format == Format::D32Sfloat;
 	}
 
 	inline bool SetFlags(const ImageLayout& imageLayout, vk::AccessFlags& accessMask, vk::PipelineStageFlags& stage)
@@ -198,10 +219,39 @@ namespace Engine::Rendering::Vulkan
 		}
 	}
 
+	inline bool LayoutSupported(ImageUsageFlags flags, ImageLayout layout)
+	{
+		switch (layout)
+		{
+		case ImageLayout::ColorAttachment:
+			return (flags & ImageUsageFlags::ColorAttachment) == ImageUsageFlags::ColorAttachment;
+		case ImageLayout::DepthStencilAttachment:
+			return (flags & ImageUsageFlags::DepthStencilAttachment) == ImageUsageFlags::DepthStencilAttachment;
+		case ImageLayout::ShaderReadOnly:
+			return (flags & ImageUsageFlags::Sampled) == ImageUsageFlags::Sampled;
+		case ImageLayout::TransferSrc:
+			return (flags & ImageUsageFlags::TransferSrc) == ImageUsageFlags::TransferSrc;
+		case ImageLayout::TransferDst:
+			return (flags & ImageUsageFlags::TransferDst) == ImageUsageFlags::TransferDst;
+		case ImageLayout::PresentSrc:
+			return (flags & ImageUsageFlags::ColorAttachment) == ImageUsageFlags::ColorAttachment;
+		case ImageLayout::Undefined:
+			return true;
+		default: // Unexpected layout, return false.
+			return false;
+		}
+	}
+
 	void RenderImage::TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout)
 	{
 		if (m_layout == newLayout)
 			return;
+
+		if (!LayoutSupported(m_usageFlags, newLayout))
+		{
+			Logger::Error("Image was not created with usage flags that support the requested layout.");
+			return;
+		}
 
 		vk::AccessFlags srcAccessMask;
 		vk::AccessFlags dstAccessMask;
@@ -221,7 +271,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		vk::ImageAspectFlags aspectFlags;
-		if (m_layout == ImageLayout::DepthStencilAttachment || newLayout == ImageLayout::DepthStencilAttachment)
+		if (IsDepthFormat(m_format))
 		{
 			aspectFlags = vk::ImageAspectFlagBits::eDepth;
 

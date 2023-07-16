@@ -13,13 +13,18 @@
 #include "Resources/FrameInfoUniformBuffer.hpp"
 #include "Resources/LightUniformBuffer.hpp"
 #include "Resources/GeometryBatch.hpp"
-#include "Passes/IRenderPass.hpp"
-#include "Passes/SceneOpaquePass.hpp"
-#include "Passes/SceneShadowPass.hpp"
-#include "Passes/CombinePass.hpp"
+#include "Resources/ISemaphore.hpp"
+#include "Resources/ICommandPool.hpp"
+#include "Resources/ICommandBuffer.hpp"
 #include "RenderResources/ShadowMap.hpp"
 #include "RenderResources/GBuffer.hpp"
 #include "PostProcessing.hpp"
+#include "Passes/IRenderPass.hpp"
+
+#include "Passes/SceneOpaquePass.hpp"
+#include "Passes/SceneShadowPass.hpp"
+#include "Passes/CombinePass.hpp"
+#include "Passes/UIPass.hpp"
 
 using namespace Engine::OS;
 using namespace Engine::UI;
@@ -51,7 +56,7 @@ namespace Engine::Rendering
 		, m_gBuffer(std::make_unique<GBuffer>())
 		, m_shadowMap(std::make_unique<ShadowMap>())
 		, m_postProcessing(std::make_unique<PostProcessing>())
-		, m_renderGraph(std::make_unique<RenderGraph>())
+		, m_renderGraph(nullptr)
 		, m_materialManager(nullptr)
 		, m_physicalDevice(nullptr)
 		, m_device(nullptr)
@@ -79,6 +84,7 @@ namespace Engine::Rendering
 		m_lightBufferData.clear();
 		m_renderPasses.clear();
 
+		m_renderGraph.reset();
 		m_linearSampler.reset();
 		m_nearestSampler.reset();
 		m_shadowSampler.reset();
@@ -90,7 +96,6 @@ namespace Engine::Rendering
 		m_sceneManager.reset();
 		m_renderStats.reset();
 		m_materialManager.reset();
-		m_renderGraph.reset();
 	}
 
 
@@ -120,6 +125,12 @@ namespace Engine::Rendering
 		}
 
 		return true;
+	}
+
+	void Renderer::SetTemporalAAState(bool enabled)
+	{
+		m_renderSettings.m_temporalAA = enabled;
+		m_renderGraph->SetPassEnabled("TAA", enabled);
 	}
 
 	bool Renderer::CreateLightUniformBuffer()
@@ -160,13 +171,15 @@ namespace Engine::Rendering
 		frameInfo->prevViewProj = frameInfo->viewProj;
 		frameInfo->viewSize = size;
 		frameInfo->viewProj = m_camera.GetViewProjection();
-		frameInfo->jitter = m_postProcessing->IsEnabled() ? m_postProcessing->GetTAAJitter() : glm::vec2();
+		frameInfo->jitter = m_postProcessing->GetTAAJitter();
 	}
 
 	bool Renderer::Initialise()
 	{
 		m_lastWindowSize = m_window.GetSize();
 		m_depthFormat = m_physicalDevice->FindDepthFormat();
+
+		m_renderGraph = std::make_unique<RenderGraph>(*m_renderStats);
 
 		if (!m_materialManager->Initialise(*m_physicalDevice, *m_device, m_maxConcurrentFrames, m_swapChain->GetFormat(), m_depthFormat)
 			|| !CreateFrameInfoUniformBuffer()
@@ -188,9 +201,11 @@ namespace Engine::Rendering
 			return false;
 		}
 
+		float maxAnisotropy = m_physicalDevice->GetMaxAnisotropy();
+
 		m_linearSampler = std::move(m_resourceFactory->CreateImageSampler());
 		if (!m_linearSampler->Initialise(*m_device, Filter::Linear, Filter::Linear, SamplerMipmapMode::Linear,
-			SamplerAddressMode::Repeat, 1))
+			SamplerAddressMode::Repeat, maxAnisotropy))
 		{
 			return false;
 		}
@@ -208,9 +223,9 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		const uint32_t renderPassCount = m_shadowMap->GetCascadeCount() + 4; // Shadow cascades, scene, resolve, TAA & UI
-		if (!m_renderStats->Initialise(*m_physicalDevice, *m_device, renderPassCount))
+		if (!m_renderGraph->Initialise(*m_physicalDevice, *m_device, *m_resourceFactory, m_maxConcurrentFrames))
 		{
+			Logger::Error("Failed to initialise render graph.");
 			return false;
 		}
 
@@ -237,6 +252,14 @@ namespace Engine::Rendering
 			}
 		}
 
+		// Add UI pass after post processing.
+		m_renderPasses["UI"] = std::make_unique<UIPass>(*m_uiManager);
+		if (!m_renderGraph->AddPass(m_renderPasses["UI"].get(), *m_materialManager))
+		{
+			Logger::Error("Failed to add pass 'UI' to render graph.");
+			return false;
+		}
+
 		if (!m_renderGraph->Build(*this))
 		{
 			Logger::Error("Failed to build render graph.");
@@ -256,6 +279,46 @@ namespace Engine::Rendering
 			Logger::Error("Requested renderer type not supported.");
 			return nullptr;
 		}
+	}
+
+	void Renderer::SetDebugMode(uint32_t mode)
+	{
+		if (!m_gBuffer.get())
+			return;
+
+		m_debugMode = mode;
+		const std::unique_ptr<CombinePass>& combinePass = reinterpret_cast<const std::unique_ptr<CombinePass>&>(m_renderPasses.at("Combine"));
+		combinePass->SetDebugMode(mode);
+	}
+
+	bool Renderer::Render()
+	{
+		const glm::uvec2& windowSize = m_swapChain->GetExtent();
+
+		UpdateFrameInfo();
+
+		// Update light buffer
+		LightUniformBuffer* lightInfo = m_lightBufferData[m_currentFrame];
+		lightInfo->sunLightColour = m_sunColour.GetVec4();
+		lightInfo->sunLightIntensity = m_sunIntensity;
+		lightInfo->sunLightDir = m_sunDirection;
+
+		const uint32_t cascadeCount = m_shadowMap->GetCascadeCount();
+		ShadowCascadeData cascadeData = m_shadowMap->UpdateCascades(m_camera, m_sunDirection);
+		for (uint32_t i = 0; i < cascadeCount; ++i)
+		{
+			lightInfo->cascadeMatrices[i] = cascadeData.CascadeMatrices[i];
+			lightInfo->cascadeSplits[i] = cascadeData.CascadeSplits[i];
+		}
+
+		m_camera.Update(windowSize);
+
+		if (!m_renderGraph->Draw(*this, m_currentFrame))
+		{
+			return false;
+		}
+
+		return true;
 	}
 
 	void Renderer::SetMultiSampleCount(uint32_t multiSampleCount)

@@ -11,10 +11,8 @@ layout(binding = 4) uniform texture2D velocityImage;
 layout(binding = 5) uniform texture2D depthImage;
 
 layout(location = 0) in vec2 fragUv;
-layout(location = 1) flat in uint fragEnabled;
 
 layout(location = 0) out vec4 outColor;
-layout(location = 1) out vec4 outPreviousColor;
 
 float mitchell(float x)
 {
@@ -54,13 +52,6 @@ float luminance(vec3 rgb)
 
 void main()
 {
-	// Sily hack, clean up when pipeline manager & render graph are implemented.
-	if (fragEnabled == 0)
-	{
-		outPreviousColor = outColor = texture(sampler2D(inputImage, nearestSampler), fragUv);
-		return;
-	}
-
 	vec2 texDimensions = textureSize(inputImage, 0);
 	vec2 texelSize = vec2(1.0) / texDimensions;
 	vec3 sourceSampleTotal = vec3(0.0);
@@ -127,5 +118,4 @@ void main()
 	vec3 result = (sourceSample * sourceWeight + historySample * historyWeight) / max(sourceWeight + historyWeight, 0.00001);
 
 	outColor = vec4(result, 1.0);
-	outPreviousColor = outColor;
 }

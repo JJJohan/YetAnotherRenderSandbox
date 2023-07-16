@@ -14,38 +14,31 @@ namespace Engine::Rendering
 	public:
 		virtual ~IRenderResource() = default;
 
-		virtual bool Build(const Renderer& renderer) = 0;
+		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IBuffer*>& bufferInputs) = 0;
 
 		inline const char* GetName() const { return m_name; }
 
-		inline const std::vector<const char*>& GetBufferOutputs() const { return m_bufferOutputs; }
+		inline const std::unordered_map<const char*, IBuffer*>& GetBufferOutputs() const { return m_bufferOutputs; }
 
-		inline const std::vector<const char*>& GetImageOutputs() const { return m_imageOutputs; }
+		inline const std::unordered_map<const char*, IRenderImage*>& GetImageOutputs() const { return m_imageOutputs; }
 
-		IRenderImage* GetImageResource(const char* name) const
-		{
-			return m_imageResources.at(name);
-		}
+		inline IBuffer* GetOutputBuffer(const char* name) const { return m_bufferOutputs.at(name); }
 
-		IBuffer* GetBufferResource(const char* name) const
-		{
-			return m_bufferResources.at(name);
-		}
+		inline IRenderImage* GetOutputImage(const char* name) const { return m_imageOutputs.at(name); }
+
+		inline virtual size_t GetMemoryUsage() const { return 0; }
 
 	protected:
 		IRenderResource(const char* name)
 			: m_bufferOutputs()
 			, m_imageOutputs()
 			, m_name(name)
-			, m_bufferResources()
-			, m_imageResources()
 		{
 		}
 
-		std::vector<const char*> m_bufferOutputs;
-		std::vector<const char*> m_imageOutputs;
-		std::unordered_map<const char*, IBuffer*> m_bufferResources;
-		std::unordered_map<const char*, IRenderImage*> m_imageResources;
+		std::unordered_map<const char*, IBuffer*> m_bufferOutputs;
+		std::unordered_map<const char*, IRenderImage*> m_imageOutputs;
 
 	private:
 		const char* m_name;

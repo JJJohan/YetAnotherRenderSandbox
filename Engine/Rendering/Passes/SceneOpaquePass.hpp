@@ -14,7 +14,8 @@ namespace Engine::Rendering
 		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
 			const std::unordered_map<const char*, IBuffer*>& bufferInputs) override;
 
-		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer, uint32_t frameIndex) const override;
+		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
+			const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex) override;
 
 	private:
 		const GeometryBatch& m_sceneGeometryBatch;

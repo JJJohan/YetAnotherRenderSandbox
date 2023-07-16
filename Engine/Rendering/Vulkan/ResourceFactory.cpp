@@ -3,6 +3,8 @@
 #include "ImageSampler.hpp"
 #include "RenderImage.hpp"
 #include "VulkanRenderer.hpp"
+#include "CommandPool.hpp"
+#include "Semaphore.hpp"
 
 namespace Engine::Rendering::Vulkan
 {
@@ -24,5 +26,15 @@ namespace Engine::Rendering::Vulkan
 	std::unique_ptr<IImageSampler> ResourceFactory::CreateImageSampler() const
 	{
 		return std::make_unique<ImageSampler>();
+	}
+
+	std::unique_ptr<ICommandPool> ResourceFactory::CreateCommandPool() const
+	{
+		return std::make_unique<CommandPool>();
+	}
+
+	std::unique_ptr<ISemaphore> ResourceFactory::CreateGraphicsSemaphore() const
+	{
+		return std::make_unique<Semaphore>();
 	}
 }

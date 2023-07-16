@@ -11,20 +11,22 @@ using namespace Engine::Logging;
 
 namespace Engine::Rendering
 {
+	const Format OutputImageFormat = Format::R8G8B8A8Unorm;
+
 	TAAPass::TAAPass()
 		: IRenderPass("TAA", "TAA")
 		, m_taaPreviousImages()
 	{
 		m_imageInputs =
 		{
-			"Combined",
-			"Velocity",
-			"Depth"
+			{"Output", nullptr},
+			{"Velocity", nullptr},
+			{"Depth", nullptr}
 		};
 
 		m_imageOutputs =
 		{
-			"Final"
+			{"Output", nullptr}
 		};
 	}
 
@@ -35,7 +37,7 @@ namespace Engine::Rendering
 		{
 			ImageUsageFlags usageFlags = i == 0 ?
 				ImageUsageFlags::Sampled | ImageUsageFlags::TransferDst :
-				ImageUsageFlags::ColorAttachment | ImageUsageFlags::TransferSrc;
+				ImageUsageFlags::Sampled | ImageUsageFlags::ColorAttachment | ImageUsageFlags::TransferSrc;
 
 			m_taaPreviousImages[i] = std::move(resourceFactory.CreateRenderImage());
 			glm::uvec3 extent(size.x, size.y, 1);
@@ -51,13 +53,62 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	void TAAPass::TransitionTAAImageLayouts(const IDevice& device, const ICommandBuffer& commandBuffer) const
+	bool TAAPass::Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+		const std::unordered_map<const char*, IBuffer*>& bufferInputs)
 	{
-		m_taaPreviousImages[0]->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
-		m_taaPreviousImages[1]->TransitionImageLayout(device, commandBuffer, ImageLayout::ColorAttachment);
+		m_taaPreviousImages[0].reset();
+		m_taaPreviousImages[1].reset();
+
+		const IDevice& device = renderer.GetDevice();
+		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();
+		const ISwapChain& swapchain = renderer.GetSwapChain();
+
+		const glm::uvec2& size = swapchain.GetExtent();
+		if (!CreateTAAImage(device, resourceFactory, size))
+		{
+			return false;
+		}
+
+		if (!IRenderPass::Build(renderer, imageInputs, bufferInputs))
+			return false;
+
+		m_imageOutputs["Output"] = m_taaPreviousImages[1].get();
+
+		m_colourAttachments.clear();
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, m_taaPreviousImages[1].get(), AttachmentLoadOp::Load));
+
+		const IImageSampler& linearSampler = renderer.GetLinearSampler();
+		const IImageSampler& nearestSampler = renderer.GetNearestSampler();
+		const IImageView& outputImageView = m_imageInputs.at("Output")->GetView();
+		const IImageView& velocityImageView = m_imageInputs.at("Velocity")->GetView();
+		const IImageView& depthImageView = m_imageInputs.at("Depth")->GetView();
+
+		if (!m_material->BindSampler(0, linearSampler) ||
+			!m_material->BindSampler(1, nearestSampler) ||
+			!m_material->BindImageView(2, outputImageView) ||
+			!m_material->BindImageView(3, m_taaPreviousImages[0]->GetView()) ||
+			!m_material->BindImageView(4, velocityImageView) ||
+			!m_material->BindImageView(5, depthImageView))
+			return false;
+
+		return true;
 	}
 
-	void TAAPass::BlitTAA(const IDevice& device, const ICommandBuffer& commandBuffer) const
+	void TAAPass::PreDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
+		const glm::uvec2& size, uint32_t frameIndex)
+	{
+		m_taaPreviousImages[0]->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
+	}
+
+	void TAAPass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
+		const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex)
+	{
+		m_material->BindMaterial(commandBuffer, frameIndex);
+		commandBuffer.Draw(3, 1, 0, 0);
+	}
+
+	void TAAPass::PostDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
+		const glm::uvec2& size, uint32_t frameIndex)
 	{
 		m_taaPreviousImages[0]->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferDst);
 		m_taaPreviousImages[1]->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferSrc);
@@ -71,52 +122,6 @@ namespace Engine::Rendering
 		blit.dstSubresource = ImageSubresourceLayers(ImageAspectFlags::Color, 0, 0, 1);
 		blit.dstOffsets = std::array<glm::uvec3, 2> { glm::uvec3(), offset };
 
-		commandBuffer.BlitImage(*m_taaPreviousImages[1], ImageLayout::TransferSrc,
-			*m_taaPreviousImages[0], ImageLayout::TransferDst, { blit }, Filter::Linear);
-	}
-
-	bool TAAPass::Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IBuffer*>& bufferInputs)
-	{
-		m_taaPreviousImages[0].reset();
-		m_taaPreviousImages[1].reset();
-		m_imageResources.clear();
-
-		const IDevice& device = renderer.GetDevice();
-		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();
-		const ISwapChain& swapchain = renderer.GetSwapChain();
-
-		const glm::uvec2& size = swapchain.GetExtent();
-		if (!CreateTAAImage(device, resourceFactory, size))
-		{
-			return false;
-		}
-
-		m_imageResources["History"] = m_taaPreviousImages[1].get();
-
-		const IImageSampler& linearSampler = renderer.GetLinearSampler();
-		const IImageSampler& nearestSampler = renderer.GetNearestSampler();
-		const IImageView& combinedImageView = imageInputs.at("Combined")->GetView();
-		const IImageView& velocityImageView = imageInputs.at("Velocity")->GetView();
-		const IImageView& depthImageView = imageInputs.at("Depth")->GetView();
-
-		if (!m_material->BindSampler(0, linearSampler) ||
-			!m_material->BindSampler(1, nearestSampler) ||
-			!m_material->BindImageView(2, combinedImageView) ||
-			!m_material->BindImageView(3, m_taaPreviousImages[0]->GetView()) ||
-			!m_material->BindImageView(4, velocityImageView) ||
-			!m_material->BindImageView(5, depthImageView))
-			return false;
-
-		return true;
-	}
-
-	void TAAPass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer, uint32_t frameIndex) const
-	{
-		m_material->BindMaterial(commandBuffer, frameIndex);
-
-		uint32_t enabled = 1; // TODO: Remove!
-		commandBuffer.PushConstants(m_material, ShaderStageFlags::Vertex, 0, sizeof(uint32_t), &enabled);
-		commandBuffer.Draw(3, 1, 0, 0);
+		commandBuffer.BlitImage(*m_taaPreviousImages[1], *m_taaPreviousImages[0], { blit }, Filter::Linear);
 	}
 }

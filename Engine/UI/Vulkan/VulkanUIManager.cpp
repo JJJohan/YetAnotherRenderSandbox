@@ -75,7 +75,7 @@ namespace Engine::UI::Vulkan
 		initInfo.Allocator = nullptr;
 		initInfo.CheckVkResultFn = check_vk_result;
 		initInfo.UseDynamicRendering = true;
-		initInfo.ColorAttachmentFormat = static_cast<VkFormat>(GetVulkanFormat(renderer.GetSwapChain().GetFormat()));
+		initInfo.ColorAttachmentFormat = static_cast<VkFormat>(GetVulkanFormat(Format::R8G8B8A8Unorm));
 		if (!ImGui_ImplVulkan_Init(&initInfo, nullptr))
 		{
 			return false;

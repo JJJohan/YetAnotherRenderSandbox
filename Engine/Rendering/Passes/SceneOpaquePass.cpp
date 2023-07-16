@@ -15,22 +15,22 @@ namespace Engine::Rendering
 	{
 		m_imageInputs =
 		{
-			"Albedo",
-			"WorldNormal",
-			"WorldPos",
-			"MetalRoughness",
-			"Velocity",
-			"Depth"
+			{"Albedo", nullptr},
+			{"WorldNormal", nullptr},
+			{"WorldPos", nullptr},
+			{"MetalRoughness", nullptr},
+			{"Velocity", nullptr},
+			{"Depth", nullptr}
 		};
 
 		m_imageOutputs =
 		{
-			"Albedo",
-			"WorldNormal",
-			"WorldPos",
-			"MetalRoughness",
-			"Velocity",
-			"Depth"
+			{"Albedo", nullptr},
+			{"WorldNormal", nullptr},
+			{"WorldPos", nullptr},
+			{"MetalRoughness", nullptr},
+			{"Velocity", nullptr},
+			{"Depth", nullptr}
 		};
 	}
 
@@ -42,12 +42,17 @@ namespace Engine::Rendering
 		const std::vector<std::unique_ptr<IBuffer>>& lightBuffers = renderer.GetLightBuffers();
 		const IImageSampler& linearSampler = renderer.GetLinearSampler();
 
-		m_imageResources["Albedo"] = imageInputs.at("Albedo");
-		m_imageResources["WorldNormal"] = imageInputs.at("WorldNormal");
-		m_imageResources["WorldPos"] = imageInputs.at("WorldPos");
-		m_imageResources["MetalRoughness"] = imageInputs.at("MetalRoughness");
-		m_imageResources["Velocity"] = imageInputs.at("Velocity");
-		m_imageResources["Depth"] = imageInputs.at("Depth");
+		if (!IRenderPass::Build(renderer, imageInputs, bufferInputs))
+			return false;
+
+		m_colourAttachments.clear();
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, m_imageInputs.at("Albedo")));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(1, m_imageInputs.at("WorldNormal")));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(2, m_imageInputs.at("WorldPos")));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(3, m_imageInputs.at("MetalRoughness")));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(4, m_imageInputs.at("Velocity")));
+
+		m_depthAttachment = AttachmentInfo(m_imageInputs.at("Depth"), ImageLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
 
 		// If scene manager has not been built or is empty, mark the pass as done so drawing is skipped for this pass.
 		if (!m_sceneGeometryBatch.IsBuilt() || m_sceneGeometryBatch.GetVertexBuffers().empty())
@@ -70,7 +75,8 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	void SceneOpaquePass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer, uint32_t frameIndex) const
+	void SceneOpaquePass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
+		const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex)
 	{
 		if (!m_built)
 			return;

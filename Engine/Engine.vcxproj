@@ -176,6 +176,7 @@
     <ClCompile Include="OS\Win32\Win32Window.cpp" />
     <ClCompile Include="OS\Window.cpp" />
     <ClCompile Include="Rendering\Camera.cpp" />
+    <ClCompile Include="Rendering\Passes\UIPass.cpp" />
     <ClCompile Include="Rendering\RenderResources\GBuffer.cpp" />
     <ClCompile Include="Rendering\Passes\CombinePass.cpp" />
     <ClCompile Include="Rendering\Passes\SceneOpaquePass.cpp" />
@@ -201,6 +202,7 @@
     <ClCompile Include="Rendering\Vulkan\Instance.cpp" />
     <ClCompile Include="Rendering\Vulkan\PhysicalDevice.cpp" />
     <ClCompile Include="Rendering\Vulkan\ResourceFactory.cpp" />
+    <ClCompile Include="Rendering\Vulkan\Semaphore.cpp" />
     <ClCompile Include="Rendering\Vulkan\VulkanRenderStats.cpp" />
     <ClCompile Include="Rendering\Vulkan\PipelineLayout.cpp" />
     <ClCompile Include="Rendering\Vulkan\VulkanRenderer.cpp" />
@@ -246,6 +248,7 @@
     <ClInclude Include="OS\Win32\WindowProc.hpp" />
     <ClInclude Include="OS\Window.hpp" />
     <ClInclude Include="Rendering\Camera.hpp" />
+    <ClInclude Include="Rendering\Passes\UIPass.hpp" />
     <ClInclude Include="Rendering\RenderResources\GBuffer.hpp" />
     <ClInclude Include="Rendering\Passes\CombinePass.hpp" />
     <ClInclude Include="Rendering\Passes\IRenderPass.hpp" />
@@ -254,6 +257,8 @@
     <ClInclude Include="Rendering\Passes\TAAPass.hpp" />
     <ClInclude Include="Rendering\PostProcessing.hpp" />
     <ClInclude Include="Rendering\RenderGraph.hpp" />
+    <ClInclude Include="Rendering\Resources\ICommandPool.hpp" />
+    <ClInclude Include="Rendering\Resources\ISemaphore.hpp" />
     <ClInclude Include="Rendering\Resources\RenderMeshInfo.hpp" />
     <ClInclude Include="Rendering\RenderSettings.hpp" />
     <ClInclude Include="Rendering\Resources\AttachmentInfo.hpp" />
@@ -270,6 +275,7 @@
     <ClInclude Include="Rendering\Resources\LightUniformBuffer.hpp" />
     <ClInclude Include="Rendering\Resources\Material.hpp" />
     <ClInclude Include="Rendering\RenderResources\ShadowMap.hpp" />
+    <ClInclude Include="Rendering\Resources\SubmitInfo.hpp" />
     <ClInclude Include="Rendering\Types.hpp" />
     <ClInclude Include="Rendering\Resources\MeshInfo.hpp" />
     <ClInclude Include="Rendering\RenderStats.hpp" />
@@ -290,8 +296,9 @@
     <ClInclude Include="Rendering\Vulkan\ImageView.hpp" />
     <ClInclude Include="Rendering\Vulkan\Instance.hpp" />
     <ClInclude Include="Rendering\Vulkan\PhysicalDevice.hpp" />
-    <ClInclude Include="Rendering\Vulkan\QueueFamilyIndices.hpp" />
+    <ClInclude Include="Rendering\QueueFamilyIndices.hpp" />
     <ClInclude Include="Rendering\Vulkan\ResourceFactory.hpp" />
+    <ClInclude Include="Rendering\Vulkan\Semaphore.hpp" />
     <ClInclude Include="Rendering\Vulkan\VulkanRenderStats.hpp" />
     <ClInclude Include="Rendering\Vulkan\PipelineLayout.hpp" />
     <ClInclude Include="Rendering\Vulkan\VulkanRenderer.hpp" />

@@ -22,6 +22,7 @@ namespace Engine::Rendering
 			, m_dimensions()
 			, m_layout(ImageLayout::Undefined)
 			, m_imageView(nullptr)
+			, m_usageFlags()
 		{
 		}
 
@@ -30,6 +31,8 @@ namespace Engine::Rendering
 		virtual bool Initialise(const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
 			uint32_t mipLevels, uint32_t layerCount, ImageTiling tiling, ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags,
 			MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode) = 0;
+		virtual bool InitialiseView(const IDevice& device, ImageAspectFlags aspectFlags) = 0;
+
 		virtual bool UpdateContents(const void* data, uint64_t size) = 0;
 		virtual void TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout) = 0;
 		virtual void GenerateMipmaps(const IDevice& device, const ICommandBuffer& commandBuffer) = 0;
@@ -45,6 +48,7 @@ namespace Engine::Rendering
 		Format m_format;
 		uint32_t m_mipLevels;
 		uint32_t m_layerCount;
+		ImageUsageFlags m_usageFlags;
 		glm::uvec3 m_dimensions;
 		ImageLayout m_layout;
 		std::unique_ptr<IImageView> m_imageView;

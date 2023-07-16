@@ -3,6 +3,7 @@
 #include "Core/Macros.hpp"
 #include <stdint.h>
 #include <vector>
+#include <unordered_map>
 
 namespace Engine::Rendering
 {
@@ -17,8 +18,7 @@ namespace Engine::Rendering
 
 	struct MemoryStats
 	{
-		uint64_t GBuffer;
-		uint64_t ShadowMap;
+		std::unordered_map<const char*, size_t> ResourceMemoryUsage;
 		uint64_t DedicatedUsage;
 		uint64_t DedicatedBudget;
 		uint64_t SharedUsage;
@@ -28,6 +28,7 @@ namespace Engine::Rendering
 	class IPhysicalDevice;
 	class IDevice;
 	class ICommandBuffer;
+	class IRenderResource;
 
 	class RenderStats
 	{
@@ -36,15 +37,16 @@ namespace Engine::Rendering
 		virtual ~RenderStats() = default;
 
 		virtual bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t renderPassCount) = 0;
-		virtual void Begin(const ICommandBuffer& commandBuffer) = 0;
+		virtual void Begin(const ICommandBuffer& commandBuffer, const char* passName) = 0;
 		virtual void End(const ICommandBuffer& commandBuffer) = 0;
-		virtual void FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device) = 0;
+		virtual void FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device,
+			const std::unordered_map<const char*, IRenderResource*>& renderResources) = 0;
 
-		EXPORT const std::vector<FrameStats>& GetFrameStats() const;
+		EXPORT const std::unordered_map<const char*, FrameStats>& GetFrameStats() const;
 		EXPORT const MemoryStats& GetMemoryStats() const;
 
 	protected:
-		std::vector<FrameStats> m_statsData;
+		std::unordered_map<const char*, FrameStats> m_statsData;
 		MemoryStats m_memoryStats;
 	};
 }

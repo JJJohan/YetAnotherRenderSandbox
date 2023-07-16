@@ -6,8 +6,7 @@ using namespace Engine::Logging;
 namespace Engine::Rendering
 {
 	PostProcessing::PostProcessing()
-		: m_enabled(true)
-		, m_taaPass(nullptr)
+		: m_taaPass(nullptr)
 		, m_taaFrameIndex(0)
 		, m_taaJitterOffsets()
 	{

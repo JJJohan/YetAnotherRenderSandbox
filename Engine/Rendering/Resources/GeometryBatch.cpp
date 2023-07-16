@@ -68,11 +68,12 @@ namespace Engine::Rendering
 		{
 			id = m_recycledIds.top();
 			m_recycledIds.pop();
+			m_active[id] = true;
 		}
 		else
 		{
 			m_meshInfos.push_back({});
-			m_active.push_back(false);
+			m_active.push_back(true);
 			id = m_meshCapacity++;
 		}
 
