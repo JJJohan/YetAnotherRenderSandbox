@@ -171,7 +171,7 @@ namespace Engine::Rendering
 		frameInfo->prevViewProj = frameInfo->viewProj;
 		frameInfo->viewSize = size;
 		frameInfo->viewProj = m_camera.GetViewProjection();
-		frameInfo->jitter = m_postProcessing->GetTAAJitter();
+		frameInfo->jitter = m_renderSettings.m_temporalAA ? m_postProcessing->GetTAAJitter() : glm::vec2();
 	}
 
 	bool Renderer::Initialise()

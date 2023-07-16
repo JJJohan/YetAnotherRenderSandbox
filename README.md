@@ -7,7 +7,6 @@ The project consists of a Windows-specific solution file with dependencies pre-c
 The current focus is on building up a fairly solid foundation, with graphical fidelity not being the immediate goal which will result in some sub-par output. Currently a hard-coded directional light spins around an arbitrary GLTF file (with the assumption it contains PBR data.)
 
 Some short-term goals I'll be looking at:
-* Implementing a render graph that will handle the different passes.
 * Compute-based culling.
 * Experimenting with some different lighting setups.
 * Experimenting with basic animation.
