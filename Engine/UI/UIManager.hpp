@@ -30,6 +30,7 @@ namespace Engine::UI
 		EXPORT float GetFPS() const;
 
 		virtual void Draw(const Engine::Rendering::ICommandBuffer& commandBuffer, float width, float height) = 0;
+		inline size_t GetDrawCallbackCount() const { return m_drawCallbacks.size(); }
 
 	protected:
 		UIManager(const Engine::OS::Window& window, Engine::Rendering::Renderer& renderer);

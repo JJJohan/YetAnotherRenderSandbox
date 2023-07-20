@@ -8,15 +8,17 @@
 
 namespace Engine::Rendering
 {
+	class ShadowMap;
 	class IResourceFactory;
 
 	class CombinePass : public IRenderPass
 	{
 	public:
-		CombinePass();
+		CombinePass(const ShadowMap& shadowMap);
 
-		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IBuffer*>& bufferInputs) override;
+		virtual bool Build(const Renderer& renderer,
+			const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) override;
 
 		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer, 
 			const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex) override;
@@ -24,8 +26,6 @@ namespace Engine::Rendering
 		void SetDebugMode(uint32_t value) const;
 
 	private:
-		bool CreateOutputImage(const IDevice& device, const IResourceFactory& resourceFactory, const glm::uvec2& size);
-
-		std::unique_ptr<IRenderImage> m_outputImage;
+		const ShadowMap& m_shadowMap;
 	};
 }

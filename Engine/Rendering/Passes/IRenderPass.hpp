@@ -7,6 +7,7 @@
 #include "../Resources/Material.hpp"
 #include "../Resources/AttachmentInfo.hpp"
 #include "../RenderResources/IRenderResource.hpp"
+#include "../RenderResources/IRenderNode.hpp"
 #include <glm/glm.hpp>
 
 namespace Engine::Rendering
@@ -17,7 +18,21 @@ namespace Engine::Rendering
 	class ICommandBuffer;
 	class Renderer;
 
-	class IRenderPass : public IRenderResource
+	struct RenderPassImageInfo
+	{
+		Format Format;
+		bool IsRead;
+		glm::uvec3 Dimensions;
+
+		RenderPassImageInfo(Engine::Rendering::Format format = Format::Undefined, bool isRead = false, const glm::uvec3& dimensions = {})
+			: Format(format)
+			, IsRead(isRead)
+			, Dimensions(dimensions)
+		{
+		}
+	};
+
+	class IRenderPass : public IRenderNode
 	{
 	public:
 		virtual ~IRenderPass() = default;
@@ -33,36 +48,14 @@ namespace Engine::Rendering
 			return true;
 		}
 
-		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IBuffer*>& bufferInputs) override
-		{
-			m_imageInputs = imageInputs;
-			m_bufferInputs = bufferInputs;
-
-			for (auto& imageOutput : m_imageOutputs)
-			{
-				const auto& input = imageInputs.find(imageOutput.first);
-				if (input != imageInputs.end())
-				{
-					imageOutput.second = input->second;
-				}
-			}
-
-			for (auto& bufferOutput : m_bufferOutputs)
-			{
-				const auto& input = bufferInputs.find(bufferOutput.first);
-				if (input != bufferInputs.end())
-				{
-					bufferOutput.second = input->second;
-				}
-			}
-
-			return true;
-		}
+		virtual bool Build(const Renderer& renderer,
+			const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) = 0;
 
 		// Call before BeginRendering, but after command buffer Begin.
 		inline virtual void PreDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
-			const glm::uvec2& size, uint32_t frameIndex) 
+			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
 		{
 		}
 
@@ -71,15 +64,26 @@ namespace Engine::Rendering
 
 		// Called after EndRendering, but before command buffer End.
 		inline virtual void PostDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
-			const glm::uvec2& size, uint32_t frameIndex)
+			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
 		{
+		}
+
+		virtual inline void ClearResources() override
+		{
+			m_colourAttachments.clear();
+			m_depthAttachment.reset();
 		}
 
 		inline uint32_t GetLayerCount() const { return m_layerCount; }
 
 		inline const std::unordered_map<const char*, IBuffer*>& GetBufferInputs() const { return m_bufferInputs; }
 
-		inline const std::unordered_map<const char*, IRenderImage*>& GetImageInputs() const { return m_imageInputs; }
+		inline const std::unordered_map<const char*, IBuffer*>& GetBufferOutputs() const { return m_bufferOutputs; }
+
+		inline const std::unordered_map<const char*, RenderPassImageInfo>& GetImageInputInfos() const { return m_imageInputInfos; }
+
+		inline const std::unordered_map<const char*, RenderPassImageInfo>& GetImageOutputInfos() const { return m_imageOutputInfos; }
 
 		inline const std::vector<AttachmentInfo>& GetColourAttachments() const { return m_colourAttachments; }
 
@@ -91,11 +95,15 @@ namespace Engine::Rendering
 
 		virtual inline bool GetCustomSize(glm::uvec2& outSize) const { return false; }
 
+		inline virtual RenderNodeType GetNodeType() const override { return RenderNodeType::Pass; }
+
 	protected:
 		IRenderPass(const char* name, const char* materialName)
-			: IRenderResource(name)
+			: IRenderNode(name)
 			, m_bufferInputs()
-			, m_imageInputs()
+			, m_bufferOutputs()
+			, m_imageInputInfos()
+			, m_imageOutputInfos()
 			, m_layerCount(1)
 			, m_material(nullptr)
 			, m_materialName(materialName)
@@ -106,7 +114,9 @@ namespace Engine::Rendering
 		}
 
 		std::unordered_map<const char*, IBuffer*> m_bufferInputs;
-		std::unordered_map<const char*, IRenderImage*> m_imageInputs;
+		std::unordered_map<const char*, IBuffer*> m_bufferOutputs;
+		std::unordered_map<const char*, RenderPassImageInfo> m_imageInputInfos;
+		std::unordered_map<const char*, RenderPassImageInfo> m_imageOutputInfos;
 		std::vector<AttachmentInfo> m_colourAttachments;
 		std::optional<AttachmentInfo> m_depthAttachment;
 		Material* m_material;

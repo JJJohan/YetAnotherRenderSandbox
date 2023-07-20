@@ -50,7 +50,7 @@ namespace Engine::Rendering
         AttachmentInfo(IRenderImage* renderImage = nullptr, 
             ImageLayout imageLayout = ImageLayout::Undefined,
             AttachmentLoadOp loadOp = AttachmentLoadOp::DontCare, 
-            AttachmentStoreOp storeOp = AttachmentStoreOp::DontCare,
+            AttachmentStoreOp storeOp = AttachmentStoreOp::Store,
             ClearValue clearValue = ClearValue(0.0f))
             : renderImage(renderImage)
             , imageLayout(imageLayout)

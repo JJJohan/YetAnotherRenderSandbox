@@ -177,13 +177,13 @@
     <ClCompile Include="OS\Window.cpp" />
     <ClCompile Include="Rendering\Camera.cpp" />
     <ClCompile Include="Rendering\Passes\UIPass.cpp" />
-    <ClCompile Include="Rendering\RenderResources\GBuffer.cpp" />
     <ClCompile Include="Rendering\Passes\CombinePass.cpp" />
     <ClCompile Include="Rendering\Passes\SceneOpaquePass.cpp" />
     <ClCompile Include="Rendering\Passes\SceneShadowPass.cpp" />
     <ClCompile Include="Rendering\Passes\TAAPass.cpp" />
     <ClCompile Include="Rendering\PostProcessing.cpp" />
     <ClCompile Include="Rendering\RenderGraph.cpp" />
+    <ClCompile Include="Rendering\RenderResources\IRenderNode.hpp" />
     <ClCompile Include="Rendering\RenderStats.cpp" />
     <ClCompile Include="Rendering\Resources\GeometryBatch.cpp" />
     <ClCompile Include="Rendering\Resources\Material.cpp" />
@@ -249,7 +249,6 @@
     <ClInclude Include="OS\Window.hpp" />
     <ClInclude Include="Rendering\Camera.hpp" />
     <ClInclude Include="Rendering\Passes\UIPass.hpp" />
-    <ClInclude Include="Rendering\RenderResources\GBuffer.hpp" />
     <ClInclude Include="Rendering\Passes\CombinePass.hpp" />
     <ClInclude Include="Rendering\Passes\IRenderPass.hpp" />
     <ClInclude Include="Rendering\Passes\SceneOpaquePass.hpp" />

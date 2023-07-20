@@ -59,10 +59,17 @@ namespace Engine::Rendering::Vulkan
 		return Format::Undefined;
 	}
 
-	Format PhysicalDevice::FindDepthFormat() const
+	Format PhysicalDevice::FindDepthFormat()
 	{
-		return FindSupportedFormat({ Format::D32Sfloat, Format::D32SfloatS8Uint, Format::D24UnormS8Uint },
+		if (m_depthFormat != Format::Undefined)
+		{
+			return m_depthFormat;
+		}
+
+		m_depthFormat = FindSupportedFormat({ Format::D32Sfloat, Format::D32SfloatS8Uint, Format::D24UnormS8Uint },
 			vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+
+		return m_depthFormat;
 	}
 
 	bool PhysicalDevice::FormatSupported(Format format) const

@@ -130,9 +130,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-
-	bool ShadowMap::Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IBuffer*>& bufferInputs)
+	bool ShadowMap::Build(const Renderer& renderer)
 	{
 		m_shadowImage.reset();
 

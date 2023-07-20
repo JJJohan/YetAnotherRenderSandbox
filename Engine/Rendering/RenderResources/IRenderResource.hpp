@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include "IRenderNode.hpp"
 
 namespace Engine::Rendering
 {
@@ -9,15 +10,12 @@ namespace Engine::Rendering
 	class IRenderImage;
 	class Renderer;
 
-	class IRenderResource
+	class IRenderResource : public IRenderNode
 	{
 	public:
 		virtual ~IRenderResource() = default;
 
-		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IBuffer*>& bufferInputs) = 0;
-
-		inline const char* GetName() const { return m_name; }
+		virtual bool Build(const Renderer& renderer) = 0;
 
 		inline const std::unordered_map<const char*, IBuffer*>& GetBufferOutputs() const { return m_bufferOutputs; }
 
@@ -29,18 +27,17 @@ namespace Engine::Rendering
 
 		inline virtual size_t GetMemoryUsage() const { return 0; }
 
+		inline virtual RenderNodeType GetNodeType() const override { return RenderNodeType::Resource; }
+
 	protected:
 		IRenderResource(const char* name)
-			: m_bufferOutputs()
+			: IRenderNode(name)
+			, m_bufferOutputs()
 			, m_imageOutputs()
-			, m_name(name)
 		{
 		}
 
 		std::unordered_map<const char*, IBuffer*> m_bufferOutputs;
 		std::unordered_map<const char*, IRenderImage*> m_imageOutputs;
-
-	private:
-		const char* m_name;
 	};
 }

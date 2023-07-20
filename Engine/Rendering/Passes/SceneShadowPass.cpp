@@ -9,37 +9,36 @@
 
 namespace Engine::Rendering
 {
-	SceneShadowPass::SceneShadowPass(const GeometryBatch& sceneGeometryBatch)
+	SceneShadowPass::SceneShadowPass(const GeometryBatch& sceneGeometryBatch, const ShadowMap& shadowMap)
 		: IRenderPass("SceneShadow", "Shadow")
 		, m_sceneGeometryBatch(sceneGeometryBatch)
 		, m_built(false)
-		, m_shadowResolution()
+		, m_shadowMap(shadowMap)
 	{
-		m_imageInputs =
+		m_imageInputInfos =
 		{
-			{"Shadows", nullptr}
+			{"Shadows", RenderPassImageInfo(Format::PlaceholderDepth, false, shadowMap.GetExtent())}
 		};
 
-		m_imageOutputs = 
+		m_imageOutputInfos = 
 		{
-			{"Shadows", nullptr}
+			{"Shadows", RenderPassImageInfo(Format::PlaceholderDepth, false, shadowMap.GetExtent())}
 		};
 	}
 
-	bool SceneShadowPass::Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IBuffer*>& bufferInputs)
+	bool SceneShadowPass::Build(const Renderer& renderer,
+		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
 	{
 		m_built = false;
 
-		if (!IRenderPass::Build(renderer, imageInputs, bufferInputs))
-			return false;
-
+		ClearResources();
 
 		const std::vector<std::unique_ptr<IBuffer>>& frameInfoBuffers = renderer.GetFrameInfoBuffers();
 		const std::vector<std::unique_ptr<IBuffer>>& lightBuffers = renderer.GetLightBuffers();
 		const IImageSampler& shadowSampler = renderer.GetShadowSampler();
 		m_layerCount = renderer.GetShadowMap().GetCascadeCount();
-		IRenderImage* shadowImage = m_imageInputs.at("Shadows");
+		IRenderImage* shadowImage = imageInputs.at("Shadows");
 		m_shadowResolution = shadowImage->GetDimensions();
 		m_depthAttachment = AttachmentInfo(shadowImage, ImageLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
 

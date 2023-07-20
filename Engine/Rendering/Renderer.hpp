@@ -34,7 +34,6 @@ namespace Engine::Rendering
 {
 	class Camera;
 	class IResourceFactory;
-	class GBuffer;
 	class ShadowMap;
 	class PostProcessing;
 	class IDevice;
@@ -85,7 +84,6 @@ namespace Engine::Rendering
 		inline void SetSunLightColour(const Colour& colour) { m_sunColour = colour; }
 		inline void SetSunLightIntensity(float intensity) { m_sunIntensity = intensity; }
 
-		inline const GBuffer& GetGBuffer() const { return *m_gBuffer; }
 		inline const ShadowMap& GetShadowMap() const { return *m_shadowMap; }
 
 		inline void SetCamera(const Camera& camera) { m_camera = camera; }
@@ -157,7 +155,6 @@ namespace Engine::Rendering
 		std::unique_ptr<SceneManager> m_sceneManager;
 		std::unique_ptr<GeometryBatch> m_sceneGeometryBatch;
 		std::unique_ptr<IResourceFactory> m_resourceFactory;
-		std::unique_ptr<GBuffer> m_gBuffer;
 		std::unique_ptr<ShadowMap> m_shadowMap;
 		std::unique_ptr<PostProcessing> m_postProcessing;
 		std::unique_ptr<IMaterialManager> m_materialManager;

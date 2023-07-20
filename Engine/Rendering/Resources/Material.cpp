@@ -116,7 +116,7 @@ namespace Engine::Rendering
 		}
 		else if (string == "swapchain")
 		{
-			attachmentFormat = Format::Swapchain;
+			attachmentFormat = Format::PlaceholderSwapchain;
 			return true;
 		}
 

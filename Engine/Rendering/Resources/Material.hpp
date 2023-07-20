@@ -31,7 +31,7 @@ namespace Engine::Rendering
 		inline bool DepthTest() const { return m_depthTest; }
 
 		inline AttachmentInfo GetColourAttachmentInfo(uint32_t attachmentIndex, IRenderImage* image, 
-			AttachmentLoadOp loadOp = AttachmentLoadOp::Clear, AttachmentStoreOp storeOp = AttachmentStoreOp::Store,
+			AttachmentLoadOp loadOp = AttachmentLoadOp::DontCare, AttachmentStoreOp storeOp = AttachmentStoreOp::Store,
 			ClearValue clearValue = { Colour(0,0,0,0) })
 		{
 			if (m_attachmentFormats.size() <= attachmentIndex)

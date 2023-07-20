@@ -14,21 +14,30 @@ namespace Engine::Rendering
 	public:
 		TAAPass();
 
-		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IBuffer*>& bufferInputs) override;
+		virtual bool Build(const Renderer& renderer,
+			const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) override;
 
 		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer, 
 			const glm::uvec2& size, uint32_t frameIndex, uint32_t passIndex) override;
 
 		virtual void PreDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
-			const glm::uvec2& size, uint32_t frameIndex) override;
+			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) override;
 
 		virtual void PostDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
-			const glm::uvec2& size, uint32_t frameIndex) override;
+			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) override;
+
+		inline virtual void ClearResources() override
+		{
+			m_taaHistoryImage.reset();
+			IRenderPass::ClearResources();
+		}
 
 	private:
-		bool CreateTAAImage(const IDevice& device, const IResourceFactory& resourceFactory, const glm::uvec2& size);
+		bool CreateTAAHistoryImage(const IDevice& device, const IResourceFactory& resourceFactory, const glm::uvec2& size);
 
-		std::array<std::unique_ptr<IRenderImage>, 2> m_taaPreviousImages;
+		std::unique_ptr<IRenderImage> m_taaHistoryImage;
 	};
 }

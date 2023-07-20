@@ -40,7 +40,7 @@ namespace Engine::Rendering
 		virtual void Begin(const ICommandBuffer& commandBuffer, const char* passName) = 0;
 		virtual void End(const ICommandBuffer& commandBuffer) = 0;
 		virtual void FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device,
-			const std::unordered_map<const char*, IRenderResource*>& renderResources) = 0;
+			const std::vector<IRenderResource*>& renderResources) = 0;
 
 		EXPORT const std::unordered_map<const char*, FrameStats>& GetFrameStats() const;
 		EXPORT const MemoryStats& GetMemoryStats() const;

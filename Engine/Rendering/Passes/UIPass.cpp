@@ -13,33 +13,30 @@ using namespace Engine::UI;
 
 namespace Engine::Rendering
 {
+	const Format OutputImageFormat = Format::R8G8B8A8Unorm;
+
 	UIPass::UIPass(UIManager& uiManager)
 		: IRenderPass("UI", nullptr)
 		, m_uiManager(uiManager)
 	{
-		m_imageInputs =
+		m_imageInputInfos =
 		{
-			{"Output", nullptr}
+			{"Output", RenderPassImageInfo(OutputImageFormat)}
 		};
 
-		m_imageOutputs =
+		m_imageOutputInfos =
 		{
-			{"Output", nullptr}
+			{"Output", RenderPassImageInfo(OutputImageFormat)}
 		};
 	}
 
-	bool UIPass::Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IBuffer*>& bufferInputs)
+	bool UIPass::Build(const Renderer& renderer,
+		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
 	{
-		const IDevice& device = renderer.GetDevice();
-		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();
-		const ISwapChain& swapchain = renderer.GetSwapChain();
+		ClearResources();
 
-		if (!IRenderPass::Build(renderer, imageInputs, bufferInputs))
-			return false;
-
-		m_colourAttachments.clear();
-		m_colourAttachments.emplace_back(AttachmentInfo(m_imageInputs.at("Output"), ImageLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store));
+		m_colourAttachments.emplace_back(AttachmentInfo(imageOutputs.at("Output"), ImageLayout::ColorAttachment, AttachmentLoadOp::Load));
 
 		return true;
 	}

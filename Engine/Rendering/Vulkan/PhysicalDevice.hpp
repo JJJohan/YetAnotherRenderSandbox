@@ -22,7 +22,7 @@ namespace Engine::Rendering::Vulkan
 		inline const vk::PhysicalDeviceFeatures& GetFeatures() const { return m_deviceFeatures; }
 		vk::SampleCountFlagBits GetMaxMultiSampleCount() const;
 		Format FindSupportedFormat(const std::vector<Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
-		virtual Format FindDepthFormat() const override;
+		virtual Format FindDepthFormat() override;
 		virtual bool FormatSupported(Format format) const override;
 		inline virtual float GetMaxAnisotropy() const override { return m_deviceProperties.limits.maxSamplerAnisotropy; }
 		inline virtual bool SupportsBCTextureCompression() const override { return m_deviceFeatures.textureCompressionBC; }

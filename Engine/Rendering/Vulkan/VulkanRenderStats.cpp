@@ -111,7 +111,7 @@ namespace Engine::Rendering::Vulkan
 	}
 
 	void VulkanRenderStats::FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device, 
-		const std::unordered_map<const char*, IRenderResource*>& renderResources)
+		const std::vector<IRenderResource*>& renderResources)
 	{
 		const Device& vkDevice = static_cast<const Device&>(device);
 		const PhysicalDevice& vkPhysicalDevice = static_cast<const PhysicalDevice&>(physicalDevice);
@@ -124,8 +124,8 @@ namespace Engine::Rendering::Vulkan
 
 		for (const auto& renderResource : renderResources)
 		{
-			const char* name = renderResource.first;
-			size_t size = renderResource.second->GetMemoryUsage();
+			const char* name = renderResource->GetName();
+			size_t size = renderResource->GetMemoryUsage();
 			m_memoryStats.ResourceMemoryUsage.emplace(name, size);
 		}
 

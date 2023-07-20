@@ -19,6 +19,7 @@ namespace Sandbox
 		, m_renderer(renderer)
 		, m_prevTabIndex(-1)
 		, m_statGraphBuffers()
+		, m_prevTime()
 	{
 		m_debugModes = { "None", "Albedo", "Normal", "WorldPos", "MetalRoughness", "Cascade Index" };
 	}
@@ -120,7 +121,12 @@ namespace Sandbox
 
 		if (drawer.CollapsingHeader("Performance", true))
 		{
-			drawer.Text("FPS: %.2f", m_renderer->GetUIManager().GetFPS());
+			auto currentTime = std::chrono::high_resolution_clock::now();
+			float cpuFrameTime = std::chrono::duration<float, std::chrono::milliseconds::period>(currentTime - m_prevTime).count();
+			float gpuFrameTime = 0.0f;
+			m_prevTime = currentTime;
+
+			float fps = m_renderer->GetUIManager().GetFPS();
 
 			const std::unordered_map<const char*, FrameStats>& frameStats = m_renderer->GetRenderStats();
 
@@ -144,7 +150,16 @@ namespace Sandbox
 				{
 					m_statGraphBuffers.emplace(pass.first, ScrollingGraphBuffer(pass.first, 1000));
 				}
+
+				if (gpuFrameTime < 1e-5f && strcmp(pass.first, "Total") == 0)
+				{
+					gpuFrameTime = pass.second.RenderTime;
+				}
 			}
+
+			drawer.Text("FPS %.2f", fps);
+			drawer.Text("GPU Frame Time %.2fms", gpuFrameTime);
+			drawer.Text("CPU Frame Time: %.2fms", cpuFrameTime);
 
 			for (auto& buffer : m_statGraphBuffers)
 			{
@@ -165,7 +180,7 @@ namespace Sandbox
 			const Colour bufferPinColour(0.5f, 1.0f, 0.5f);
 			const Colour imagePinColour(0.2f, 0.5f, 1.0f);
 
-			const std::vector<std::vector<RenderNode>>& graph = m_renderer->GetRenderGraph().GetBuiltGraph();
+			const std::vector<std::vector<RenderGraphNode>>& graph = m_renderer->GetRenderGraph().GetBuiltGraph();
 
 			// Setup links.
 			bool outputLinked = false;
@@ -173,27 +188,27 @@ namespace Sandbox
 			{
 				for (const auto& node : stage)
 				{
-					if (node.Pass == nullptr) 
+					if (node.Type != RenderNodeType::Pass) 
 						continue;
 
 					const char* nodeName = node.Pass->GetName();
 
 					for (const  auto& input : node.Pass->GetBufferInputs())
 					{
-						const char* inputNodeName = node.InputBuffers.at(input.first)->GetName();
+						const char* inputNodeName = node.InputBufferSources.at(input.first).Node->GetName();
 						drawer.NodeSetupLink(nodeName, input.first, inputNodeName, input.first, bufferPinColour);
 					}
 
-					for (const  auto& input : node.Pass->GetImageInputs())
+					for (const auto& input : node.Pass->GetImageInputInfos())
 					{
-						const char* inputNodeName = node.InputImages.at(input.first)->GetName();
+						const char* inputNodeName = node.InputImageSources.at(input.first).Node->GetName();
 						drawer.NodeSetupLink(inputNodeName, input.first, nodeName, input.first, imagePinColour);
 					}
 
 					if (!outputLinked)
 					{
 						// Implicitly link output to 'screen' end node.
-						for (const auto& output : node.Pass->GetImageOutputs())
+						for (const auto& output : node.Pass->GetImageOutputInfos())
 						{
 							if (strcmp(output.first, "Output") == 0)
 							{
@@ -216,20 +231,19 @@ namespace Sandbox
 				// Vertically place nodes.
 				for (const auto& node : stage)
 				{
-					bool isPass = node.Pass != nullptr;
-					const char* nodeName = node.Resource->GetName();
+					const char* nodeName = node.Node->GetName();
 					Colour nodeColour;
 
 					std::vector<NodePin> inputPins;
 
-					if (isPass)
+					if (node.Type == RenderNodeType::Pass)
 					{
 						for (const auto& input : node.Pass->GetBufferInputs())
 						{
 							inputPins.emplace_back(NodePin(input.first, bufferPinColour));
 						}
 
-						for (const auto& input : node.Pass->GetImageInputs())
+						for (const auto& input : node.Pass->GetImageInputInfos())
 						{
 							inputPins.emplace_back(NodePin(input.first, imagePinColour));
 						}
@@ -243,14 +257,29 @@ namespace Sandbox
 
 					std::vector<NodePin> outputPins;
 
-					for (const auto& output : node.Resource->GetBufferOutputs())
+					if (node.Type == RenderNodeType::Pass)
 					{
-						outputPins.emplace_back(NodePin(output.first, bufferPinColour));
-					}
+						for (const auto& output : node.Pass->GetBufferOutputs())
+						{
+							outputPins.emplace_back(NodePin(output.first, bufferPinColour));
+						}
 
-					for (const auto& output : node.Resource->GetImageOutputs())
+						for (const auto& output : node.Pass->GetImageOutputInfos())
+						{
+							outputPins.emplace_back(NodePin(output.first, imagePinColour));
+						}
+					}
+					else
 					{
-						outputPins.emplace_back(NodePin(output.first, imagePinColour));
+						for (const auto& output : node.Resource->GetBufferOutputs())
+						{
+							outputPins.emplace_back(NodePin(output.first, bufferPinColour));
+						}
+
+						for (const auto& output : node.Resource->GetImageOutputs())
+						{
+							outputPins.emplace_back(NodePin(output.first, imagePinColour));
+						}
 					}
 
 					drawer.DrawNode(nodeName, offset, inputPins, outputPins, nodeColour);

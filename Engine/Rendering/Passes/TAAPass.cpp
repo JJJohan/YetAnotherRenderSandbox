@@ -15,78 +15,67 @@ namespace Engine::Rendering
 
 	TAAPass::TAAPass()
 		: IRenderPass("TAA", "TAA")
-		, m_taaPreviousImages()
+		, m_taaHistoryImage()
 	{
-		m_imageInputs =
+		m_imageInputInfos =
 		{
-			{"Output", nullptr},
-			{"Velocity", nullptr},
-			{"Depth", nullptr}
+			{"Output", RenderPassImageInfo(OutputImageFormat, true)},
+			{"Velocity", RenderPassImageInfo(Format::R16G16Sfloat, true)},
+			{"Depth", RenderPassImageInfo(Format::D32Sfloat, true)}
 		};
 
-		m_imageOutputs =
+		m_imageOutputInfos =
 		{
-			{"Output", nullptr}
+			{"Output", RenderPassImageInfo(OutputImageFormat)}
 		};
 	}
 
-	bool TAAPass::CreateTAAImage(const IDevice& device, const IResourceFactory& resourceFactory, const glm::uvec2& size)
+	bool TAAPass::CreateTAAHistoryImage(const IDevice& device, const IResourceFactory& resourceFactory, const glm::uvec2& size)
 	{
 		Format format = Format::R8G8B8A8Unorm;
-		for (size_t i = 0; i < m_taaPreviousImages.size(); ++i)
-		{
-			ImageUsageFlags usageFlags = i == 0 ?
-				ImageUsageFlags::Sampled | ImageUsageFlags::TransferDst :
-				ImageUsageFlags::Sampled | ImageUsageFlags::ColorAttachment | ImageUsageFlags::TransferSrc;
 
-			m_taaPreviousImages[i] = std::move(resourceFactory.CreateRenderImage());
-			glm::uvec3 extent(size.x, size.y, 1);
-			if (!m_taaPreviousImages[i]->Initialise(device, ImageType::e2D, format, extent, 1, 1,
-				ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice,
-				AllocationCreateFlags::None, SharingMode::Exclusive))
-			{
-				Logger::Error("Failed to create image.");
-				return false;
-			}
+		ImageUsageFlags usageFlags = ImageUsageFlags::Sampled | ImageUsageFlags::TransferDst;
+		m_taaHistoryImage = std::move(resourceFactory.CreateRenderImage());
+		glm::uvec3 extent(size.x, size.y, 1);
+		if (!m_taaHistoryImage->Initialise(device, ImageType::e2D, format, extent, 1, 1,
+			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice,
+			AllocationCreateFlags::None, SharingMode::Exclusive))
+		{
+			Logger::Error("Failed to create TAA history image.");
+			return false;
 		}
 
 		return true;
 	}
 
-	bool TAAPass::Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IBuffer*>& bufferInputs)
+	bool TAAPass::Build(const Renderer& renderer,
+		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
 	{
-		m_taaPreviousImages[0].reset();
-		m_taaPreviousImages[1].reset();
+		ClearResources();
 
 		const IDevice& device = renderer.GetDevice();
 		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();
 		const ISwapChain& swapchain = renderer.GetSwapChain();
 
 		const glm::uvec2& size = swapchain.GetExtent();
-		if (!CreateTAAImage(device, resourceFactory, size))
+		if (!CreateTAAHistoryImage(device, resourceFactory, size))
 		{
 			return false;
 		}
 
-		if (!IRenderPass::Build(renderer, imageInputs, bufferInputs))
-			return false;
-
-		m_imageOutputs["Output"] = m_taaPreviousImages[1].get();
-
-		m_colourAttachments.clear();
-		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, m_taaPreviousImages[1].get(), AttachmentLoadOp::Load));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, imageOutputs.at("Output")));
 
 		const IImageSampler& linearSampler = renderer.GetLinearSampler();
 		const IImageSampler& nearestSampler = renderer.GetNearestSampler();
-		const IImageView& outputImageView = m_imageInputs.at("Output")->GetView();
-		const IImageView& velocityImageView = m_imageInputs.at("Velocity")->GetView();
-		const IImageView& depthImageView = m_imageInputs.at("Depth")->GetView();
+		const IImageView& outputImageView = imageInputs.at("Output")->GetView();
+		const IImageView& velocityImageView = imageInputs.at("Velocity")->GetView();
+		const IImageView& depthImageView = imageInputs.at("Depth")->GetView();
 
 		if (!m_material->BindSampler(0, linearSampler) ||
 			!m_material->BindSampler(1, nearestSampler) ||
 			!m_material->BindImageView(2, outputImageView) ||
-			!m_material->BindImageView(3, m_taaPreviousImages[0]->GetView()) ||
+			!m_material->BindImageView(3, m_taaHistoryImage->GetView()) ||
 			!m_material->BindImageView(4, velocityImageView) ||
 			!m_material->BindImageView(5, depthImageView))
 			return false;
@@ -95,9 +84,10 @@ namespace Engine::Rendering
 	}
 
 	void TAAPass::PreDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
-		const glm::uvec2& size, uint32_t frameIndex)
+		const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
 	{
-		m_taaPreviousImages[0]->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
+		m_taaHistoryImage->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
 	}
 
 	void TAAPass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
@@ -108,12 +98,15 @@ namespace Engine::Rendering
 	}
 
 	void TAAPass::PostDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
-		const glm::uvec2& size, uint32_t frameIndex)
+		const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
 	{
-		m_taaPreviousImages[0]->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferDst);
-		m_taaPreviousImages[1]->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferSrc);
+		IRenderImage* outputImage = imageOutputs.at("Output");
 
-		const glm::uvec3& extents = m_taaPreviousImages[0]->GetDimensions();
+		m_taaHistoryImage->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferDst);
+		outputImage->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferSrc);
+
+		const glm::uvec3& extents = m_taaHistoryImage->GetDimensions();
 		const glm::uvec3 offset(extents.x, extents.y, extents.z);
 
 		ImageBlit blit;
@@ -122,6 +115,6 @@ namespace Engine::Rendering
 		blit.dstSubresource = ImageSubresourceLayers(ImageAspectFlags::Color, 0, 0, 1);
 		blit.dstOffsets = std::array<glm::uvec3, 2> { glm::uvec3(), offset };
 
-		commandBuffer.BlitImage(*m_taaPreviousImages[1], *m_taaPreviousImages[0], { blit }, Filter::Linear);
+		commandBuffer.BlitImage(*outputImage, *m_taaHistoryImage, { blit }, Filter::Linear);
 	}
 }

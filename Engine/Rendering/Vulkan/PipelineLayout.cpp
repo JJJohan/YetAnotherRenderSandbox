@@ -777,7 +777,7 @@ namespace Engine::Rendering::Vulkan
 		m_attachmentFormats.reserve(GetAttachmentFormats().size());
 		for (const Format& format : GetAttachmentFormats())
 		{
-			if (format == Format::Swapchain)
+			if (format == Format::PlaceholderSwapchain)
 				m_swapchainFormatIndices.push_back(static_cast<uint32_t>(m_attachmentFormats.size()));
 
 			m_attachmentFormats.push_back(format);

@@ -17,7 +17,6 @@
 #include "Resources/ICommandPool.hpp"
 #include "Resources/ICommandBuffer.hpp"
 #include "RenderResources/ShadowMap.hpp"
-#include "RenderResources/GBuffer.hpp"
 #include "PostProcessing.hpp"
 #include "Passes/IRenderPass.hpp"
 
@@ -53,7 +52,6 @@ namespace Engine::Rendering
 		, m_lightBuffers()
 		, m_frameInfoBufferData()
 		, m_lightBufferData()
-		, m_gBuffer(std::make_unique<GBuffer>())
 		, m_shadowMap(std::make_unique<ShadowMap>())
 		, m_postProcessing(std::make_unique<PostProcessing>())
 		, m_renderGraph(nullptr)
@@ -91,7 +89,6 @@ namespace Engine::Rendering
 		m_sceneGeometryBatch.reset();
 		m_postProcessing.reset();
 		m_shadowMap.reset();
-		m_gBuffer.reset();
 		m_uiManager.reset();
 		m_sceneManager.reset();
 		m_renderStats.reset();
@@ -189,12 +186,6 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		if (!m_renderGraph->AddResource(m_gBuffer.get()))
-		{
-			Logger::Error("Failed to add GBuffer to render graph.");
-			return false;
-		}
-
 		if (!m_renderGraph->AddResource(m_shadowMap.get()))
 		{
 			Logger::Error("Failed to add Shadow Map to render graph.");
@@ -230,8 +221,8 @@ namespace Engine::Rendering
 		}
 
 		m_renderPasses["SceneOpaque"] = std::make_unique<SceneOpaquePass>(*m_sceneGeometryBatch);
-		m_renderPasses["SceneShadow"] = std::make_unique<SceneShadowPass>(*m_sceneGeometryBatch);
-		m_renderPasses["Combine"] = std::make_unique<CombinePass>();
+		m_renderPasses["SceneShadow"] = std::make_unique<SceneShadowPass>(*m_sceneGeometryBatch, *m_shadowMap);
+		m_renderPasses["Combine"] = std::make_unique<CombinePass>(*m_shadowMap);
 
 		for (const auto& pair : m_renderPasses)
 		{
@@ -283,9 +274,6 @@ namespace Engine::Rendering
 
 	void Renderer::SetDebugMode(uint32_t mode)
 	{
-		if (!m_gBuffer.get())
-			return;
-
 		m_debugMode = mode;
 		const std::unique_ptr<CombinePass>& combinePass = reinterpret_cast<const std::unique_ptr<CombinePass>&>(m_renderPasses.at("Combine"));
 		combinePass->SetDebugMode(mode);
@@ -296,6 +284,14 @@ namespace Engine::Rendering
 		const glm::uvec2& windowSize = m_swapChain->GetExtent();
 
 		UpdateFrameInfo();
+
+		bool drawUi = m_uiManager->GetDrawCallbackCount() > 0;
+		std::unique_ptr<IRenderPass>& uiPass = m_renderPasses["UI"];
+		if (uiPass->GetEnabled() != drawUi)
+		{
+			uiPass->SetEnabled(drawUi);
+			m_renderGraph->MarkDirty();
+		}
 
 		// Update light buffer
 		LightUniformBuffer* lightInfo = m_lightBufferData[m_currentFrame];

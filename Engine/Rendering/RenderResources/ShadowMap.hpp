@@ -32,13 +32,13 @@ namespace Engine::Rendering
 	public:
 		ShadowMap();
 
-		virtual bool Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IBuffer*>& bufferInputs) override;
+		virtual bool Build(const Renderer& renderer) override;
 
 		ShadowCascadeData UpdateCascades(const Camera& camera, const glm::vec3& lightDir);
 
 		inline ShadowCascadeData GetShadowCascadeData() const { return ShadowCascadeData(m_cascadeSplits, m_cascadeMatrices); }
 		inline uint32_t GetCascadeCount() const { return m_cascadeCount; }
+		inline const glm::uvec3& GetExtent() const { return m_extent; }
 
 		inline virtual size_t GetMemoryUsage() const override
 		{

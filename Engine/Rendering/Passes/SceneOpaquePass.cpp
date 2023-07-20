@@ -13,46 +13,35 @@ namespace Engine::Rendering
 		, m_sceneGeometryBatch(sceneGeometryBatch)
 		, m_built(false)
 	{
-		m_imageInputs =
+		m_imageOutputInfos =
 		{
-			{"Albedo", nullptr},
-			{"WorldNormal", nullptr},
-			{"WorldPos", nullptr},
-			{"MetalRoughness", nullptr},
-			{"Velocity", nullptr},
-			{"Depth", nullptr}
-		};
-
-		m_imageOutputs =
-		{
-			{"Albedo", nullptr},
-			{"WorldNormal", nullptr},
-			{"WorldPos", nullptr},
-			{"MetalRoughness", nullptr},
-			{"Velocity", nullptr},
-			{"Depth", nullptr}
+			{"Albedo", RenderPassImageInfo(Format::R8G8B8A8Unorm)},
+			{"WorldNormal", RenderPassImageInfo(Format::R16G16B16A16Sfloat)},
+			{"WorldPos", RenderPassImageInfo(Format::R16G16B16A16Sfloat)},
+			{"MetalRoughness", RenderPassImageInfo(Format::R8G8Unorm)},
+			{"Velocity", RenderPassImageInfo(Format::R16G16Sfloat)},
+			{"Depth", RenderPassImageInfo(Format::PlaceholderDepth)}
 		};
 	}
 
-	bool SceneOpaquePass::Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IBuffer*>& bufferInputs)
+	bool SceneOpaquePass::Build(const Renderer& renderer,
+		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
 	{
 		m_built = false;
 		const std::vector<std::unique_ptr<IBuffer>>& frameInfoBuffers = renderer.GetFrameInfoBuffers();
 		const std::vector<std::unique_ptr<IBuffer>>& lightBuffers = renderer.GetLightBuffers();
 		const IImageSampler& linearSampler = renderer.GetLinearSampler();
 
-		if (!IRenderPass::Build(renderer, imageInputs, bufferInputs))
-			return false;
+		ClearResources();
 
-		m_colourAttachments.clear();
-		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, m_imageInputs.at("Albedo")));
-		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(1, m_imageInputs.at("WorldNormal")));
-		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(2, m_imageInputs.at("WorldPos")));
-		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(3, m_imageInputs.at("MetalRoughness")));
-		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(4, m_imageInputs.at("Velocity")));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, imageOutputs.at("Albedo"), AttachmentLoadOp::Clear));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(1, imageOutputs.at("WorldNormal"), AttachmentLoadOp::Clear));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(2, imageOutputs.at("WorldPos"), AttachmentLoadOp::Clear));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(3, imageOutputs.at("MetalRoughness"), AttachmentLoadOp::Clear));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(4, imageOutputs.at("Velocity"), AttachmentLoadOp::Clear));
 
-		m_depthAttachment = AttachmentInfo(m_imageInputs.at("Depth"), ImageLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
+		m_depthAttachment = AttachmentInfo(imageOutputs.at("Depth"), ImageLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
 
 		// If scene manager has not been built or is empty, mark the pass as done so drawing is skipped for this pass.
 		if (!m_sceneGeometryBatch.IsBuilt() || m_sceneGeometryBatch.GetVertexBuffers().empty())

@@ -167,7 +167,7 @@ namespace Engine::Rendering::Vulkan
 			return vk::Format::eB8G8R8A8Unorm;
 		case Format::A2B10G10R10UnormPack32:
 			return vk::Format::eA2B10G10R10UnormPack32;
-		case Format::Swapchain:
+		case Format::PlaceholderSwapchain:
 			return vk::Format::eUndefined; // Queried during building
 		default:
 			throw;

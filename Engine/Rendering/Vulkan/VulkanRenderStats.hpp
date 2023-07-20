@@ -5,8 +5,6 @@
 
 namespace Engine::Rendering
 {
-	class GBuffer;
-	class ShadowMap;
 	class ICommandBuffer;
 }
 
@@ -20,7 +18,7 @@ namespace Engine::Rendering::Vulkan
 		virtual void Begin(const ICommandBuffer& commandBuffer, const char* passName) override;
 		virtual void End(const ICommandBuffer& commandBuffer) override;
 		virtual void FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device,
-			const std::unordered_map<const char*, IRenderResource*>& renderResources) override;
+			const std::vector<IRenderResource*>& renderResources) override;
 
 	private:
 		vk::UniqueQueryPool m_statisticsQueryPool;

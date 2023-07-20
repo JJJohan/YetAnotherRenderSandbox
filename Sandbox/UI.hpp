@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <chrono>
 
 namespace Engine::UI
 {
@@ -34,5 +35,6 @@ namespace Sandbox
 		std::unordered_map<const char*, Engine::UI::ScrollingGraphBuffer> m_statGraphBuffers;
 		std::vector<const char*> m_debugModes;
 		uint32_t m_prevTabIndex;
+		std::chrono::steady_clock::time_point m_prevTime;
 	};
 }

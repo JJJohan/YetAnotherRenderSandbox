@@ -247,9 +247,6 @@
     <ClCompile Include="Rendering\Resources\Material.cpp">
       <Filter>Rendering\Resources</Filter>
     </ClCompile>
-    <ClCompile Include="Rendering\RenderResources\GBuffer.cpp">
-      <Filter>Rendering\RenderResources</Filter>
-    </ClCompile>
     <ClCompile Include="Rendering\Resources\GeometryBatch.cpp">
       <Filter>Rendering\Resources</Filter>
     </ClCompile>
@@ -261,6 +258,9 @@
     </ClCompile>
     <ClCompile Include="Rendering\Passes\UIPass.cpp">
       <Filter>Rendering\Passes</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\RenderResources\IRenderNode.hpp">
+      <Filter>Rendering\RenderResources</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -536,9 +536,6 @@
     </ClInclude>
     <ClInclude Include="Rendering\IMaterialManager.hpp">
       <Filter>Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\RenderResources\GBuffer.hpp">
-      <Filter>Rendering\RenderResources</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\Resources\GeometryBatch.hpp">
       <Filter>Rendering\Resources</Filter>

@@ -6,6 +6,7 @@
 #include "../Resources/ICommandBuffer.hpp"
 #include "../IResourceFactory.hpp"
 #include "../Renderer.hpp"
+#include "../RenderResources/ShadowMap.hpp"
 
 using namespace Engine::Logging;
 
@@ -13,62 +14,32 @@ namespace Engine::Rendering
 {
 	const Format OutputImageFormat = Format::R8G8B8A8Unorm;
 
-	CombinePass::CombinePass()
+	CombinePass::CombinePass(const ShadowMap& shadowMap)
 		: IRenderPass("Combine", "Combine")
-		, m_outputImage()
+		, m_shadowMap(shadowMap)
 	{
-		m_imageInputs =
+		m_imageInputInfos =
 		{
-			{"Albedo", nullptr},
-			{"WorldNormal", nullptr},
-			{"WorldPos", nullptr},
-			{"MetalRoughness", nullptr},
-			{"Shadows", nullptr}
+			{"Albedo", RenderPassImageInfo(Format::R8G8B8A8Unorm, true)},
+			{"WorldNormal", RenderPassImageInfo(Format::R16G16B16A16Sfloat, true)},
+			{"WorldPos", RenderPassImageInfo(Format::R16G16B16A16Sfloat, true)},
+			{"MetalRoughness", RenderPassImageInfo(Format::R8G8Unorm, true)},
+			{"Shadows", RenderPassImageInfo(Format::PlaceholderDepth, true, shadowMap.GetExtent())}
 		};
 
-		m_imageOutputs = 
+		m_imageOutputInfos = 
 		{
-			{"Output", nullptr}
+			{"Output", RenderPassImageInfo(OutputImageFormat)}
 		};
 	}
 
-	bool CombinePass::CreateOutputImage(const IDevice& device, const IResourceFactory& resourceFactory, const glm::uvec2& size)
+	bool CombinePass::Build(const Renderer& renderer,
+		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
 	{
-		m_outputImage = std::move(resourceFactory.CreateRenderImage());
-		glm::uvec3 extent(size.x, size.y, 1);
-		if (!m_outputImage->Initialise(device, ImageType::e2D, OutputImageFormat, extent, 1, 1,
-			ImageTiling::Optimal, ImageUsageFlags::ColorAttachment | ImageUsageFlags::Sampled | ImageUsageFlags::TransferSrc,
-			ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
-		{
-			Logger::Error("Failed to create image.");
-			return false;
-		}
+		ClearResources();
 
-		return true;
-	}
-
-	bool CombinePass::Build(const Renderer& renderer, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IBuffer*>& bufferInputs)
-	{
-		m_outputImage.reset();
-
-		const IDevice& device = renderer.GetDevice();
-		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();
-		const ISwapChain& swapchain = renderer.GetSwapChain();
-
-		const glm::uvec2& size = swapchain.GetExtent();
-		if (!CreateOutputImage(device, resourceFactory, size))
-		{
-			return false;
-		}
-
-		if (!IRenderPass::Build(renderer, imageInputs, bufferInputs))
-			return false;
-
-		m_imageOutputs["Output"] = m_outputImage.get();
-
-		m_colourAttachments.clear();
-		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, m_outputImage.get()));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, imageOutputs.at("Output")));
 
 		const std::vector<std::unique_ptr<IBuffer>>& frameInfoBuffers = renderer.GetFrameInfoBuffers();
 		const std::vector<std::unique_ptr<IBuffer>>& lightBuffers = renderer.GetLightBuffers();
@@ -77,13 +48,13 @@ namespace Engine::Rendering
 
 		std::vector<const IImageView*> imageViews =
 		{
-			&m_imageInputs.at("Albedo")->GetView(),
-			&m_imageInputs.at("WorldNormal")->GetView(),
-			&m_imageInputs.at("WorldPos")->GetView(),
-			&m_imageInputs.at("MetalRoughness")->GetView()
+			&imageInputs.at("Albedo")->GetView(),
+			&imageInputs.at("WorldNormal")->GetView(),
+			&imageInputs.at("WorldPos")->GetView(),
+			&imageInputs.at("MetalRoughness")->GetView()
 		};
 
-		const IImageView& shadowImageView = m_imageInputs.at("Shadows")->GetView();
+		const IImageView& shadowImageView = imageInputs.at("Shadows")->GetView();
 
 		if (!m_material->BindUniformBuffers(0, frameInfoBuffers) ||
 			!m_material->BindUniformBuffers(1, lightBuffers) ||
