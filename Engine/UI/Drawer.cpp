@@ -155,7 +155,7 @@ namespace Engine::UI
 		if (buffers.empty())
 			return;
 
-		ImPlotFlags flags = ImPlotFlags_NoInputs | ImPlotFlags_NoMenus | ImPlotFlags_NoBoxSelect | ImPlotFlags_NoChild;
+		ImPlotFlags flags = ImPlotFlags_NoInputs | ImPlotFlags_NoMenus | ImPlotFlags_NoBoxSelect;
 
 		if (ImPlot::BeginPlot(label, ImVec2(size.x, size.y), flags))
 		{

@@ -28,6 +28,8 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
+#include <string_view>
 #include <type_traits>
 
 // Macros to determine C++ standard version
@@ -43,6 +45,12 @@
 #define FASTGLTF_CPP_20 0
 #endif
 
+#if (!defined(_MSVC_LANG) && __cplusplus >= 202302L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
+#define FASTGLTF_CPP_23 1
+#else
+#define FASTGLTF_CPP_23 0
+#endif
+
 #if FASTGLTF_CPP_20 && defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
 #define FASTGLTF_HAS_BIT 1
 #include <bit>
@@ -55,6 +63,16 @@
 #include <concepts>
 #else
 #define FASTGLTF_HAS_CONCEPTS 0
+#endif
+
+#if FASTGLTF_CPP_23
+#define FASTGLTF_UNREACHABLE std::unreachable();
+#elif defined(__GNUC__)
+#define FASTGLTF_UNREACHABLE __builtin_unreachable();
+#elif defined(_MSC_VER)
+#define FASTGLTF_UNREACHABLE __assume(false);
+#else
+#define FASTGLTF_UNREACHABLE assert(0);
 #endif
 
 #ifdef _MSC_VER
@@ -105,7 +123,7 @@ namespace fastgltf {
         { t > t } -> std::same_as<bool>;
     }
 #endif
-    [[nodiscard]] inline T max(T a, T b) noexcept {
+    [[nodiscard]] constexpr T max(T a, T b) noexcept {
         return (a > b) ? a : b;
     }
 
@@ -232,13 +250,13 @@ namespace fastgltf {
     [[gnu::const]] inline std::uint8_t clz(T value) {
         static_assert(std::is_integral_v<T>);
 #if FASTGLTF_HAS_BIT
-        return std::countl_zero(value);
+        return static_cast<std::uint8_t>(std::countl_zero(value));
 #else
         // Very naive but working implementation of counting zero bits. Any sane compiler will
         // optimise this away, like instead use the bsr x86 instruction.
         if (value == 0) return 64;
         std::uint8_t count = 0;
-        for (int i = std::numeric_limits<T>::digits; i > 0; --i) {
+        for (auto i = std::numeric_limits<T>::digits - 1; i > 0; --i) {
             if ((value >> i) == 1) {
                 return count;
             }
@@ -247,6 +265,22 @@ namespace fastgltf {
         return count;
 #endif
     }
+
+	template <typename T>
+	[[gnu::const]] inline std::uint8_t popcount(T value) {
+		static_assert(std::is_integral_v<T>);
+#if FASTGLTF_HAS_BIT
+		return static_cast<std::uint8_t>(std::popcount(value));
+#else
+		std::uint8_t bits = 0;
+		while (value) {
+			if (value & 1)
+				++bits;
+			value >>= 1;
+		}
+		return bits;
+#endif
+	}
 
     /**
      * Essentially the same as std::same<T, U> but it accepts multiple different types for U,
@@ -261,6 +295,17 @@ namespace fastgltf {
     inline bool startsWith(std::string_view str, std::string_view search) {
         return str.rfind(search, 0) == 0;
     }
+
+	/**
+	 * Helper type in order to allow building a visitor out of multiple lambdas within a call to
+	 * std::visit
+	 */
+	template<class... Ts> 
+	struct visitor : Ts... {
+		using Ts::operator()...;
+	};
+
+	template<class... Ts> visitor(Ts...) -> visitor<Ts...>;
 
     // For simple ops like &, |, +, - taking a left and right operand.
 #define FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(T1, T2, op) \
@@ -282,7 +327,7 @@ namespace fastgltf {
         static_assert(std::is_enum_v<T>); \
         return static_cast<T>(op to_underlying(a)); \
     }
-}
+} // namespace fastgltf
 
 #ifdef _MSC_VER
 #pragma warning(pop)

@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.hpp>
 #include <functional>
 #include <queue>
+#include <mutex>
 #include "VulkanRenderStats.hpp"
 #include "SwapChain.hpp"
 #include "Core/Logging/Logger.hpp"

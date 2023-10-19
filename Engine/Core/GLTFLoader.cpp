@@ -14,8 +14,8 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #define FASTGLTF_USE_CUSTOM_SMALLVECTOR 1
-#include <fastgltf_parser.hpp>
-#include <fastgltf_types.hpp>
+#include <parser.hpp>
+#include <types.hpp>
 
 using namespace Engine::Logging;
 using namespace Engine::Rendering;
@@ -76,14 +76,22 @@ namespace Engine
 	template <typename T>
 	bool LoadBuffer(ImportState& importState, const fastgltf::Primitive& primitive, std::vector<VertexData>& vertexDataArrays, uint32_t vertexSlot, std::string attributeName)
 	{
-		const auto& attribute = primitive.attributes.find(attributeName);
-		if (attribute == primitive.attributes.cend())
+		size_t accessorIndex = std::numeric_limits<size_t>::max();
+		for (const auto& attribute : primitive.attributes)
+		{
+			if (attribute.first.compare(attributeName) == 0)
+			{
+				accessorIndex = attribute.second;
+				break;
+			}
+		}
+
+		if (accessorIndex == std::numeric_limits<size_t>::max())
 			return false;
 
 		if (vertexSlot >= vertexDataArrays.size())
 			vertexDataArrays.resize(vertexSlot + 1);
 
-		size_t accessorIndex = attribute->second;
 		const auto& search = importState.bufferMap.find(accessorIndex);
 		if (search != importState.bufferMap.cend())
 		{
@@ -170,42 +178,40 @@ namespace Engine
 			if (primitive.materialIndex.has_value())
 			{
 				const fastgltf::Material& material = asset.materials[primitive.materialIndex.value()];
-				if (material.pbrData.has_value())
-				{
-					const fastgltf::PBRData& pbrData = material.pbrData.value();
-					colour = Colour(pbrData.baseColorFactor[0], pbrData.baseColorFactor[1], pbrData.baseColorFactor[2], pbrData.baseColorFactor[3]);
 
-					if (pbrData.baseColorTexture.has_value())
+				const fastgltf::PBRData& pbrData = material.pbrData;
+				colour = Colour(pbrData.baseColorFactor[0], pbrData.baseColorFactor[1], pbrData.baseColorFactor[2], pbrData.baseColorFactor[3]);
+
+				if (pbrData.baseColorTexture.has_value())
+				{
+					const fastgltf::TextureInfo& textureInfo = pbrData.baseColorTexture.value();
+					const fastgltf::Texture& texture = asset.textures[textureInfo.textureIndex];
+					if (texture.imageIndex.has_value())
 					{
-						const fastgltf::TextureInfo& textureInfo = pbrData.baseColorTexture.value();
-						const fastgltf::Texture& texture = asset.textures[textureInfo.textureIndex];
-						if (texture.imageIndex.has_value())
+						size_t imageIndex = texture.imageIndex.value();
+						diffuseImage = importState.loadedImages[imageIndex];
+						if (diffuseImage.get() != nullptr)
 						{
-							size_t imageIndex = texture.imageIndex.value();
-							diffuseImage = importState.loadedImages[imageIndex];
-							if (diffuseImage.get() != nullptr)
-							{
-								assert(!diffuseImage->IsNormalMap());
-								assert(!diffuseImage->IsMetallicRoughnessMap());
-								assert(diffuseImage->IsSRGB());
-							}
+							assert(!diffuseImage->IsNormalMap());
+							assert(!diffuseImage->IsMetallicRoughnessMap());
+							assert(diffuseImage->IsSRGB());
 						}
 					}
+				}
 
-					if (pbrData.metallicRoughnessTexture.has_value())
+				if (pbrData.metallicRoughnessTexture.has_value())
+				{
+					const fastgltf::TextureInfo& textureInfo = pbrData.metallicRoughnessTexture.value();
+					const fastgltf::Texture& texture = asset.textures[textureInfo.textureIndex];
+					if (texture.imageIndex.has_value())
 					{
-						const fastgltf::TextureInfo& textureInfo = pbrData.metallicRoughnessTexture.value();
-						const fastgltf::Texture& texture = asset.textures[textureInfo.textureIndex];
-						if (texture.imageIndex.has_value())
+						size_t imageIndex = texture.imageIndex.value();
+						metallicRoughnessImage = importState.loadedImages[imageIndex];
+						if (metallicRoughnessImage.get() != nullptr)
 						{
-							size_t imageIndex = texture.imageIndex.value();
-							metallicRoughnessImage = importState.loadedImages[imageIndex];
-							if (metallicRoughnessImage.get() != nullptr)
-							{
-								assert(!metallicRoughnessImage->IsNormalMap());
-								assert(metallicRoughnessImage->IsMetallicRoughnessMap());
-								assert(!metallicRoughnessImage->IsSRGB());
-							}
+							assert(!metallicRoughnessImage->IsNormalMap());
+							assert(metallicRoughnessImage->IsMetallicRoughnessMap());
+							assert(!metallicRoughnessImage->IsSRGB());
 						}
 					}
 				}
@@ -296,49 +302,38 @@ namespace Engine
 		data.loadFromFile(path);
 
 		fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
-		std::unique_ptr<fastgltf::glTF> gltf;
+		fastgltf::Asset asset;
 
 		auto type = fastgltf::determineGltfFileType(&data);
 		if (type == fastgltf::GltfType::glTF)
 		{
-			gltf = parser.loadGLTF(&data, path.parent_path(), gltfOptions);
+			fastgltf::Expected<fastgltf::Asset> parserResult = parser.loadGLTF(&data, path.parent_path(), gltfOptions);
+
+			if (parserResult.error() != fastgltf::Error::None)
+			{
+				Logger::Error("Failed to parse GLTF file '{}'.", fastgltf::to_underlying(parserResult.error()));
+				return false;
+			}
+
+			asset = std::move(parserResult.get());
 		}
 		else if (type == fastgltf::GltfType::GLB)
 		{
-			gltf = parser.loadBinaryGLTF(&data, path.parent_path(), gltfOptions);
+			fastgltf::Expected<fastgltf::Asset> parserResult = parser.loadBinaryGLTF(&data, path.parent_path(), gltfOptions);
+
+			if (parserResult.error() != fastgltf::Error::None)
+			{
+				Logger::Error("Failed to parse GLTF file '{}'.", fastgltf::to_underlying(parserResult.error()));
+				return false;
+			}
+
+			asset = std::move(parserResult.get());
 		}
 		else
 		{
 			Logger::Error("Failed to determine GLTF container type.");
 			return false;
 		}
-
-		if (parser.getError() != fastgltf::Error::None)
-		{
-			Logger::Error("Failed to parse GLTF file '{}'.", fastgltf::to_underlying(parser.getError()));
-			return false;
-		}
-
-		constexpr auto gltfCategories =
-			fastgltf::Category::Scenes |
-			fastgltf::Category::Asset |
-			fastgltf::Category::Buffers |
-			fastgltf::Category::BufferViews |
-			fastgltf::Category::Accessors |
-			fastgltf::Category::Meshes |
-			fastgltf::Category::Nodes |
-			fastgltf::Category::Materials |
-			fastgltf::Category::Images |
-			fastgltf::Category::Textures;
-
-		auto error = gltf->parse(gltfCategories);
-		if (error != fastgltf::Error::None)
-		{
-			Logger::Error("GLTF parser error: {}", fastgltf::to_underlying(error));
-			return false;
-		}
-
-		std::unique_ptr<fastgltf::Asset> asset = gltf->getParsedAsset();
 
 		auto parseEndTime = std::chrono::high_resolution_clock::now();
 		float parseDeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(parseEndTime - parseStartTime).count();
@@ -349,41 +344,38 @@ namespace Engine
 
 		auto loadStartTime = std::chrono::high_resolution_clock::now();
 
-		ImportState importState(asset.get(), geometryBatch);
+		ImportState importState(&asset, geometryBatch);
 
 		// Track if images should be treated as SRGB, normal maps, etc.
 		std::vector<ImageFlags> m_imageFlags;
-		m_imageFlags.resize(asset->images.size());
-		for (const fastgltf::Material& material : asset->materials)
+		m_imageFlags.resize(asset.images.size());
+		for (const fastgltf::Material& material : asset.materials)
 		{
-			if (material.pbrData.has_value())
+			const fastgltf::PBRData& pbrData = material.pbrData;
+			if (pbrData.baseColorTexture.has_value())
 			{
-				const fastgltf::PBRData& pbrData = material.pbrData.value();
-				if (pbrData.baseColorTexture.has_value())
+				const fastgltf::TextureInfo& textureInfo = pbrData.baseColorTexture.value();
+				const fastgltf::Texture& texture = asset.textures[textureInfo.textureIndex];
+				if (texture.imageIndex.has_value())
 				{
-					const fastgltf::TextureInfo& textureInfo = pbrData.baseColorTexture.value();
-					const fastgltf::Texture& texture = asset->textures[textureInfo.textureIndex];
-					if (texture.imageIndex.has_value())
+					size_t imageIndex = texture.imageIndex.value();
+					if (imageIndex < asset.images.size())
 					{
-						size_t imageIndex = texture.imageIndex.value();
-						if (imageIndex < asset->images.size())
-						{
-							m_imageFlags[imageIndex] |= ImageFlags::SRGB;
-						}
+						m_imageFlags[imageIndex] |= ImageFlags::SRGB;
 					}
 				}
+			}
 
-				if (pbrData.metallicRoughnessTexture.has_value())
+			if (pbrData.metallicRoughnessTexture.has_value())
+			{
+				const fastgltf::TextureInfo& textureInfo = pbrData.metallicRoughnessTexture.value();
+				const fastgltf::Texture& texture = asset.textures[textureInfo.textureIndex];
+				if (texture.imageIndex.has_value())
 				{
-					const fastgltf::TextureInfo& textureInfo = pbrData.metallicRoughnessTexture.value();
-					const fastgltf::Texture& texture = asset->textures[textureInfo.textureIndex];
-					if (texture.imageIndex.has_value())
+					size_t imageIndex = texture.imageIndex.value();
+					if (imageIndex < asset.images.size())
 					{
-						size_t imageIndex = texture.imageIndex.value();
-						if (imageIndex < asset->images.size())
-						{
-							m_imageFlags[imageIndex] |= ImageFlags::MetallicRoughnessMap;
-						}
+						m_imageFlags[imageIndex] |= ImageFlags::MetallicRoughnessMap;
 					}
 				}
 			}
@@ -391,11 +383,11 @@ namespace Engine
 			if (material.normalTexture.has_value())
 			{
 				const fastgltf::TextureInfo& textureInfo = material.normalTexture.value();
-				const fastgltf::Texture& texture = asset->textures[textureInfo.textureIndex];
+				const fastgltf::Texture& texture = asset.textures[textureInfo.textureIndex];
 				if (texture.imageIndex.has_value())
 				{
 					size_t imageIndex = texture.imageIndex.value();
-					if (imageIndex < asset->images.size())
+					if (imageIndex < asset.images.size())
 					{
 						m_imageFlags[imageIndex] |= ImageFlags::NormalMap;
 					}
@@ -403,13 +395,13 @@ namespace Engine
 			}
 		}
 
-		float subTicks = 200.0f / static_cast<float>(asset->textures.size());
-		std::vector<std::atomic_bool> imageWriteStates(asset->images.size());
+		float subTicks = 200.0f / static_cast<float>(asset.textures.size());
+		std::vector<std::atomic_bool> imageWriteStates(asset.images.size());
 
 		std::for_each(
 			std::execution::par,
-			asset->textures.cbegin(),
-			asset->textures.cend(),
+			asset.textures.cbegin(),
+			asset.textures.cend(),
 			[&asset, &importState, &m_imageFlags, &imageWriteStates, asyncData, subTicks](const fastgltf::Texture& texture)
 			{
 				if (texture.imageIndex.has_value())
@@ -417,12 +409,12 @@ namespace Engine
 					size_t imageIndex = texture.imageIndex.value();
 					if (!imageWriteStates[imageIndex].exchange(true))
 					{
-						const fastgltf::Image& gltfImage = asset->images[imageIndex];
+						const fastgltf::Image& gltfImage = asset.images[imageIndex];
 						const fastgltf::sources::BufferView* bufferViewInfo = std::get_if<fastgltf::sources::BufferView>(&gltfImage.data);
 						if (bufferViewInfo != nullptr)
 						{
-							const fastgltf::BufferView& imageBufferView = asset->bufferViews[bufferViewInfo->bufferViewIndex];
-							const fastgltf::Buffer& imageBuffer = asset->buffers[imageBufferView.bufferIndex];
+							const fastgltf::BufferView& imageBufferView = asset.bufferViews[bufferViewInfo->bufferViewIndex];
+							const fastgltf::Buffer& imageBuffer = asset.buffers[imageBufferView.bufferIndex];
 							const fastgltf::sources::Vector* imageData = std::get_if<fastgltf::sources::Vector>(&imageBuffer.data);
 
 							importState.loadedImages[imageIndex] = std::make_shared<Image>();
