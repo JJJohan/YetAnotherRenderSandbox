@@ -123,7 +123,7 @@ namespace Engine
 		if (decompressBuffer.size() < entry.UncompressedSize)
 			decompressBuffer.resize(entry.UncompressedSize);
 
-		LZ4_decompress_safe(reinterpret_cast<const char*>(m_memory.data() + entry.Offset), 
+		LZ4_decompress_safe(reinterpret_cast<const char*>(m_memory.data() + entry.Offset),
 			reinterpret_cast<char*>(decompressBuffer.data()), static_cast<int32_t>(entry.Size),
 			static_cast<int32_t>(entry.UncompressedSize));
 	}
@@ -160,53 +160,53 @@ namespace Engine
 		if (asyncData != nullptr)
 			asyncData->AddSubProgress(500.0f);
 
-		ChunkHeader header;
-		memcpy(&header, m_memory.data(), sizeof(ChunkHeader));
+		ChunkHeader* header = reinterpret_cast<ChunkHeader*>(m_memory.data());
 		dataIndex += sizeof(ChunkHeader);
 
-		if (header.Magic != HeaderMagic)
+		if (header->Magic != HeaderMagic)
 		{
 			Logger::Error("Input file '{}' does not contain valid chunk header.", path.string());
 			return false;
 		}
 
-		if (header.Version != CurrentVersion)
+		if (header->Version != CurrentVersion)
 		{
 			Logger::Error("Input file '{}' contains newer data which is not compatible.", path.string());
 			return false;
 		}
 
-		float resourceSubTicks = static_cast<float>(header.ResourceCount) / 400.0f;
-		for (uint32_t i = 0; i < header.ResourceCount; ++i)
+		float resourceSubTicks = static_cast<float>(header->ResourceCount) / 400.0f;
+		for (uint32_t i = 0; i < header->ResourceCount; ++i)
 		{
-			ChunkResourceHeader resource;
-			memcpy(&resource, m_memory.data() + dataIndex, sizeof(ChunkResourceHeader));
+			ChunkResourceHeader* resource = reinterpret_cast<ChunkResourceHeader*>(m_memory.data() + dataIndex);
 			dataIndex += sizeof(ChunkResourceHeader);
 
-			switch (resource.ResourceType)
+			switch (resource->ResourceType)
 			{
 			case ChunkResourceType::Generic:
-				m_genericDataMap[resource.Identifier] = ChunkMemoryEntry(dataIndex, resource.ResourceSize, resource.UncompressedSize);
-				dataIndex += resource.ResourceSize;
-				break;
+			{
+				m_genericDataMap[resource->Identifier] = ChunkMemoryEntry(dataIndex, resource->ResourceSize, resource->UncompressedSize);
+				dataIndex += resource->ResourceSize;
+			}
+			break;
 
 			case ChunkResourceType::VertexBuffer:
-				VertexBufferHeader vertexData;
-				memcpy(&vertexData, m_memory.data() + dataIndex, sizeof(VertexBufferHeader));
+			{
+				VertexBufferHeader* vertexData = reinterpret_cast<VertexBufferHeader*>(m_memory.data() + dataIndex);
 				dataIndex += sizeof(VertexBufferHeader);
 
-				m_vertexDataMap[vertexData.Type] = ChunkMemoryEntry(dataIndex, resource.ResourceSize, resource.UncompressedSize);
-				dataIndex += resource.ResourceSize;
-				break;
+				m_vertexDataMap[vertexData->Type] = ChunkMemoryEntry(dataIndex, resource->ResourceSize, resource->UncompressedSize);
+				dataIndex += resource->ResourceSize;
+			}
+			break;
 
 			case ChunkResourceType::Image:
 			{
-				ImageHeader imageHeader;
-				memcpy(&imageHeader, m_memory.data() + dataIndex, sizeof(ImageHeader));
+				ImageHeader* imageHeader = reinterpret_cast<ImageHeader*>(m_memory.data() + dataIndex);
 				dataIndex += sizeof(ImageHeader);
 
-				m_imageData.emplace_back(ImageData(imageHeader, ChunkMemoryEntry(dataIndex, resource.ResourceSize, resource.UncompressedSize)));
-				dataIndex += resource.ResourceSize;
+				m_imageData.emplace_back(ImageData(*imageHeader, ChunkMemoryEntry(dataIndex, resource->ResourceSize, resource->UncompressedSize)));
+				dataIndex += resource->ResourceSize;
 			}
 			break;
 
