@@ -30,6 +30,7 @@ namespace Engine::Rendering::Vulkan
 
 		const Device& vkDevice = static_cast<const Device&>(device);
 		const PhysicalDevice& vkPhysicalDevice = static_cast<const PhysicalDevice&>(physicalDevice);
+		const vk::Device& deviceImp = vkDevice.Get();
 
 		const vk::PhysicalDeviceLimits& limits = vkPhysicalDevice.GetLimits();
 
@@ -41,11 +42,13 @@ namespace Engine::Rendering::Vulkan
 			queryPoolInfo.queryType = vk::QueryType::eTimestamp;
 
 			queryPoolInfo.queryCount = m_renderPassCount * 2;
-			m_timestampQueryPool = vkDevice.Get().createQueryPoolUnique(queryPoolInfo);
+			m_timestampQueryPool = deviceImp.createQueryPoolUnique(queryPoolInfo);
 			if (!m_timestampQueryPool.get())
 			{
 				return false;
 			}
+
+			deviceImp.resetQueryPool(m_timestampQueryPool.get(), 0, m_renderPassCount * 2);
 		}
 		else
 		{
@@ -64,11 +67,13 @@ namespace Engine::Rendering::Vulkan
 				vk::QueryPipelineStatisticFlagBits::eFragmentShaderInvocations;
 
 			queryPoolInfo.queryCount = m_renderPassCount * statisticsCount;
-			m_statisticsQueryPool = vkDevice.Get().createQueryPoolUnique(queryPoolInfo);
+			m_statisticsQueryPool = deviceImp.createQueryPoolUnique(queryPoolInfo);
 			if (!m_statisticsQueryPool.get())
 			{
 				return false;
 			}
+
+			deviceImp.resetQueryPool(m_statisticsQueryPool.get(), 0, m_renderPassCount * statisticsCount);
 		}
 		else
 		{

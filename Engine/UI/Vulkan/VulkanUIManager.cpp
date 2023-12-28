@@ -33,7 +33,6 @@ namespace Engine::UI::Vulkan
 	VulkanUIManager::VulkanUIManager(const Window& window, Renderer& renderer)
 		: UIManager::UIManager(window, renderer)
 		, m_descriptorPool()
-		, m_initVersion(0)
 	{
 		ImPlot::CreateContext();
 	}
@@ -51,7 +50,7 @@ namespace Engine::UI::Vulkan
 		const PhysicalDevice& physicalDevice = static_cast<const PhysicalDevice&>(renderer.GetPhysicalDevice());
 
 		m_descriptorPool = std::make_unique<DescriptorPool>();
-		if (!m_descriptorPool->Initialise(device, concurrentFrames, {})) // Why does ImGui need an empty descriptor pool?
+		if (!m_descriptorPool->Initialise(device, concurrentFrames, {}, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet))
 		{
 			return false;
 		}
@@ -84,21 +83,6 @@ namespace Engine::UI::Vulkan
 		return true;
 	}
 
-	bool VulkanUIManager::SubmitRenderResourceSetup(VulkanRenderer& renderer)
-	{
-		uint8_t initVersion = m_initVersion;
-		return renderer.SubmitResourceCommand([](const IDevice& device, const IPhysicalDevice& physicalDevice, 
-			const ICommandBuffer& commandBuffer, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers)
-			{
-				ImGui_ImplVulkan_CreateFontsTexture(static_cast<const CommandBuffer&>(commandBuffer).Get());
-				return true;
-			},
-			[this, initVersion]() {
-				if (initVersion == m_initVersion)
-					ImGui_ImplVulkan_DestroyFontUploadObjects();
-			});
-	}
-
 	bool VulkanUIManager::Initialise(const vk::Instance& instance, VulkanRenderer& renderer)
 	{
 		if (!UIManager::Initialise())
@@ -111,25 +95,14 @@ namespace Engine::UI::Vulkan
 			return false;
 		}
 
-		if (!SubmitRenderResourceSetup(renderer))
-		{
-			return false;
-		}
-
 		return true;
 	}
 
 	bool VulkanUIManager::Rebuild(const vk::Instance& instance, VulkanRenderer& renderer)
 	{
-		++m_initVersion;
 		ImGui_ImplVulkan_Shutdown();
 
 		if (!SetupRenderBackend(instance, renderer))
-		{
-			return false;
-		}
-
-		if (!SubmitRenderResourceSetup(renderer))
 		{
 			return false;
 		}

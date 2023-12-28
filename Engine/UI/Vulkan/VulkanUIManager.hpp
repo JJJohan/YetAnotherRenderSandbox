@@ -38,9 +38,7 @@ namespace Engine::UI::Vulkan
 
 	private:
 		bool SetupRenderBackend(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer& renderer);
-		bool SubmitRenderResourceSetup(Engine::Rendering::Vulkan::VulkanRenderer& renderer);
 
 		std::unique_ptr<Engine::Rendering::Vulkan::DescriptorPool> m_descriptorPool;
-		uint8_t m_initVersion;
 	};
 }
