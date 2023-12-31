@@ -76,9 +76,4 @@ namespace Engine::Rendering
 		m_material->BindMaterial(commandBuffer, frameIndex);
 		commandBuffer.Draw(3, 1, 0, 0);
 	}
-
-	void CombinePass::SetDebugMode(uint32_t value) const
-	{
-		m_material->SetSpecialisationConstant("debugMode", static_cast<int32_t>(value));
-	}
 }

@@ -101,6 +101,8 @@ namespace Engine::Rendering
 
 		inline virtual RenderNodeType GetNodeType() const override { return RenderNodeType::Pass; }
 
+		inline Material* GetMaterial() const { return m_material; }
+
 	protected:
 		IRenderPass(const char* name, const char* materialName)
 			: IRenderNode(name)

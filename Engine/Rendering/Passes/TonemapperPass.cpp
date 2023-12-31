@@ -36,6 +36,9 @@ namespace Engine::Rendering
 	{
 		ClearResources();
 
+		bool isHdr = renderer.GetHDRState();
+		m_material->SetSpecialisationConstant("isHdr", isHdr ? 1 : 0);
+
 		const IDevice& device = renderer.GetDevice();
 
 		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, imageOutputs.at("Output")));

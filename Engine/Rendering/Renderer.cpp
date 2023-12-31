@@ -23,6 +23,7 @@
 #include "Passes/SceneOpaquePass.hpp"
 #include "Passes/SceneShadowPass.hpp"
 #include "Passes/CombinePass.hpp"
+#include "Passes/TonemapperPass.hpp"
 #include "Passes/UIPass.hpp"
 
 using namespace Engine::OS;
@@ -276,7 +277,18 @@ namespace Engine::Rendering
 	{
 		m_debugMode = mode;
 		const std::unique_ptr<CombinePass>& combinePass = reinterpret_cast<const std::unique_ptr<CombinePass>&>(m_renderPasses.at("Combine"));
-		combinePass->SetDebugMode(mode);
+		combinePass->GetMaterial()->SetSpecialisationConstant("debugMode", static_cast<int32_t>(mode));
+	}
+
+	void Renderer::SetHDRState(bool enable)
+	{
+		m_renderSettings.m_hdr = enable;
+
+		const IRenderPass* pass;
+		if (m_renderGraph->TryGetPass("Tonemapper", &pass))
+		{
+			pass->GetMaterial()->SetSpecialisationConstant("isHdr", enable ? 1 : 0);
+		}
 	}
 
 	bool Renderer::Render()

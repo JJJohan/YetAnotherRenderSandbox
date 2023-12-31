@@ -25,8 +25,6 @@ namespace Engine::Rendering
 		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer, 
 			const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex) override;
 
-		void SetDebugMode(uint32_t value) const;
-
 	private:
 		const ShadowMap& m_shadowMap;
 	};

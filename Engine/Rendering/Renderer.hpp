@@ -76,7 +76,7 @@ namespace Engine::Rendering
 		inline virtual void SetMultiSampleCount(uint32_t multiSampleCount);;
 		inline uint32_t GetMaxMultiSampleCount() const { return m_maxMultiSampleCount; }
 
-		inline virtual void SetHDRState(bool enable) { m_renderSettings.m_hdr = enable; }
+		EXPORT virtual void SetHDRState(bool enable);
 		inline bool GetHDRState() const { return m_renderSettings.m_hdr; }
 		bool IsHDRSupported() const { return m_swapChain->IsHDRCapable(); }
 
