@@ -39,7 +39,7 @@ namespace Engine::Rendering
 				Engine::Logging::Logger::Error("Attachment index {} exceeds attachment count of {}.", attachmentIndex, m_attachmentFormats.size());
 			}
 			
-			if (m_attachmentFormats[attachmentIndex] != image->GetFormat())
+			if (m_attachmentFormats[attachmentIndex] != Format::PlaceholderSwapchain && m_attachmentFormats[attachmentIndex] != image->GetFormat())
 			{
 				Engine::Logging::Logger::Error("Attachment format mismatch for provided image.");
 			}

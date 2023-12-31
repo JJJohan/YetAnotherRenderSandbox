@@ -385,10 +385,10 @@ namespace Engine::Rendering::Vulkan
 
 	inline bool IsMatchingStage(vk::ShaderStageFlagBits stage, SpvReflectShaderStageFlagBits spvStage)
 	{
-		if (spvStage == SPV_REFLECT_SHADER_STAGE_VERTEX_BIT && stage == vk::ShaderStageFlagBits::eVertex)
+		if ((spvStage & SPV_REFLECT_SHADER_STAGE_VERTEX_BIT) != 0 && stage == vk::ShaderStageFlagBits::eVertex)
 			return true;
 
-		if (spvStage == SPV_REFLECT_SHADER_STAGE_FRAGMENT_BIT && stage == vk::ShaderStageFlagBits::eFragment)
+		if ((spvStage & SPV_REFLECT_SHADER_STAGE_FRAGMENT_BIT) != 0 && stage == vk::ShaderStageFlagBits::eFragment)
 			return true;
 
 		return false;

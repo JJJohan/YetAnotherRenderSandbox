@@ -19,7 +19,7 @@ namespace Engine::Rendering
 
 		inline std::vector<IRenderPass*> GetRenderPasses() const
 		{
-			return { m_taaPass.get() };
+			return { m_tonemapperPass.get(), m_taaPass.get() };
 		}
 
 		inline const glm::vec2& GetTAAJitter()
@@ -32,5 +32,6 @@ namespace Engine::Rendering
 		uint32_t m_taaFrameIndex;
 		std::array<glm::vec2, 6> m_taaJitterOffsets;
 		std::unique_ptr<IRenderPass> m_taaPass;
+		std::unique_ptr<IRenderPass> m_tonemapperPass;
 	};
 }

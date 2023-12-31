@@ -24,6 +24,11 @@ namespace Engine::Rendering
 		};
 	}
 
+	void SceneOpaquePass::UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
+	{
+		m_imageOutputInfos.at("Depth").Format = depthFormat;
+	}
+
 	bool SceneOpaquePass::Build(const Renderer& renderer,
 		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
 		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)

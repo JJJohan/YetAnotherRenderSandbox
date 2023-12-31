@@ -14,6 +14,7 @@ namespace Engine::Rendering
 		, m_sceneGeometryBatch(sceneGeometryBatch)
 		, m_built(false)
 		, m_shadowMap(shadowMap)
+		, m_shadowResolution(4096)
 	{
 		m_imageInputInfos =
 		{
@@ -24,6 +25,12 @@ namespace Engine::Rendering
 		{
 			{"Shadows", RenderPassImageInfo(Format::PlaceholderDepth, false, shadowMap.GetExtent())}
 		};
+	}
+
+	void SceneShadowPass::UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
+	{
+		m_imageInputInfos.at("Shadows").Format = depthFormat;
+		m_imageOutputInfos.at("Shadows").Format = depthFormat;
 	}
 
 	bool SceneShadowPass::Build(const Renderer& renderer,

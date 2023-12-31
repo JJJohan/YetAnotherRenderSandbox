@@ -52,6 +52,10 @@ namespace Engine::Rendering
 			const std::unordered_map<const char*, IRenderImage*>& imageInputs,
 			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) = 0;
 
+		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
+		{
+		}
+
 		// Call before BeginRendering, but after command buffer Begin.
 		inline virtual void PreDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
 			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,

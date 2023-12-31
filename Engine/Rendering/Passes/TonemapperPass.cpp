@@ -1,0 +1,59 @@
+#include "TonemapperPass.hpp"
+#include "../Resources/IBuffer.hpp"
+#include "../Resources/IRenderImage.hpp"
+#include "../IDevice.hpp"
+#include "../Resources/ICommandBuffer.hpp"
+#include "../ISwapChain.hpp"
+#include "../Renderer.hpp"
+
+using namespace Engine::Logging;
+
+namespace Engine::Rendering
+{
+	TonemapperPass::TonemapperPass()
+		: IRenderPass("Tonemapper", "Tonemapper")
+	{
+		m_imageInputInfos =
+		{
+			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain, true)}
+		};
+
+		m_imageOutputInfos =
+		{
+			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain)}
+		};
+	}	
+	
+	void TonemapperPass::UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
+	{
+		m_imageInputInfos.at("Output").Format = swapchainFormat;
+		m_imageOutputInfos.at("Output").Format = swapchainFormat;
+	}
+
+	bool TonemapperPass::Build(const Renderer& renderer,
+		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
+	{
+		ClearResources();
+
+		const IDevice& device = renderer.GetDevice();
+
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, imageOutputs.at("Output")));
+
+		const IImageSampler& nearestSampler = renderer.GetNearestSampler();
+		const IImageView& outputImageView = imageInputs.at("Output")->GetView();
+
+		if (!m_material->BindSampler(0, nearestSampler) ||
+			!m_material->BindImageView(1, outputImageView))
+			return false;
+
+		return true;
+	}
+
+	void TonemapperPass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
+		const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex)
+	{
+		m_material->BindMaterial(commandBuffer, frameIndex);
+		commandBuffer.Draw(3, 1, 0, 0);
+	}
+}

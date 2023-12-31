@@ -176,6 +176,7 @@
     <ClCompile Include="OS\Win32\Win32Window.cpp" />
     <ClCompile Include="OS\Window.cpp" />
     <ClCompile Include="Rendering\Camera.cpp" />
+    <ClCompile Include="Rendering\Passes\TonemapperPass.cpp" />
     <ClCompile Include="Rendering\Passes\UIPass.cpp" />
     <ClCompile Include="Rendering\Passes\CombinePass.cpp" />
     <ClCompile Include="Rendering\Passes\SceneOpaquePass.cpp" />
@@ -248,6 +249,7 @@
     <ClInclude Include="OS\Win32\WindowProc.hpp" />
     <ClInclude Include="OS\Window.hpp" />
     <ClInclude Include="Rendering\Camera.hpp" />
+    <ClInclude Include="Rendering\Passes\TonemapperPass.hpp" />
     <ClInclude Include="Rendering\Passes\UIPass.hpp" />
     <ClInclude Include="Rendering\Passes\CombinePass.hpp" />
     <ClInclude Include="Rendering\Passes\IRenderPass.hpp" />

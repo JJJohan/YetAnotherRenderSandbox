@@ -1,5 +1,6 @@
 #include "PostProcessing.hpp"
 #include "Passes/TAAPass.hpp"
+#include "Passes/TonemapperPass.hpp"
 
 using namespace Engine::Logging;
 
@@ -7,6 +8,7 @@ namespace Engine::Rendering
 {
 	PostProcessing::PostProcessing()
 		: m_taaPass(nullptr)
+		, m_tonemapperPass(nullptr)
 		, m_taaFrameIndex(0)
 		, m_taaJitterOffsets()
 	{
@@ -15,6 +17,7 @@ namespace Engine::Rendering
 	bool PostProcessing::Initialise()
 	{
 		m_taaPass = std::make_unique<TAAPass>();
+		m_tonemapperPass = std::make_unique<TonemapperPass>();
 		return true;
 	}
 

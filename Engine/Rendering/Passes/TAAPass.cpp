@@ -11,23 +11,27 @@ using namespace Engine::Logging;
 
 namespace Engine::Rendering
 {
-	const Format OutputImageFormat = Format::R8G8B8A8Unorm;
-
 	TAAPass::TAAPass()
 		: IRenderPass("TAA", "TAA")
 		, m_taaHistoryImage()
 	{
 		m_imageInputInfos =
 		{
-			{"Output", RenderPassImageInfo(OutputImageFormat, true)},
+			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain, true)},
 			{"Velocity", RenderPassImageInfo(Format::R16G16Sfloat, true)},
 			{"Depth", RenderPassImageInfo(Format::D32Sfloat, true)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Output", RenderPassImageInfo(OutputImageFormat)}
+			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain)}
 		};
+	}	
+	
+	void TAAPass::UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
+	{
+		m_imageInputInfos.at("Output").Format = swapchainFormat;
+		m_imageOutputInfos.at("Output").Format = swapchainFormat;
 	}
 
 	bool TAAPass::CreateTAAHistoryImage(const IDevice& device, const IResourceFactory& resourceFactory, const glm::uvec2& size)

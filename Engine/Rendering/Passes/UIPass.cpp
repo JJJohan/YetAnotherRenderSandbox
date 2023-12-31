@@ -13,21 +13,25 @@ using namespace Engine::UI;
 
 namespace Engine::Rendering
 {
-	const Format OutputImageFormat = Format::R8G8B8A8Unorm;
-
 	UIPass::UIPass(UIManager& uiManager)
 		: IRenderPass("UI", nullptr)
 		, m_uiManager(uiManager)
 	{
 		m_imageInputInfos =
 		{
-			{"Output", RenderPassImageInfo(OutputImageFormat)}
+			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Output", RenderPassImageInfo(OutputImageFormat)}
+			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain)}
 		};
+	}
+
+	void UIPass::UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
+	{
+		m_imageInputInfos.at("Output").Format = swapchainFormat;
+		m_imageOutputInfos.at("Output").Format = swapchainFormat;
 	}
 
 	bool UIPass::Build(const Renderer& renderer,

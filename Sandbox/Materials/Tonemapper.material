@@ -2,7 +2,7 @@
 	"Programs":
 	[
 		{ "Type": "Vertex", "Path": "Shaders/ScreenQuad_vert.spv" },
-		{ "Type": "Fragment", "Path": "Shaders/TAA_frag.spv" }
+		{ "Type": "Fragment", "Path": "Shaders/Tonemapper_frag.spv" }
 	],
 
 	"DepthWrite": false,

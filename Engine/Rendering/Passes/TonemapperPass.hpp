@@ -4,12 +4,12 @@
 
 namespace Engine::Rendering
 {
-	class GeometryBatch;
+	class IResourceFactory;
 
-	class SceneOpaquePass : public IRenderPass
+	class TonemapperPass : public IRenderPass
 	{
 	public:
-		SceneOpaquePass(const GeometryBatch& sceneGeometryBatch);
+		TonemapperPass();
 
 		virtual bool Build(const Renderer& renderer,
 			const std::unordered_map<const char*, IRenderImage*>& imageInputs,
@@ -17,11 +17,12 @@ namespace Engine::Rendering
 
 		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat) override;
 
-		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
-			const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex) override;
+		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer, 
+			const glm::uvec2& size, uint32_t frameIndex, uint32_t passIndex) override;
 
-	private:
-		const GeometryBatch& m_sceneGeometryBatch;
-		bool m_built;
+		inline virtual void ClearResources() override
+		{
+			IRenderPass::ClearResources();
+		}
 	};
 }

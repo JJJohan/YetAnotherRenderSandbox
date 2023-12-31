@@ -262,6 +262,9 @@
     <ClCompile Include="Rendering\RenderResources\IRenderNode.hpp">
       <Filter>Rendering\RenderResources</Filter>
     </ClCompile>
+    <ClCompile Include="Rendering\Passes\TonemapperPass.cpp">
+      <Filter>Rendering\Passes</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Macros.hpp">
@@ -560,6 +563,9 @@
       <Filter>Rendering\Resources</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\Passes\UIPass.hpp">
+      <Filter>Rendering\Passes</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Passes\TonemapperPass.hpp">
       <Filter>Rendering\Passes</Filter>
     </ClInclude>
   </ItemGroup>

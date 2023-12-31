@@ -178,13 +178,17 @@ namespace Engine::Rendering
 	};
 
 	inline bool TryGetOrAddImage(const Renderer& renderer, std::unordered_map<Format, std::vector<ImageInfo>>& formatRenderTextureLookup,
-		std::vector<std::unique_ptr<IRenderImage>>& renderTextures, std::unordered_map<IRenderImage*, ImageInfo&>& imageInfoLookup,
+		std::vector<std::unique_ptr<IRenderImage>>& renderTextures, std::unordered_map<IRenderImage*, uint32_t>& imageInfoLookup,
 		Format format, bool read, bool write, const glm::uvec3& dimensions, IRenderImage** result)
 	{
+		if (format == Format::PlaceholderDepth || format == Format::PlaceholderSwapchain)
+		{
+			Logger::Error("Placeholder format should be handled by IRenderPass::UpdatePlaceholderFormats.");
+			return false;
+		}
+
 		const IPhysicalDevice& physicalDevice = renderer.GetPhysicalDevice();
 		Format depthFormat = physicalDevice.GetDepthFormat();
-		if (format == Format::PlaceholderDepth)
-			format = depthFormat;
 
 		std::vector<ImageInfo>& availableImages = formatRenderTextureLookup[format];
 
@@ -244,10 +248,10 @@ namespace Engine::Rendering
 			return false;
 		}
 
+		imageInfoLookup.emplace(image.get(), static_cast<uint32_t>(availableImages.size()));
 		ImageInfo& newInfo = availableImages.emplace_back(ImageInfo(*image));
 		newInfo.Read = read;
 		newInfo.Write = write;
-		imageInfoLookup.emplace(image.get(), newInfo);
 
 		*result = image.get();
 
@@ -261,7 +265,7 @@ namespace Engine::Rendering
 
 		std::unordered_map<const char*, RenderGraphNode&> renderGraphNodeLookup;
 		std::unordered_map<Format, std::vector<ImageInfo>> formatRenderTextureLookup;
-		std::unordered_map<IRenderImage*, ImageInfo&> imageInfoLookup;
+		std::unordered_map<IRenderImage*, uint32_t> imageInfoLookup;
 		m_renderTextures.clear();
 		m_renderGraph.clear();
 		m_commandBuffers.clear();
@@ -269,6 +273,12 @@ namespace Engine::Rendering
 
 		std::unordered_map<const char*, RenderGraphNode*> availableBufferSources{};
 		std::unordered_map<const char*, RenderGraphNode*> availableImageSources{};
+
+		const IPhysicalDevice& physicalDevice = renderer.GetPhysicalDevice();
+		Format depthFormat = physicalDevice.GetDepthFormat();
+		const ISwapChain& swapchain = renderer.GetSwapChain();
+		glm::uvec3 defaultExtents = glm::uvec3(swapchain.GetExtent(), 1);
+		Format swapchainFormat = swapchain.GetFormat();
 
 		if (!m_renderResources.empty())
 		{
@@ -293,6 +303,8 @@ namespace Engine::Rendering
 		{
 			if (pass->GetEnabled())
 			{
+				pass->UpdatePlaceholderFormats(swapchainFormat, depthFormat);
+
 				renderPassStack.emplace_back(pass);
 				++enabledPasses;
 			}
@@ -409,8 +421,6 @@ namespace Engine::Rendering
 				}
 			}
 
-			const ISwapChain& swapchain = renderer.GetSwapChain();
-			glm::uvec3 defaultExtents = glm::uvec3(swapchain.GetExtent(), 1);
 			for (auto& node : stage)
 			{
 				if (node.Type == RenderNodeType::Pass)
@@ -422,11 +432,11 @@ namespace Engine::Rendering
 						const auto& previousOutput = node.InputImageSources.find(info.first);
 						if (previousOutput != node.InputImageSources.end())
 						{
-							IRenderImage* image = previousOutput->second.OutputImages[info.first];
+							const auto image = previousOutput->second.OutputImages[info.first];
 							const auto& imageInfo = imageInfoLookup.find(image);
 							if (imageInfo != imageInfoLookup.end())
 							{
-								imageInfo->second.Read = info.second.IsRead;
+								formatRenderTextureLookup[image->GetFormat()][imageInfo->second].Read = info.second.IsRead;
 							}
 							node.InputImages[info.first] = image;
 						}
@@ -458,7 +468,9 @@ namespace Engine::Rendering
 							const auto& matchingInputInfo = imageInfoLookup.find(inputImage);
 							if (matchingInputInfo != imageInfoLookup.end())
 							{
-								if (!matchingInputInfo->second.Read && inputImage->GetFormat() == outputInfo.Format && inputImage->GetDimensions() == requestedExtents)
+								const auto& indices = formatRenderTextureLookup[inputImage->GetFormat()];
+								bool matchingIsRead = indices[matchingInputInfo->second].Read;
+								if (!matchingIsRead && inputImage->GetFormat() == outputInfo.Format && inputImage->GetDimensions() == requestedExtents)
 								{
 									image = inputImage; // Passthrough
 								}

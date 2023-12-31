@@ -12,8 +12,6 @@ using namespace Engine::Logging;
 
 namespace Engine::Rendering
 {
-	const Format OutputImageFormat = Format::R8G8B8A8Unorm;
-
 	CombinePass::CombinePass(const ShadowMap& shadowMap)
 		: IRenderPass("Combine", "Combine")
 		, m_shadowMap(shadowMap)
@@ -29,8 +27,13 @@ namespace Engine::Rendering
 
 		m_imageOutputInfos = 
 		{
-			{"Output", RenderPassImageInfo(OutputImageFormat)}
+			{"Output", RenderPassImageInfo(Format::R16G16B16A16Sfloat)}
 		};
+	}
+
+	void CombinePass::UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
+	{
+		m_imageInputInfos.at("Shadows").Format = depthFormat;
 	}
 
 	bool CombinePass::Build(const Renderer& renderer,

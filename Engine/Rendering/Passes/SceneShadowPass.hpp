@@ -16,6 +16,8 @@ namespace Engine::Rendering
 			const std::unordered_map<const char*, IRenderImage*>& imageInputs,
 			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) override;
 
+		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat) override;
+
 		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
 			const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex) override;
 
