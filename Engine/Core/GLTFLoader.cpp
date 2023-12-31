@@ -179,6 +179,19 @@ namespace Engine
 			{
 				const fastgltf::Material& material = asset.materials[primitive.materialIndex.value()];
 
+				// Avoid changing rasterizer culling state, clone the indices and mirror them.
+				if (material.doubleSided)
+				{
+					size_t indexCount = indices.size();
+					indices.resize(indexCount * 2);
+					for (size_t i = 0; i < indexCount; i += 3)
+					{
+						indices[indexCount + i] = indices[i + 2];
+						indices[indexCount + i + 1] = indices[i + 1];
+						indices[indexCount + i + 2] = indices[i];
+					}
+				}
+
 				const fastgltf::PBRData& pbrData = material.pbrData;
 				colour = Colour(pbrData.baseColorFactor[0], pbrData.baseColorFactor[1], pbrData.baseColorFactor[2], pbrData.baseColorFactor[3]);
 
