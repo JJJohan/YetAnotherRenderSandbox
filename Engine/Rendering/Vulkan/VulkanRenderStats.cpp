@@ -83,7 +83,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	void VulkanRenderStats::Begin(const ICommandBuffer& commandBuffer, const char* passName)
+	void VulkanRenderStats::Begin(const ICommandBuffer& commandBuffer, const char* passName, bool isCompute)
 	{
 		const vk::CommandBuffer& vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
 
@@ -93,7 +93,7 @@ namespace Engine::Rendering::Vulkan
 			vkCommandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eTopOfPipe, m_timestampQueryPool.get(), m_renderPassIndex * 2);
 		}
 
-		if (m_statisticsSupported)
+		if (!isCompute && m_statisticsSupported)
 		{
 			vkCommandBuffer.resetQueryPool(m_statisticsQueryPool.get(), m_renderPassIndex, 1);
 			vkCommandBuffer.beginQuery(m_statisticsQueryPool.get(), m_renderPassIndex, vk::QueryControlFlags());
@@ -102,14 +102,14 @@ namespace Engine::Rendering::Vulkan
 		m_renderPassNames.emplace_back(passName);
 	}
 
-	void VulkanRenderStats::End(const ICommandBuffer& commandBuffer)
+	void VulkanRenderStats::End(const ICommandBuffer& commandBuffer, bool isCompute)
 	{
 		const vk::CommandBuffer& vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
 
 		if (m_timestampSupported)
 			vkCommandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, m_timestampQueryPool.get(), m_renderPassIndex * 2 + 1);
 
-		if (m_statisticsSupported)
+		if (!isCompute && m_statisticsSupported)
 			vkCommandBuffer.endQuery(m_statisticsQueryPool.get(), m_renderPassIndex);
 
 		++m_renderPassIndex;

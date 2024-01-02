@@ -1,6 +1,6 @@
 #include "PostProcessing.hpp"
-#include "Passes/TAAPass.hpp"
-#include "Passes/TonemapperPass.hpp"
+#include "RenderPasses/TAAPass.hpp"
+#include "RenderPasses/TonemapperPass.hpp"
 
 using namespace Engine::Logging;
 

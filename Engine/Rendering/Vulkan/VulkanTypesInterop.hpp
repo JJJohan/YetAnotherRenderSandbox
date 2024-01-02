@@ -120,6 +120,8 @@ namespace Engine::Rendering::Vulkan
 			return "Vertex";
 		case vk::ShaderStageFlagBits::eFragment:
 			return "Fragment";
+		case vk::ShaderStageFlagBits::eCompute:
+			return "Compute";
 		default:
 			throw;
 		}

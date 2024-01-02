@@ -9,6 +9,7 @@ layout(binding = 0) uniform FrameInfo
 	vec4 viewPos;
 	vec2 viewSize;
 	vec2 jitter;
+	uint meshCount;
 } frameInfo;
 
 layout(location = 0) flat in uint fragDiffuseImageIndex;

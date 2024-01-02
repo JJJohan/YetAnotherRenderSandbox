@@ -25,6 +25,11 @@ namespace Engine::Rendering
 		{
 			{"Shadows", RenderPassImageInfo(Format::PlaceholderDepth, false, shadowMap.GetExtent())}
 		};
+
+		m_bufferInputs =
+		{
+			{"IndirectDraw", nullptr}
+		};
 	}
 
 	void SceneShadowPass::UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
@@ -87,7 +92,7 @@ namespace Engine::Rendering
 			std::vector<IBuffer*> vertexBufferViews = { vertexBuffers[0].get(), vertexBuffers[1].get() };
 
 			m_depthAttachment->loadOp = AttachmentLoadOp::Load;
-			m_material->BindMaterial(commandBuffer, frameIndex);
+			m_material->BindMaterial(commandBuffer, BindPoint::Graphics, frameIndex);
 			commandBuffer.BindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
 			commandBuffer.BindIndexBuffer(m_sceneGeometryBatch.GetIndexBuffer(), 0, IndexType::Uint32);
 		}

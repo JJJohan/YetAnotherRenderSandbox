@@ -1,6 +1,5 @@
 #pragma once
 
-#include <glm/glm.hpp>
 #include "../Types.hpp"
 #include <vector>
 #include <memory>
@@ -11,7 +10,6 @@
 namespace Engine::Rendering
 {
 	class IDevice;
-	class IBuffer;
 	class IResourceFactory;
 	class Camera;
 

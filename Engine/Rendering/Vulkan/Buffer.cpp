@@ -2,6 +2,7 @@
 #include "RenderImage.hpp"
 #include "VulkanTypesInterop.hpp"
 #include "CommandBuffer.hpp"
+#include "Device.hpp"
 
 using namespace Engine::Logging;
 
@@ -40,6 +41,12 @@ namespace Engine::Rendering::Vulkan
 
 		memcpy(m_bufferAllocInfo.pMappedData, data, size);
 		return true;
+	}
+
+	uint64_t Buffer::GetDeviceAddress(const IDevice& device)
+	{
+		vk::BufferDeviceAddressInfo info(m_buffer);
+		return static_cast<uint64_t>(static_cast<const Device&>(device).Get().getBufferAddress(info));
 	}
 
 	void Buffer::Copy(const ICommandBuffer& commandBuffer, const IBuffer& destination, size_t size) const

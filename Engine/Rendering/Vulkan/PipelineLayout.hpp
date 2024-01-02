@@ -27,7 +27,7 @@ namespace Engine::Rendering::Vulkan
 		PipelineLayout();
 
 		const vk::PipelineLayout& Get() const;
-		const vk::Pipeline& GetGraphicsPipeline() const;
+		const vk::Pipeline& GetPipeline() const;
 
 		bool Initialise(const IDevice& device, uint32_t concurrentFrames);
 		bool Update(const IPhysicalDevice& physicalDevice, const IDevice& device, const vk::PipelineCache& pipelineCache,
@@ -35,7 +35,7 @@ namespace Engine::Rendering::Vulkan
 
 		virtual bool SetSpecialisationConstant(std::string name, int32_t value) override;
 
-		virtual void BindMaterial(const ICommandBuffer& commandBuffer, uint32_t frameIndex) const override;
+		virtual bool BindMaterial(const ICommandBuffer& commandBuffer, BindPoint bindPoint, uint32_t frameIndex) const override;
 
 		inline bool IsDirty() const { return m_specConstantsDirty || !m_writeDescriptorSets.empty(); };
 
@@ -116,7 +116,7 @@ namespace Engine::Rendering::Vulkan
 		uint32_t m_concurrentFrames;
 		bool m_specConstantsDirty;
 		vk::UniquePipelineLayout m_pipelineLayout;
-		vk::UniquePipeline m_graphicsPipeline;
+		vk::UniquePipeline m_pipeline;
 		std::vector<std::pair<vk::ShaderStageFlagBits, vk::UniqueShaderModule>> m_shaderModules;
 		std::vector<Format> m_attachmentFormats;
 		std::vector<uint32_t> m_swapchainFormatIndices;

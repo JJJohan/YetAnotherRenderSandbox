@@ -1,6 +1,8 @@
 #version 460
 #extension GL_EXT_nonuniform_qualifier : require
 
+#include "MeshInfo.glsl"
+
 layout(binding = 0) uniform FrameInfo
 {
     mat4 viewProj;
@@ -9,17 +11,8 @@ layout(binding = 0) uniform FrameInfo
 	vec4 viewPos;
 	vec2 viewSize;
 	vec2 jitter;
+	uint meshCount;
 } frameInfo;
-
-struct MeshInfo
-{
-	mat4 transform;
-	mat4 normalMatrix;
-	vec4 color;
-	uint diffuseImageIndex;
-	uint normalImageIndex;
-	uint metallicRoughnessImageIndex;
-};
 
 layout(std140, binding = 1) readonly buffer MeshInfoBuffer
 {

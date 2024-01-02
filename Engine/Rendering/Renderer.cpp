@@ -18,13 +18,16 @@
 #include "Resources/ICommandBuffer.hpp"
 #include "RenderResources/ShadowMap.hpp"
 #include "PostProcessing.hpp"
-#include "Passes/IRenderPass.hpp"
 
-#include "Passes/SceneOpaquePass.hpp"
-#include "Passes/SceneShadowPass.hpp"
-#include "Passes/CombinePass.hpp"
-#include "Passes/TonemapperPass.hpp"
-#include "Passes/UIPass.hpp"
+#include "RenderPasses/IRenderPass.hpp"
+#include "RenderPasses/SceneOpaquePass.hpp"
+#include "RenderPasses/SceneShadowPass.hpp"
+#include "RenderPasses/CombinePass.hpp"
+#include "RenderPasses/TonemapperPass.hpp"
+#include "RenderPasses/UIPass.hpp"
+
+#include "ComputePasses/IComputePass.hpp"
+#include "ComputePasses/FrustumCullingPass.hpp"
 
 using namespace Engine::OS;
 using namespace Engine::UI;
@@ -63,6 +66,7 @@ namespace Engine::Rendering
 		, m_renderStats(nullptr)
 		, m_uiManager(nullptr)
 		, m_renderPasses()
+		, m_computePasses()
 		, m_sceneManager(std::make_unique<SceneManager>())
 		, m_linearSampler(nullptr)
 		, m_nearestSampler(nullptr)
@@ -82,6 +86,7 @@ namespace Engine::Rendering
 		m_frameInfoBufferData.clear();
 		m_lightBufferData.clear();
 		m_renderPasses.clear();
+		m_computePasses.clear();
 
 		m_renderGraph.reset();
 		m_linearSampler.reset();
@@ -95,7 +100,6 @@ namespace Engine::Rendering
 		m_renderStats.reset();
 		m_materialManager.reset();
 	}
-
 
 	bool Renderer::CreateFrameInfoUniformBuffer()
 	{
@@ -170,6 +174,7 @@ namespace Engine::Rendering
 		frameInfo->viewSize = size;
 		frameInfo->viewProj = m_camera.GetViewProjection();
 		frameInfo->jitter = m_renderSettings.m_temporalAA ? m_postProcessing->GetTAAJitter() : glm::vec2();
+		frameInfo->meshCount = m_sceneGeometryBatch->GetMeshCapacity();
 	}
 
 	bool Renderer::Initialise()
@@ -225,11 +230,22 @@ namespace Engine::Rendering
 		m_renderPasses["SceneShadow"] = std::make_unique<SceneShadowPass>(*m_sceneGeometryBatch, *m_shadowMap);
 		m_renderPasses["Combine"] = std::make_unique<CombinePass>(*m_shadowMap);
 
+		m_computePasses["FrustumCulling"] = std::make_unique<FrustumCullingPass>(*m_sceneGeometryBatch);
+
 		for (const auto& pair : m_renderPasses)
 		{
-			if (!m_renderGraph->AddPass(pair.second.get(), *m_materialManager))
+			if (!m_renderGraph->AddRenderNode(pair.second.get(), *m_materialManager))
 			{
-				Logger::Error("Failed to add pass '{}' to render graph.", pair.first);
+				Logger::Error("Failed to add render pass '{}' to render graph.", pair.first);
+				return false;
+			}
+		}
+
+		for (const auto& pair : m_computePasses)
+		{
+			if (!m_renderGraph->AddRenderNode(pair.second.get(), *m_materialManager))
+			{
+				Logger::Error("Failed to add compute pass '{}' to render graph.", pair.first);
 				return false;
 			}
 		}
@@ -237,7 +253,7 @@ namespace Engine::Rendering
 		std::vector<IRenderPass*> postProcessPasses = m_postProcessing->GetRenderPasses();
 		for (IRenderPass* pass : postProcessPasses)
 		{
-			if (!m_renderGraph->AddPass(pass, *m_materialManager))
+			if (!m_renderGraph->AddRenderNode(pass, *m_materialManager))
 			{
 				Logger::Error("Failed to add post process pass to render graph.");
 				return false;
@@ -246,7 +262,7 @@ namespace Engine::Rendering
 
 		// Add UI pass after post processing.
 		m_renderPasses["UI"] = std::make_unique<UIPass>(*m_uiManager);
-		if (!m_renderGraph->AddPass(m_renderPasses["UI"].get(), *m_materialManager))
+		if (!m_renderGraph->AddRenderNode(m_renderPasses["UI"].get(), *m_materialManager))
 		{
 			Logger::Error("Failed to add pass 'UI' to render graph.");
 			return false;
@@ -280,12 +296,20 @@ namespace Engine::Rendering
 		combinePass->GetMaterial()->SetSpecialisationConstant("debugMode", static_cast<int32_t>(mode));
 	}
 
+	void Renderer::PauseFrustumCulling(bool pause)
+	{
+		const std::unique_ptr<FrustumCullingPass>& frustumCullingPass = reinterpret_cast<const std::unique_ptr<FrustumCullingPass>&>(m_computePasses.at("FrustumCulling"));
+		frustumCullingPass->SetEnabled(!pause);
+		m_renderGraph->MarkDirty();
+
+	}
+
 	void Renderer::SetHDRState(bool enable)
 	{
 		m_renderSettings.m_hdr = enable;
 
 		const IRenderPass* pass;
-		if (m_renderGraph->TryGetPass("Tonemapper", &pass))
+		if (m_renderGraph->TryGetRenderPass("Tonemapper", &pass))
 		{
 			pass->GetMaterial()->SetSpecialisationConstant("isHdr", enable ? 1 : 0);
 		}

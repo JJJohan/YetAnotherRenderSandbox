@@ -60,7 +60,7 @@ namespace Engine::Rendering::Vulkan
 			std::optional<std::function<void()>> postAction = std::nullopt) override;
 
 		virtual IRenderImage& GetPresentImage() const override;
-		virtual bool Present(const std::vector<SubmitInfo>& submitInfos) override;
+		virtual bool Present(const std::vector<SubmitInfo>& renderSubmitInfos, const std::vector<SubmitInfo>& computeSubmitInfos) override;
 
 	protected:
 		virtual void DestroyResources() override;
@@ -86,7 +86,8 @@ namespace Engine::Rendering::Vulkan
 		std::unique_ptr<CommandPool> m_resourceCommandPool;
 
 		std::vector<vk::UniqueSemaphore> m_imageAvailableSemaphores;
-		std::vector<vk::UniqueFence> m_inFlightFences;
+		std::vector<vk::UniqueFence> m_inFlightRenderFences;
+		std::vector<vk::UniqueFence> m_inFlightComputeFences;
 		std::vector<std::pair<vk::UniqueFence, std::vector<ResourceCommandData>>> m_inFlightResources;
 		std::vector<ResourceCommandData> m_pendingResources;
 

@@ -1,0 +1,78 @@
+#version 460
+#extension GL_EXT_nonuniform_qualifier : require
+
+layout(local_size_x = 64) in;
+
+layout(binding = 0) uniform FrameInfo
+{
+    mat4 viewProj;
+    mat4 prevViewProj;
+    mat4 view;
+	vec4 viewPos;
+	vec2 viewSize;
+	vec2 jitter;
+	uint meshCount;
+} frameInfo;
+
+struct Bounds
+{
+	vec3 center;
+	float radius;
+};
+
+layout(std140, binding = 1) readonly buffer BoundsBuffer
+{
+	Bounds bounds[];
+} boundsBuffer;
+
+struct VkDrawIndexedIndirectCommand
+{
+	uint indexCount;
+	uint instanceCount;
+	uint firstIndex;
+	int vertexOffset;
+	uint firstInstance;
+};
+
+layout(std430, binding = 2) writeonly buffer IndirectBuffer
+{
+	VkDrawIndexedIndirectCommand commands[];
+} indirectBuffer;
+
+uint check_is_visible(mat4 viewProj, vec3 origin, float radius)
+{
+	uint plane_index = 0;
+	for (uint i = 0; i < 3; ++i)
+	{
+		for (uint j = 0; j < 2; ++j, ++plane_index)
+		{
+			if (plane_index == 2 || plane_index == 3)
+			{
+				continue;
+			}
+			const float sign = (j > 0) ? 1.f : -1.f;
+			vec4 plane = vec4(0, 0, 0, 0);
+			for (uint k = 0; k < 4; ++k)
+			{
+				plane[k] = viewProj[k][3] + sign * viewProj[k][i];
+			}
+			plane.xyzw /= sqrt(dot(plane.xyz, plane.xyz));
+			if (dot(origin, plane.xyz) + plane.w + radius < 0)
+			{
+				return 0;
+			}
+		}
+	}
+	return 1;
+}
+
+void main()
+{
+	uint id = gl_GlobalInvocationID.x;
+	if (id >= frameInfo.meshCount)
+	{
+		return;
+	}
+
+	indirectBuffer.commands[id].instanceCount = check_is_visible(frameInfo.viewProj, boundsBuffer.bounds[id].center, boundsBuffer.bounds[id].radius);
+}

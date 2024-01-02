@@ -2,6 +2,7 @@
 #include "Core/Logging/Logger.hpp"
 #include "../Camera.hpp"
 #include "../IDevice.hpp"
+#include "../Resources/IRenderImage.hpp"
 #include "../IResourceFactory.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include "../Renderer.hpp"
@@ -20,9 +21,9 @@ namespace Engine::Rendering
 		, m_cascadeCount(DefaultCascadeCount)
 		, m_extent(4096, 4096, 1) // TODO: Make configurable
 	{
-		m_imageOutputs =
+		m_imageOutputInfos =
 		{
-			{"Shadows", nullptr}
+			{"Shadows", {} }
 		};
 	}
 
@@ -143,7 +144,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		m_imageOutputs["Shadows"] = m_shadowImage.get();
+		m_imageOutputInfos["Shadows"] = RenderPassImageInfo(depthFormat, false, m_extent, m_shadowImage.get());
 
 		return true;
 	}

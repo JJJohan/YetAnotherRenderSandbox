@@ -43,11 +43,14 @@
     <Filter Include="Rendering\Resources">
       <UniqueIdentifier>{6102c211-3e0a-4cd1-bf4f-878802381d58}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Rendering\Passes">
-      <UniqueIdentifier>{4d4a72b5-74f1-476f-b176-04d71be28621}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Rendering\RenderResources">
       <UniqueIdentifier>{45b88c64-94ec-4f23-8c51-5016ea57e7d7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering\RenderPasses">
+      <UniqueIdentifier>{e4396b64-5971-4c77-90bb-6e198f2ef6da}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering\ComputePasses">
+      <UniqueIdentifier>{90f2f167-aadb-41e8-8377-532cb58a92ff}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -214,20 +217,8 @@
     <ClCompile Include="Rendering\Vulkan\CommandBuffer.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="Rendering\Passes\SceneOpaquePass.cpp">
-      <Filter>Rendering\Passes</Filter>
-    </ClCompile>
     <ClCompile Include="Rendering\RenderGraph.cpp">
       <Filter>Rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="Rendering\Passes\TAAPass.cpp">
-      <Filter>Rendering\Passes</Filter>
-    </ClCompile>
-    <ClCompile Include="Rendering\Passes\CombinePass.cpp">
-      <Filter>Rendering\Passes</Filter>
-    </ClCompile>
-    <ClCompile Include="Rendering\Passes\SceneShadowPass.cpp">
-      <Filter>Rendering\Passes</Filter>
     </ClCompile>
     <ClCompile Include="Core\VertexData.cpp">
       <Filter>Core</Filter>
@@ -256,14 +247,29 @@
     <ClCompile Include="Rendering\Vulkan\Semaphore.cpp">
       <Filter>Rendering\Vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="Rendering\Passes\UIPass.cpp">
-      <Filter>Rendering\Passes</Filter>
-    </ClCompile>
     <ClCompile Include="Rendering\RenderResources\IRenderNode.hpp">
       <Filter>Rendering\RenderResources</Filter>
     </ClCompile>
-    <ClCompile Include="Rendering\Passes\TonemapperPass.cpp">
-      <Filter>Rendering\Passes</Filter>
+    <ClCompile Include="Rendering\ComputePasses\FrustumCullingPass.cpp">
+      <Filter>Rendering\ComputePasses</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\RenderPasses\SceneOpaquePass.cpp">
+      <Filter>Rendering\RenderPasses</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\RenderPasses\SceneShadowPass.cpp">
+      <Filter>Rendering\RenderPasses</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\RenderPasses\TAAPass.cpp">
+      <Filter>Rendering\RenderPasses</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\RenderPasses\TonemapperPass.cpp">
+      <Filter>Rendering\RenderPasses</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\RenderPasses\UIPass.cpp">
+      <Filter>Rendering\RenderPasses</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\RenderPasses\CombinePass.cpp">
+      <Filter>Rendering\RenderPasses</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -492,23 +498,8 @@
     <ClInclude Include="Rendering\Resources\RenderMeshInfo.hpp">
       <Filter>Rendering\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\Passes\IRenderPass.hpp">
-      <Filter>Rendering\Passes</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\Passes\SceneOpaquePass.hpp">
-      <Filter>Rendering\Passes</Filter>
-    </ClInclude>
     <ClInclude Include="Rendering\RenderGraph.hpp">
       <Filter>Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\Passes\SceneShadowPass.hpp">
-      <Filter>Rendering\Passes</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\Passes\TAAPass.hpp">
-      <Filter>Rendering\Passes</Filter>
-    </ClInclude>
-    <ClInclude Include="Rendering\Passes\CombinePass.hpp">
-      <Filter>Rendering\Passes</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\ISwapChain.hpp">
       <Filter>Rendering</Filter>
@@ -562,11 +553,32 @@
     <ClInclude Include="Rendering\Resources\ISemaphore.hpp">
       <Filter>Rendering\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\Passes\UIPass.hpp">
-      <Filter>Rendering\Passes</Filter>
+    <ClInclude Include="Rendering\ComputePasses\IComputePass.hpp">
+      <Filter>Rendering\ComputePasses</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\Passes\TonemapperPass.hpp">
-      <Filter>Rendering\Passes</Filter>
+    <ClInclude Include="Rendering\ComputePasses\FrustumCullingPass.hpp">
+      <Filter>Rendering\ComputePasses</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\RenderPasses\CombinePass.hpp">
+      <Filter>Rendering\RenderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\RenderPasses\IRenderPass.hpp">
+      <Filter>Rendering\RenderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\RenderPasses\SceneOpaquePass.hpp">
+      <Filter>Rendering\RenderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\RenderPasses\SceneShadowPass.hpp">
+      <Filter>Rendering\RenderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\RenderPasses\TAAPass.hpp">
+      <Filter>Rendering\RenderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\RenderPasses\TonemapperPass.hpp">
+      <Filter>Rendering\RenderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\RenderPasses\UIPass.hpp">
+      <Filter>Rendering\RenderPasses</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -44,6 +44,7 @@ namespace Engine::Rendering
 	class IBuffer;
 	class ISwapChain;
 	class IRenderPass;
+	class IComputePass;
 	class IImageSampler;
 	class GeometryBatch;
 
@@ -72,6 +73,8 @@ namespace Engine::Rendering
 
 		EXPORT void SetDebugMode(uint32_t mode);
 		inline uint32_t GetDebugMode() const { return m_debugMode; }
+
+		EXPORT void PauseFrustumCulling(bool pause);
 
 		inline virtual void SetMultiSampleCount(uint32_t multiSampleCount);;
 		inline uint32_t GetMaxMultiSampleCount() const { return m_maxMultiSampleCount; }
@@ -116,7 +119,7 @@ namespace Engine::Rendering
 
 		virtual IRenderImage& GetPresentImage() const = 0;
 
-		virtual bool Present(const std::vector<SubmitInfo>& submitInfos) = 0;
+		virtual bool Present(const std::vector<SubmitInfo>& renderSubmitInfos, const std::vector<SubmitInfo>& computeSubmitInfos) = 0;
 
 	protected:
 		Renderer(const Engine::OS::Window& window, bool debug);
@@ -147,6 +150,7 @@ namespace Engine::Rendering
 		std::vector<FrameInfoUniformBuffer*> m_frameInfoBufferData;
 		std::vector<LightUniformBuffer*> m_lightBufferData;
 		std::unordered_map<const char*, std::unique_ptr<IRenderPass>> m_renderPasses;
+		std::unordered_map<const char*, std::unique_ptr<IComputePass>> m_computePasses;
 		std::unique_ptr<RenderGraph> m_renderGraph;
 		std::unique_ptr<IImageSampler> m_linearSampler;
 		std::unique_ptr<IImageSampler> m_nearestSampler;

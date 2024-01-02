@@ -15,8 +15,8 @@ namespace Engine::Rendering::Vulkan
 	public:
 		VulkanRenderStats();
 		virtual bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t renderPassCount) override;
-		virtual void Begin(const ICommandBuffer& commandBuffer, const char* passName) override;
-		virtual void End(const ICommandBuffer& commandBuffer) override;
+		virtual void Begin(const ICommandBuffer& commandBuffer, const char* passName, bool isCompute) override;
+		virtual void End(const ICommandBuffer& commandBuffer, bool isCompute) override;
 		virtual void FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device,
 			const std::vector<IRenderResource*>& renderResources) override;
 

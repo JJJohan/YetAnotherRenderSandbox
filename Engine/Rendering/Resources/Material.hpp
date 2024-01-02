@@ -16,6 +16,12 @@ namespace Engine::Rendering
 	class IBuffer;
 	class ICommandBuffer;
 
+	enum class BindPoint
+	{
+		Graphics,
+		Compute
+	};
+
 	class Material
 	{
 	public:
@@ -130,7 +136,7 @@ namespace Engine::Rendering
 		}
 
 		virtual bool SetSpecialisationConstant(std::string name, int32_t value) = 0;
-		virtual	void BindMaterial(const ICommandBuffer& commandBuffer, uint32_t frameIndex) const = 0;
+		virtual	bool BindMaterial(const ICommandBuffer& commandBuffer, BindPoint bindPoint, uint32_t frameIndex) const = 0;
 
 	protected:
 		virtual bool BindImageViewsImp(uint32_t binding, const std::vector<const IImageView*>& imageViews) = 0;

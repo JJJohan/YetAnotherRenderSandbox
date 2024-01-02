@@ -45,6 +45,7 @@ namespace Engine::Rendering
 		bool Build(ChunkData* chunkData, AsyncData& asyncData);
 
 		inline const IBuffer& GetIndirectDrawBuffer() const { return *m_indirectDrawBuffer; }
+		inline const IBuffer& GetBoundsBuffer() const { return *m_boundsBuffer; }
 		inline const std::vector<std::unique_ptr<IBuffer>>& GetVertexBuffers() const { return m_vertexBuffers; }
 		inline const IBuffer& GetIndexBuffer() const { return *m_indexBuffer; }
 		inline const IBuffer& GetMeshInfoBuffer() const { return *m_meshInfoBuffer; }
@@ -57,10 +58,14 @@ namespace Engine::Rendering
 		{
 			IndexBuffer,
 			MeshInfo,
-			IndirectDrawBuffer
+			IndirectDrawBuffer,
+			BoundsBuffer
 		};
 
 		bool SetupIndirectDrawBuffer(const ICommandBuffer& commandBuffer, ChunkData* chunkData,
+			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory);
+
+		bool SetupBoundsBuffer(const ICommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory);
 
 		bool SetupVertexBuffers(const ICommandBuffer& commandBuffer, ChunkData* chunkData,
@@ -88,6 +93,7 @@ namespace Engine::Rendering
 		std::unique_ptr<IBuffer> m_indirectDrawBuffer;
 		std::vector<std::unique_ptr<IBuffer>> m_vertexBuffers;
 		std::unique_ptr<IBuffer> m_indexBuffer;
+		std::unique_ptr<IBuffer> m_boundsBuffer;
 		std::unique_ptr<IBuffer> m_meshInfoBuffer;
 		std::vector<std::unique_ptr<IRenderImage>> m_imageArray;
 

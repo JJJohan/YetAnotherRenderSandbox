@@ -12,6 +12,7 @@ namespace Sandbox
 			, SunIntensity(5.0f)
 			, UseTAA(true)
 			, UseHDR(false)
+			, PauseCulling(false)
 		{
 		}
 
@@ -20,5 +21,6 @@ namespace Sandbox
 		float SunIntensity;
 		bool UseTAA;
 		bool UseHDR;
+		bool PauseCulling;
 	};
 }

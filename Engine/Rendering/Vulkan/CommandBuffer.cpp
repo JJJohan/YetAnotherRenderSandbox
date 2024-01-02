@@ -68,6 +68,11 @@ namespace Engine::Rendering::Vulkan
 		m_commandBuffer->draw(vertexCount, instanceCount, firstVertex, firstInstance);
 	}
 
+	void CommandBuffer::Dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) const
+	{
+		m_commandBuffer->dispatch(groupCountX, groupCountY, groupCountZ);
+	}
+
 	void CommandBuffer::BlitImage(const IRenderImage& srcImage,	const IRenderImage& dstImage, 
 		const std::vector<ImageBlit>& regions, Filter filter) const
 	{

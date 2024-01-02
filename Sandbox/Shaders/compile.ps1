@@ -18,4 +18,10 @@ foreach ($shader in $fragmentShaders)
 	Compile-Shader $shader
 }
 
+$computeShaders = dir *.comp | Select Name,BaseName,Extension
+foreach ($shader in $computeShaders)
+{
+	Compile-Shader $shader
+}
+
 Pause

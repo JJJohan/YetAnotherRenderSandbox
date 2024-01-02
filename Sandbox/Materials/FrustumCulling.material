@@ -1,0 +1,6 @@
+{
+	"Programs":
+	[
+		{ "Type": "Compute", "Path": "Shaders/FrustumCulling_comp.spv" }
+	]
+}

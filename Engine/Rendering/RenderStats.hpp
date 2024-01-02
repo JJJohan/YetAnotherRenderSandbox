@@ -37,8 +37,8 @@ namespace Engine::Rendering
 		virtual ~RenderStats() = default;
 
 		virtual bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t renderPassCount) = 0;
-		virtual void Begin(const ICommandBuffer& commandBuffer, const char* passName) = 0;
-		virtual void End(const ICommandBuffer& commandBuffer) = 0;
+		virtual void Begin(const ICommandBuffer& commandBuffer, const char* passName, bool isCompute) = 0;
+		virtual void End(const ICommandBuffer& commandBuffer, bool isCompute) = 0;
 		virtual void FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device,
 			const std::vector<IRenderResource*>& renderResources) = 0;
 

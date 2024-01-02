@@ -22,6 +22,11 @@ namespace Engine::Rendering
 			{"Velocity", RenderPassImageInfo(Format::R16G16Sfloat)},
 			{"Depth", RenderPassImageInfo(Format::PlaceholderDepth)}
 		};
+
+		m_bufferInputs =
+		{
+			{"IndirectDraw", nullptr}
+		};
 	}
 
 	void SceneOpaquePass::UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
@@ -75,7 +80,7 @@ namespace Engine::Rendering
 		if (!m_built)
 			return;
 
-		m_material->BindMaterial(commandBuffer, frameIndex);
+		m_material->BindMaterial(commandBuffer, BindPoint::Graphics, frameIndex);
 
 		const std::vector<std::unique_ptr<IBuffer>>& vertexBuffers = m_sceneGeometryBatch.GetVertexBuffers();
 		uint32_t vertexBufferCount = static_cast<uint32_t>(vertexBuffers.size());

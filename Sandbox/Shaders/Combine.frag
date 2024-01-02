@@ -10,6 +10,7 @@ layout(binding = 0) uniform FrameInfo
 	vec4 viewPos;
 	vec2 viewSize;
 	vec2 jitter;
+	uint meshCount;
 } frameInfo;
 
 layout(binding = 1) uniform LightData

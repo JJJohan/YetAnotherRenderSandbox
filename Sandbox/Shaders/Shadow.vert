@@ -2,6 +2,8 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_ARB_shader_viewport_layer_array : require
 
+#include "MeshInfo.glsl"
+
 layout(binding = 0) uniform FrameInfo
 {
     mat4 viewProj;
@@ -10,6 +12,7 @@ layout(binding = 0) uniform FrameInfo
 	vec4 viewPos;
 	vec2 viewSize;
 	vec2 jitter;
+	uint meshCount;
 } frameInfo;
 
 layout(binding = 1) uniform LightData
@@ -21,16 +24,6 @@ layout(binding = 1) uniform LightData
 	vec3 sunLightDir;
 	float padding;
 } lightData;
-
-struct MeshInfo
-{
-	mat4 transform;
-	mat4 normalMatrix;
-	vec4 color;
-	uint diffuseImageIndex;
-	uint normalImageIndex;
-	uint metallicRoughnessImageIndex;
-};
 
 layout(push_constant) uniform PushConsts {
 	uint cascadeIndex;

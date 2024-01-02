@@ -80,6 +80,11 @@ namespace Engine::Rendering
 			programType = ShaderStageFlags::Fragment;
 			return true;
 		}
+		else if (string == "compute")
+		{
+			programType = ShaderStageFlags::Compute;
+			return true;
+		}
 
 		Logger::Error("Material '{}' contained unexpected value for program type: {}", name, string);
 		return false;
@@ -120,7 +125,7 @@ namespace Engine::Rendering
 			return true;
 		}
 
-		Logger::Error("Material '{}' contained unexpected value for attachmnet format: {}", name, string);
+		Logger::Error("Material '{}' contained unexpected value for attachment format: {}", name, string);
 		return false;
 	}
 
@@ -140,7 +145,7 @@ namespace Engine::Rendering
 		if (document.HasParseError())
 		{
 			rapidjson::ParseErrorCode errorCode = document.GetParseError();
-			Logger::Error("Error occured parsing material '{}'. Error code: {}", m_name, static_cast<uint32_t>(errorCode));
+			Logger::Error("Error occurred parsing material '{}'. Error code: {}", m_name, static_cast<uint32_t>(errorCode));
 			return false;
 		}
 
@@ -156,6 +161,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
+		bool isCompute = false;
 		for (auto& program : programs.GetArray())
 		{
 			std::string typeString;
@@ -183,45 +189,51 @@ namespace Engine::Rendering
 				return false;
 			}
 
+			if (programType == ShaderStageFlags::Compute)
+				isCompute = true;
+
 			m_programData[programType] = programData;
 		}
 
-		if (!TryGetBool(m_name, document, "DepthWrite", m_depthWrite))
+		if (!isCompute)
 		{
-			return false;
-		}
+			if (!TryGetBool(m_name, document, "DepthWrite", m_depthWrite))
+			{
+				return false;
+			}
 
-		if (!TryGetBool(m_name, document, "DepthTest", m_depthTest))
-		{
-			return false;
-		}
+			if (!TryGetBool(m_name, document, "DepthTest", m_depthTest))
+			{
+				return false;
+			}
 
-		rapidjson::Value attachments;
-		if (!TryGetMember(m_name, document, "Attachments", attachments))
-		{
-			return false;
-		}
+			rapidjson::Value attachments;
+			if (!TryGetMember(m_name, document, "Attachments", attachments))
+			{
+				return false;
+			}
 
-		if (!attachments.IsArray())
-		{
-			Logger::Error("Material '{}' has invalid data type for element 'Attachments'.", m_name);
-			return false;
-		}
-
-		for (auto& attachment : attachments.GetArray())
-		{
-			if (!attachment.IsString())
+			if (!attachments.IsArray())
 			{
 				Logger::Error("Material '{}' has invalid data type for element 'Attachments'.", m_name);
 				return false;
 			}
 
-			std::string attachmentString = std::string(attachment.GetString());
-			Format attachmentFormat;
-			if (!TryParseAttachmentFormat(m_name, attachmentString, attachmentFormat))
-				return false;
+			for (auto& attachment : attachments.GetArray())
+			{
+				if (!attachment.IsString())
+				{
+					Logger::Error("Material '{}' has invalid data type for element 'Attachments'.", m_name);
+					return false;
+				}
 
-			m_attachmentFormats.push_back(attachmentFormat);
+				std::string attachmentString = std::string(attachment.GetString());
+				Format attachmentFormat;
+				if (!TryParseAttachmentFormat(m_name, attachmentString, attachmentFormat))
+					return false;
+
+				m_attachmentFormats.push_back(attachmentFormat);
+			}
 		}
 
 		return true;

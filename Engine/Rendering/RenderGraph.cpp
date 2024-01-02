@@ -22,9 +22,12 @@ namespace Engine::Rendering
 		, m_renderNodeLookup()
 		, m_dirty(true)
 		, m_finalNode(nullptr)
-		, m_commandBuffers()
-		, m_commandPool(nullptr)
-		, m_semaphore(nullptr)
+		, m_renderCommandBuffers()
+		, m_computeCommandBuffers()
+		, m_renderCommandPool(nullptr)
+		, m_computeCommandPool(nullptr)
+		, m_renderSemaphore(nullptr)
+		, m_computeSemaphore(nullptr)
 		, m_renderTextures()
 		, m_renderStats(renderStats)
 		, m_blitCommandBuffers()
@@ -34,27 +37,40 @@ namespace Engine::Rendering
 	RenderGraph::~RenderGraph()
 	{
 		m_blitCommandBuffers.clear();
-		m_commandBuffers.clear();
+		m_renderCommandBuffers.clear();
+		m_computeCommandBuffers.clear();
 	}
 
 	bool RenderGraph::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, const IResourceFactory& resourceFactory, uint32_t concurrentFrameCount)
 	{
 		const QueueFamilyIndices& indices = physicalDevice.GetQueueFamilyIndices();
 
-		m_semaphore = std::move(resourceFactory.CreateGraphicsSemaphore());
-		if (!m_semaphore->Initialise(device))
+		m_renderSemaphore = std::move(resourceFactory.CreateGraphicsSemaphore());
+		if (!m_renderSemaphore->Initialise(device))
 		{
 			return false;
 		}
 
-		m_commandPool = std::move(resourceFactory.CreateCommandPool());
-		if (!m_commandPool->Initialise(physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
+		m_computeSemaphore = std::move(resourceFactory.CreateGraphicsSemaphore());
+		if (!m_computeSemaphore->Initialise(device))
 		{
 			return false;
 		}
 
-		m_blitCommandBuffers = std::move(m_commandPool->CreateCommandBuffers(device, concurrentFrameCount));
+		m_renderCommandPool = std::move(resourceFactory.CreateCommandPool());
+		if (!m_renderCommandPool->Initialise(physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
+		{
+			return false;
+		}
+
+		m_blitCommandBuffers = std::move(m_renderCommandPool->CreateCommandBuffers(device, concurrentFrameCount));
 		if (m_blitCommandBuffers.empty())
+		{
+			return false;
+		}
+
+		m_computeCommandPool = std::move(resourceFactory.CreateCommandPool());
+		if (!m_computeCommandPool->Initialise(physicalDevice, device, indices.ComputeFamily.value(), CommandPoolFlags::Reset))
 		{
 			return false;
 		}
@@ -62,18 +78,64 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool RenderGraph::AddPass(IRenderPass* renderPass, const IMaterialManager& materialManager)
+	bool RenderGraph::AddRenderNode(IRenderNode* renderNode, const IMaterialManager& materialManager)
 	{
-		if (m_renderNodeLookup.contains(renderPass->GetName()))
+		if (m_renderNodeLookup.contains(renderNode->GetName()))
 		{
-			Logger::Error("Render pass with name '{}' already exists in the render graph.", renderPass->GetName());
+			Logger::Error("Render node with name '{}' already exists in the render graph.", renderNode->GetName());
 			return false;
 		}
 
-		std::unordered_map<const char*, IBuffer*> inputBuffers(renderPass->GetBufferInputs().begin(), renderPass->GetBufferInputs().end());
-		std::unordered_map<const char*, RenderPassImageInfo> inputImageInfos(renderPass->GetImageInputInfos().begin(), renderPass->GetImageInputInfos().end());
+		std::unordered_map<const char*, IBuffer*> inputBuffers;
+		std::unordered_map<const char*, IBuffer*> outputBuffers;
 
-		for (const auto& bufferOutput : renderPass->GetBufferOutputs())
+		if (renderNode->GetNodeType() == RenderNodeType::Pass)
+		{
+			IRenderPass* renderPass = static_cast<IRenderPass*>(renderNode);
+			inputBuffers = renderPass->GetBufferInputs();
+			outputBuffers = renderPass->GetBufferOutputs();
+			std::unordered_map<const char*, RenderPassImageInfo> inputImageInfos(renderPass->GetImageInputInfos().begin(), renderPass->GetImageInputInfos().end());
+
+			for (const auto& imageOutput : renderPass->GetImageOutputInfos())
+			{
+				if (m_imageResourceNodeLookup.contains(imageOutput.first))
+				{
+					if (inputImageInfos.contains(imageOutput.first))
+					{
+						// Pass-through resource.
+						continue;
+					}
+
+					Logger::Error("Attempted to add a resource with the name '{}' which already exists in the render graph.", imageOutput.first);
+					return false;
+				}
+
+				m_imageResourceNodeLookup[imageOutput.first] = renderPass;
+			}
+
+			if (!renderPass->Initialise(materialManager))
+				return false;
+
+			m_renderPasses.emplace_back(renderPass);
+		}
+		else if (renderNode->GetNodeType() == RenderNodeType::Compute)
+		{
+			IComputePass* computePass = static_cast<IComputePass*>(renderNode);
+			inputBuffers = computePass->GetBufferInputs();
+			outputBuffers = computePass->GetBufferOutputs();
+
+			if (!computePass->Initialise(materialManager))
+				return false;
+
+			m_computePasses.emplace_back(computePass);
+		}
+		else
+		{
+			Logger::Error("Render graph only supports render passes and compute passes.");
+			return false;
+		}
+
+		for (const auto& bufferOutput : outputBuffers)
 		{
 			if (m_bufferResourceNodeLookup.contains(bufferOutput.first))
 			{
@@ -87,44 +149,31 @@ namespace Engine::Rendering
 				return false;
 			}
 
-			m_bufferResourceNodeLookup[bufferOutput.first] = renderPass;
+			m_bufferResourceNodeLookup[bufferOutput.first] = renderNode;
 		}
 
-		for (const auto& imageOutput : renderPass->GetImageOutputInfos())
-		{
-			if (m_imageResourceNodeLookup.contains(imageOutput.first))
-			{
-				if (inputImageInfos.contains(imageOutput.first))
-				{
-					// Pass-through resource.
-					continue;
-				}
-
-				Logger::Error("Attempted to add a resource with the name '{}' which already exists in the render graph.", imageOutput.first);
-				return false;
-			}
-
-			m_imageResourceNodeLookup[imageOutput.first] = renderPass;
-		}
-
-		if (!renderPass->Initialise(materialManager))
-			return false;
-
-		m_renderPasses.emplace_back(renderPass);
-		m_renderNodeLookup[renderPass->GetName()] = renderPass;
+		m_renderNodeLookup[renderNode->GetName()] = renderNode;
 		return true;
 	}
 
 	void RenderGraph::SetPassEnabled(const char* passName, bool enabled)
 	{
 		auto pass = m_renderNodeLookup.find(passName);
-		if (pass == m_renderNodeLookup.end() || pass->second->GetNodeType() != RenderNodeType::Pass)
+		if (pass == m_renderNodeLookup.end())
 		{
 			Logger::Error("Pass '{}' not found in render graph.", passName);
 			return;
 		}
 
-		static_cast<IRenderPass*>(pass->second)->SetEnabled(enabled);
+		if (pass->second->GetNodeType() == RenderNodeType::Pass)
+		{
+			static_cast<IRenderPass*>(pass->second)->SetEnabled(enabled);
+		}
+		else if (pass->second->GetNodeType() == RenderNodeType::Compute)
+		{
+			static_cast<IComputePass*>(pass->second)->SetEnabled(enabled);
+		}
+
 		m_dirty = true;
 	}
 
@@ -147,7 +196,7 @@ namespace Engine::Rendering
 			m_bufferResourceNodeLookup[bufferOutput.first] = renderResource;
 		}
 
-		for (const auto& imageOutput : renderResource->GetImageOutputs())
+		for (const auto& imageOutput : renderResource->GetImageOutputInfos())
 		{
 			if (m_imageResourceNodeLookup.contains(imageOutput.first))
 			{
@@ -193,7 +242,7 @@ namespace Engine::Rendering
 		std::vector<ImageInfo>& availableImages = formatRenderTextureLookup[format];
 
 		for (auto& info : availableImages)
-		{				
+		{
 			// Ensure requested dimensions match.
 			if (info.Image.GetDimensions() != dimensions)
 				continue;
@@ -268,7 +317,8 @@ namespace Engine::Rendering
 		std::unordered_map<IRenderImage*, uint32_t> imageInfoLookup;
 		m_renderTextures.clear();
 		m_renderGraph.clear();
-		m_commandBuffers.clear();
+		m_renderCommandBuffers.clear();
+		m_computeCommandBuffers.clear();
 		m_renderTextures.clear();
 
 		std::unordered_map<const char*, RenderGraphNode*> availableBufferSources{};
@@ -280,37 +330,34 @@ namespace Engine::Rendering
 		glm::uvec3 defaultExtents = glm::uvec3(swapchain.GetExtent(), 1);
 		Format swapchainFormat = swapchain.GetFormat();
 
-		if (!m_renderResources.empty())
+		std::vector<IRenderNode*> renderNodeStack;		
+		for (auto& renderResource : m_renderResources)
 		{
-			std::vector<RenderGraphNode>& stage = m_renderGraph.emplace_back(std::vector<RenderGraphNode>());
-
-			for (auto& renderResource : m_renderResources)
-			{
-				RenderGraphNode& addedNode = stage.emplace_back(RenderGraphNode(renderResource));
-
-				for (const auto& bufferOutput : renderResource->GetBufferOutputs())
-					availableBufferSources.emplace(bufferOutput.first, &addedNode);
-
-				for (const auto& imageOutput : renderResource->GetImageOutputs())
-					availableImageSources.emplace(imageOutput.first, &addedNode);
-			}
+			renderNodeStack.push_back(renderResource);
 		}
 
 		uint32_t enabledPasses = 0;
-		std::vector<IRenderPass*> renderPassStack;
-		renderPassStack.reserve(m_renderPasses.size());
+		renderNodeStack.reserve(m_renderPasses.size() + m_computePasses.size());
+		for (const auto& pass : m_computePasses)
+		{
+			if (pass->GetEnabled())
+			{
+				renderNodeStack.emplace_back(pass);
+				++enabledPasses;
+			}
+		}
 		for (const auto& pass : m_renderPasses)
 		{
 			if (pass->GetEnabled())
 			{
 				pass->UpdatePlaceholderFormats(swapchainFormat, depthFormat);
 
-				renderPassStack.emplace_back(pass);
+				renderNodeStack.emplace_back(pass);
 				++enabledPasses;
 			}
 		}
 
-		while (!renderPassStack.empty())
+		while (!renderNodeStack.empty())
 		{
 			std::vector<RenderGraphNode>& stage = m_renderGraph.emplace_back(std::vector<RenderGraphNode>());
 
@@ -319,20 +366,20 @@ namespace Engine::Rendering
 			std::unordered_map<const char*, RenderGraphNode*> stageAvailableImageSources(availableImageSources);
 
 			// Attempt to satisfy all requirements for each remaining render pass. If all requirements are met for a pass, remove it from the stack.
-			for (auto it = renderPassStack.begin(); it != renderPassStack.end();)
+			for (auto it = renderNodeStack.begin(); it != renderNodeStack.end();)
 			{
-				IRenderPass* renderPass = *it;
-				RenderGraphNode node = RenderGraphNode(renderPass);
+				IRenderNode* renderNode = *it;
+				RenderGraphNode node = RenderGraphNode(renderNode);
 				bool satisfied = true;
 
-				for (const auto& bufferInput : renderPass->GetBufferInputs())
+				for (const auto& bufferInput : node.Node->GetBufferInputs())
 				{
 					const auto& search = stageAvailableBufferSources.find(bufferInput.first);
 					if (search != stageAvailableBufferSources.end())
 					{
 						// Make resource unavailable for the rest of this stage if it's being written to (exists in output.)
 						node.InputBufferSources.emplace(bufferInput.first, *search->second);
-						for (const auto& bufferOutput : renderPass->GetBufferOutputs())
+						for (const auto& bufferOutput : node.Node->GetBufferOutputs())
 						{
 							if (strcmp(bufferOutput.first, search->first) == 0)
 							{
@@ -350,14 +397,14 @@ namespace Engine::Rendering
 
 				if (satisfied)
 				{
-					for (const auto& imageInputInfo : renderPass->GetImageInputInfos())
+					for (const auto& imageInputInfo : node.Node->GetImageInputInfos())
 					{
 						const auto& search = stageAvailableImageSources.find(imageInputInfo.first);
 						if (search != stageAvailableImageSources.end())
 						{
 							// Make resource unavailable for the rest of this stage if it's being written to (exists in output.)
 							node.InputImageSources.insert_or_assign(imageInputInfo.first, *search->second);
-							for (const auto& imageOutput : renderPass->GetImageOutputInfos())
+							for (const auto& imageOutput : node.Node->GetImageOutputInfos())
 							{
 								if (strcmp(imageOutput.first, search->first) == 0)
 								{
@@ -377,7 +424,7 @@ namespace Engine::Rendering
 				if (satisfied)
 				{
 					stage.emplace_back(std::move(node));
-					it = renderPassStack.erase(it);
+					it = renderNodeStack.erase(it);
 				}
 				else
 				{
@@ -394,11 +441,11 @@ namespace Engine::Rendering
 			// Make resources from current stage available for the next one.
 			for (RenderGraphNode& node : stage)
 			{
-				for (const auto& bufferOutput : node.Pass->GetBufferOutputs())
+				for (const auto& bufferOutput : node.Node->GetBufferOutputs())
 					availableBufferSources.insert_or_assign(bufferOutput.first, &node);
 
-				for (const auto& imageOutput : node.Pass->GetImageOutputInfos())
-					availableImageSources.insert_or_assign(imageOutput.first, &node);
+				for (const auto& imageOutput : node.Node->GetImageOutputInfos())
+					availableImageSources.insert_or_assign(imageOutput.first, &node);				
 			}
 		}
 
@@ -425,7 +472,7 @@ namespace Engine::Rendering
 			{
 				if (node.Type == RenderNodeType::Pass)
 				{
-					const auto& inputImageInfos = node.Pass->GetImageInputInfos();
+					const auto& inputImageInfos = node.Node->GetImageInputInfos();
 					for (const auto& info : inputImageInfos)
 					{
 						// Attempt to match previous output, if available.
@@ -453,7 +500,7 @@ namespace Engine::Rendering
 						}
 					}
 
-					const auto& outputImageInfos = node.Pass->GetImageOutputInfos();
+					const auto& outputImageInfos = node.Node->GetImageOutputInfos();
 					for (const auto& info : outputImageInfos)
 					{
 						const RenderPassImageInfo& outputInfo = info.second;
@@ -484,21 +531,24 @@ namespace Engine::Rendering
 						node.OutputImages[info.first] = image;
 					}
 				}
-				else
+				else if (node.Type == RenderNodeType::Resource)
 				{
+					IRenderResource* resource = static_cast<IRenderResource*>(node.Node);
+
 					// Build resources before passes.
-					if (!node.Resource->Build(renderer))
+					if (!resource->Build(renderer))
 					{
-						Logger::Error("Failed to build render resource '{}' while building render graph.", node.Resource->GetName());
+						Logger::Error("Failed to build render resource '{}' while building render graph.", resource->GetName());
 						return false;
 					}
 
 					// Add available resource to the lookup.
-					for (const auto& output : node.Resource->GetImageOutputs())
+					for (const auto& output : resource->GetImageOutputInfos())
 					{
-						auto& imageMap = formatRenderTextureLookup[output.second->GetFormat()];
-						node.OutputImages[output.first] = output.second;
-						imageMap.emplace_back(ImageInfo(*output.second));
+						
+						auto& imageMap = formatRenderTextureLookup[output.second.Format];
+						node.OutputImages[output.first] = output.second.Image;
+						imageMap.emplace_back(ImageInfo(*output.second.Image));
 					}
 				}
 			}
@@ -511,19 +561,37 @@ namespace Engine::Rendering
 			{
 				if (node.Type == RenderNodeType::Pass)
 				{
-					if (!node.Pass->Build(renderer, node.InputImages, node.OutputImages))
+					IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
+					if (!pass->Build(renderer, node.InputImages, node.OutputImages))
 					{
-						Logger::Error("Failed to build render pass '{}' while building render graph.", node.Resource->GetName());
+						Logger::Error("Failed to build render pass '{}' while building render graph.", pass->GetName());
 						return false;
 					}
 
-					std::vector<std::unique_ptr<ICommandBuffer>> commandBuffers = std::move(m_commandPool->CreateCommandBuffers(device, concurrentFrameCount));
+					std::vector<std::unique_ptr<ICommandBuffer>> commandBuffers = std::move(m_renderCommandPool->CreateCommandBuffers(device, concurrentFrameCount));
 					if (commandBuffers.empty())
 					{
 						return false;
 					}
 
-					m_commandBuffers[node.Pass] = std::move(commandBuffers);
+					m_renderCommandBuffers[pass] = std::move(commandBuffers);
+				}
+				else if (node.Type == RenderNodeType::Compute)
+				{
+					IComputePass* pass = static_cast<IComputePass*>(node.Node);
+					if (!pass->Build(renderer))
+					{
+						Logger::Error("Failed to build compute pass '{}' while building render graph.", pass->GetName());
+						return false;
+					}
+
+					std::vector<std::unique_ptr<ICommandBuffer>> commandBuffers = std::move(m_computeCommandPool->CreateCommandBuffers(device, concurrentFrameCount));
+					if (commandBuffers.empty())
+					{
+						return false;
+					}
+
+					m_computeCommandBuffers[pass] = std::move(commandBuffers);
 				}
 			}
 		}
@@ -534,9 +602,9 @@ namespace Engine::Rendering
 		{
 			for (const auto& node : *it)
 			{
-				if (node.Pass != nullptr)
+				if (node.Type == RenderNodeType::Pass)
 				{
-					for (const auto& imageOutput : node.Pass->GetImageOutputInfos())
+					for (const auto& imageOutput : node.Node->GetImageOutputInfos())
 					{
 						if (strcmp(imageOutput.first, "Output") == 0)
 						{
@@ -570,19 +638,24 @@ namespace Engine::Rendering
 	{
 		const IDevice& device = renderer.GetDevice();
 		const glm::uvec2& size = renderer.GetSwapChain().GetExtent();
-		std::vector<SubmitInfo> submitInfos;
+		std::vector<SubmitInfo> renderSubmitInfos;
+		std::vector<SubmitInfo> computeSubmitInfos;
 
-		bool firstStageWithPassesInGraph = true;
+		bool firstStageWithRenderPassesInGraph = true;
+		bool firstStageWithComputePassesInGraph = true;
 		for (const auto& stage : m_renderGraph)
 		{
-			SubmitInfo submitInfo;
+			SubmitInfo renderSubmitInfo;
+			SubmitInfo computeSubmitInfo;
 
-			bool stageHasPasses = false;
+			bool stageHasRenderPasses = false;
+			bool stageHasComputePasses = false;
 			for (const auto& node : stage)
 			{
 				if (node.Type == RenderNodeType::Pass)
 				{
-					const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_commandBuffers.at(node.Pass);
+					IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
+					const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_renderCommandBuffers.at(pass);
 
 					const ICommandBuffer& commandBuffer = *passCommandBuffers[frameIndex];
 					commandBuffer.Reset();
@@ -597,65 +670,108 @@ namespace Engine::Rendering
 						imageInput.second->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
 					}
 
-					const std::vector<AttachmentInfo>& colourAttachments = node.Pass->GetColourAttachments();
+					const std::vector<AttachmentInfo>& colourAttachments = pass->GetColourAttachments();
 					for (const auto& colourAttachment : colourAttachments)
 					{
 						colourAttachment.renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::ColorAttachment);
 					}
 
-					const std::optional<AttachmentInfo>& depthAttachment = node.Pass->GetDepthAttachment();
+					const std::optional<AttachmentInfo>& depthAttachment = pass->GetDepthAttachment();
 
 					if (depthAttachment.has_value())
 					{
 						depthAttachment->renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::DepthStencilAttachment);
 					}
 
-					m_renderStats.Begin(commandBuffer, node.Pass->GetName());
+					m_renderStats.Begin(commandBuffer, pass->GetName(), false);
 
 					glm::uvec2 passSize = size;
-					node.Pass->GetCustomSize(passSize);
+					pass->GetCustomSize(passSize);
 
-					node.Pass->PreDraw(device, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
+					pass->PreDraw(device, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
 
-					uint32_t layerCount = node.Pass->GetLayerCount();
+					uint32_t layerCount = pass->GetLayerCount();
 					for (uint32_t layerIndex = 0; layerIndex < layerCount; ++layerIndex)
 					{
 						commandBuffer.BeginRendering(colourAttachments, depthAttachment, passSize, layerCount);
 
-						node.Pass->Draw(device, commandBuffer, passSize, frameIndex, layerIndex);
+						pass->Draw(device, commandBuffer, passSize, frameIndex, layerIndex);
 
 						commandBuffer.EndRendering();
 					}
 
-					node.Pass->PostDraw(device, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
+					pass->PostDraw(device, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
 
-					m_renderStats.End(commandBuffer);
-					stageHasPasses = true;
+					m_renderStats.End(commandBuffer, false);
+					stageHasRenderPasses = true;
 
 					commandBuffer.End();
 
-					submitInfo.CommandBuffers.emplace_back(&commandBuffer);
+					renderSubmitInfo.CommandBuffers.emplace_back(&commandBuffer);
 				}
-			}
-
-			if (stageHasPasses)
-			{
-				++m_semaphore->Value;
-
-				if (firstStageWithPassesInGraph)
+				else if (node.Type == RenderNodeType::Compute)
 				{
-					submitInfo.WaitSemaphores.emplace_back(m_semaphore.get());
-					submitInfo.WaitValues.emplace_back(m_semaphore->Value - 1);
-					submitInfo.Stages.emplace_back(MaterialStageFlags::ColorAttachmentOutput);
-				}
+					IComputePass* pass = static_cast<IComputePass*>(node.Node);
+					const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_computeCommandBuffers.at(pass);
 
-				submitInfo.SignalSemaphores.emplace_back(m_semaphore.get());
-				submitInfo.SignalValues.emplace_back(m_semaphore->Value);
-				firstStageWithPassesInGraph = false;
+					const ICommandBuffer& commandBuffer = *passCommandBuffers[frameIndex];
+					commandBuffer.Reset();
+
+					if (!commandBuffer.Begin())
+					{
+						return false;
+					}
+
+					m_renderStats.Begin(commandBuffer, pass->GetName(), true);
+
+					pass->Dispatch(device, commandBuffer, frameIndex);
+
+					m_renderStats.End(commandBuffer, true);
+					stageHasComputePasses = true;
+
+					commandBuffer.End();
+
+					computeSubmitInfo.CommandBuffers.emplace_back(&commandBuffer);
+				}
 			}
 
-			if (!submitInfo.CommandBuffers.empty())
-				submitInfos.emplace_back(std::move(submitInfo));
+			if (stageHasRenderPasses)
+			{
+				++m_renderSemaphore->Value;
+
+				if (firstStageWithRenderPassesInGraph)
+				{
+					renderSubmitInfo.WaitSemaphores.emplace_back(m_renderSemaphore.get());
+					renderSubmitInfo.WaitValues.emplace_back(m_renderSemaphore->Value - 1);
+					renderSubmitInfo.Stages.emplace_back(MaterialStageFlags::ColorAttachmentOutput);
+				}
+
+				renderSubmitInfo.SignalSemaphores.emplace_back(m_renderSemaphore.get());
+				renderSubmitInfo.SignalValues.emplace_back(m_renderSemaphore->Value);
+				firstStageWithRenderPassesInGraph = false;
+			}
+
+			if (stageHasComputePasses)
+			{
+				++m_computeSemaphore->Value;
+
+				if (firstStageWithComputePassesInGraph)
+				{
+					computeSubmitInfo.WaitSemaphores.emplace_back(m_computeSemaphore.get());
+					computeSubmitInfo.WaitValues.emplace_back(m_computeSemaphore->Value - 1);
+					computeSubmitInfo.Stages.emplace_back(MaterialStageFlags::ComputeShader);
+				}
+
+				computeSubmitInfo.SignalSemaphores.emplace_back(m_computeSemaphore.get());
+				computeSubmitInfo.SignalValues.emplace_back(m_computeSemaphore->Value);
+				firstStageWithComputePassesInGraph = false;
+			}
+
+			if (!renderSubmitInfo.CommandBuffers.empty())
+				renderSubmitInfos.emplace_back(std::move(renderSubmitInfo));
+
+			if (!computeSubmitInfo.CommandBuffers.empty())
+				computeSubmitInfos.emplace_back(std::move(computeSubmitInfo));
 		}
 
 		// Blit to swapchain image.
@@ -680,22 +796,22 @@ namespace Engine::Rendering
 		IRenderImage& presentImage = renderer.GetPresentImage();
 		finalImage->TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::TransferSrc);
 		presentImage.TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::TransferDst);
-		m_blitCommandBuffers[frameIndex]->BlitImage(*finalImage, presentImage, {blit}, Filter::Linear);
+		m_blitCommandBuffers[frameIndex]->BlitImage(*finalImage, presentImage, { blit }, Filter::Linear);
 		presentImage.TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::PresentSrc);
 
 		m_blitCommandBuffers[frameIndex]->End();
 
-		++m_semaphore->Value;
-		SubmitInfo& blitSubmitInfo = submitInfos.emplace_back();
+		++m_renderSemaphore->Value;
+		SubmitInfo& blitSubmitInfo = renderSubmitInfos.emplace_back();
 		blitSubmitInfo.CommandBuffers.emplace_back(m_blitCommandBuffers[frameIndex].get());
-		blitSubmitInfo.WaitSemaphores.emplace_back(m_semaphore.get());
-		blitSubmitInfo.WaitValues.emplace_back(m_semaphore->Value - 1);
+		blitSubmitInfo.WaitSemaphores.emplace_back(m_renderSemaphore.get());
+		blitSubmitInfo.WaitValues.emplace_back(m_renderSemaphore->Value - 1);
 		blitSubmitInfo.Stages.emplace_back(MaterialStageFlags::Transfer);
-		blitSubmitInfo.SignalSemaphores.emplace_back(m_semaphore.get());
-		blitSubmitInfo.SignalValues.emplace_back(m_semaphore->Value);
+		blitSubmitInfo.SignalSemaphores.emplace_back(m_renderSemaphore.get());
+		blitSubmitInfo.SignalValues.emplace_back(m_renderSemaphore->Value);
 
 		m_renderStats.FinaliseResults(renderer.GetPhysicalDevice(), device, m_renderResources);
 
-		return renderer.Present(submitInfos);
+		return renderer.Present(renderSubmitInfos, computeSubmitInfos);
 	}
 }

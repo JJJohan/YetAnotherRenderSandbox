@@ -97,7 +97,7 @@ namespace Engine::Rendering
 	void TAAPass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
 		const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex)
 	{
-		m_material->BindMaterial(commandBuffer, frameIndex);
+		m_material->BindMaterial(commandBuffer, BindPoint::Graphics, frameIndex);
 		commandBuffer.Draw(3, 1, 0, 0);
 	}
 

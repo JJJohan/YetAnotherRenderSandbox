@@ -1,36 +1,19 @@
 #pragma once
 
 #include <vector>
-#include <unordered_map>
 #include "../IMaterialManager.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "../Resources/Material.hpp"
 #include "../Resources/AttachmentInfo.hpp"
 #include "../RenderResources/IRenderResource.hpp"
 #include "../RenderResources/IRenderNode.hpp"
-#include <glm/glm.hpp>
 
 namespace Engine::Rendering
 {
-	class IBuffer;
 	class IRenderImage;
 	class IDevice;
 	class ICommandBuffer;
 	class Renderer;
-
-	struct RenderPassImageInfo
-	{
-		Format Format;
-		bool IsRead;
-		glm::uvec3 Dimensions;
-
-		RenderPassImageInfo(Engine::Rendering::Format format = Format::Undefined, bool isRead = false, const glm::uvec3& dimensions = {})
-			: Format(format)
-			, IsRead(isRead)
-			, Dimensions(dimensions)
-		{
-		}
-	};
 
 	class IRenderPass : public IRenderNode
 	{
@@ -81,53 +64,29 @@ namespace Engine::Rendering
 
 		inline uint32_t GetLayerCount() const { return m_layerCount; }
 
-		inline const std::unordered_map<const char*, IBuffer*>& GetBufferInputs() const { return m_bufferInputs; }
-
-		inline const std::unordered_map<const char*, IBuffer*>& GetBufferOutputs() const { return m_bufferOutputs; }
-
-		inline const std::unordered_map<const char*, RenderPassImageInfo>& GetImageInputInfos() const { return m_imageInputInfos; }
-
-		inline const std::unordered_map<const char*, RenderPassImageInfo>& GetImageOutputInfos() const { return m_imageOutputInfos; }
-
 		inline const std::vector<AttachmentInfo>& GetColourAttachments() const { return m_colourAttachments; }
 
 		inline const std::optional<AttachmentInfo>& GetDepthAttachment() const { return m_depthAttachment; }
 
-		inline void SetEnabled(bool enabled) { m_enabled = enabled; }
-
-		inline bool GetEnabled() const { return m_enabled;  }
-
 		virtual inline bool GetCustomSize(glm::uvec2& outSize) const { return false; }
-
-		inline virtual RenderNodeType GetNodeType() const override { return RenderNodeType::Pass; }
 
 		inline Material* GetMaterial() const { return m_material; }
 
 	protected:
 		IRenderPass(const char* name, const char* materialName)
-			: IRenderNode(name)
-			, m_bufferInputs()
-			, m_bufferOutputs()
-			, m_imageInputInfos()
-			, m_imageOutputInfos()
+			: IRenderNode(name, RenderNodeType::Pass)
 			, m_layerCount(1)
 			, m_material(nullptr)
 			, m_materialName(materialName)
 			, m_colourAttachments()
 			, m_depthAttachment()
-			, m_enabled(true)
 		{
 		}
 
-		std::unordered_map<const char*, IBuffer*> m_bufferInputs;
-		std::unordered_map<const char*, IBuffer*> m_bufferOutputs;
-		std::unordered_map<const char*, RenderPassImageInfo> m_imageInputInfos;
-		std::unordered_map<const char*, RenderPassImageInfo> m_imageOutputInfos;
 		std::vector<AttachmentInfo> m_colourAttachments;
 		std::optional<AttachmentInfo> m_depthAttachment;
 		Material* m_material;
 		uint32_t m_layerCount;
-		bool m_enabled;
 
 	private:
 		const char* m_materialName;

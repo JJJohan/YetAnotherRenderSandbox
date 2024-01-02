@@ -46,7 +46,8 @@ namespace Engine::Rendering::Vulkan
 		, m_surface()
 		, m_resourceCommandPool()
 		, m_imageAvailableSemaphores()
-		, m_inFlightFences()
+		, m_inFlightRenderFences()
+		, m_inFlightComputeFences()
 		, m_inFlightResources()
 		, m_pendingResources()
 		, m_actionQueue()
@@ -63,7 +64,8 @@ namespace Engine::Rendering::Vulkan
 		m_pendingResources.clear();
 		m_inFlightResources.clear();
 		m_imageAvailableSemaphores.clear();
-		m_inFlightFences.clear();
+		m_inFlightRenderFences.clear();
+		m_inFlightComputeFences.clear();
 
 		Renderer::DestroyResources();
 
@@ -129,20 +131,23 @@ namespace Engine::Rendering::Vulkan
 		vk::FenceCreateInfo fenceInfo(vk::FenceCreateFlagBits::eSignaled);
 
 		m_imageAvailableSemaphores.reserve(m_maxConcurrentFrames);
-		m_inFlightFences.reserve(m_maxConcurrentFrames);
+		m_inFlightRenderFences.reserve(m_maxConcurrentFrames);
+		m_inFlightComputeFences.reserve(m_maxConcurrentFrames);
 		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
 		{
 			vk::UniqueSemaphore imageAvailableSemaphore = deviceImp.createSemaphoreUnique({});
-			vk::UniqueFence inFlightFence = deviceImp.createFenceUnique(fenceInfo);
+			vk::UniqueFence inFlightRenderFence = deviceImp.createFenceUnique(fenceInfo);
+			vk::UniqueFence inFlightComputeFence = deviceImp.createFenceUnique(fenceInfo);
 			
-			if (!imageAvailableSemaphore.get() || !inFlightFence.get())
+			if (!imageAvailableSemaphore.get() || !inFlightRenderFence.get() || !inFlightComputeFence.get())
 			{
 				Logger::Error("Failed to create synchronisation objects.");
 				return false;
 			}
 
 			m_imageAvailableSemaphores.push_back(std::move(imageAvailableSemaphore));
-			m_inFlightFences.push_back(std::move(inFlightFence));
+			m_inFlightRenderFences.push_back(std::move(inFlightRenderFence));
+			m_inFlightComputeFences.push_back(std::move(inFlightComputeFence));
 		}
 
 		return true;
@@ -291,14 +296,10 @@ namespace Engine::Rendering::Vulkan
 		return m_swapChain->GetSwapChainImage(m_presentImageIndex);
 	}
 
-	bool VulkanRenderer::Present(const std::vector<SubmitInfo>& submitInfos)
+	bool VulkanRenderer::Present(const std::vector<SubmitInfo>& renderSubmitInfos, const std::vector<SubmitInfo>& computeSubmitInfos)
 	{
 		Device* vkDevice = static_cast<Device*>(m_device.get());
 		const vk::Device& deviceImp = vkDevice->Get();
-		const vk::SwapchainKHR& swapchainImp = static_cast<SwapChain*>(m_swapChain.get())->Get();
-
-		vk::Queue graphicsQueue = vkDevice->GetGraphicsQueue();
-		vk::Queue presentQueue = vkDevice->GetPresentQueue();
 
 		std::vector<vk::SubmitInfo> vkSubmitInfos;
 		std::vector<std::vector<vk::PipelineStageFlags>> stageArrays;
@@ -308,7 +309,7 @@ namespace Engine::Rendering::Vulkan
 		std::vector<vk::TimelineSemaphoreSubmitInfo> timelineInfos;
 		uint32_t count = 0;
 
-		for (const auto& submitInfo : submitInfos)
+		for (const auto& submitInfo : computeSubmitInfos)
 		{
 			if (submitInfo.Stages.size() != submitInfo.WaitSemaphores.size())
 			{
@@ -362,7 +363,77 @@ namespace Engine::Rendering::Vulkan
 			vkSubmitInfos[i] = vk::SubmitInfo(waitSemaphoreArrays[i], stageArrays[i], commandBufferArrays[i], signalSemaphoreArrays[i], &timelineInfos[i]);
 		}
 
-		graphicsQueue.submit(vkSubmitInfos, m_inFlightFences[m_currentFrame].get());
+		vk::Queue computeQueue = vkDevice->GetComputeQueue();
+
+		computeQueue.submit(vkSubmitInfos, m_inFlightComputeFences[m_currentFrame].get());
+
+		vkSubmitInfos.clear();
+		stageArrays.clear();
+		waitSemaphoreArrays.clear();
+		signalSemaphoreArrays.clear();
+		commandBufferArrays.clear();
+		timelineInfos.clear();
+		count = 0;
+
+		for (const auto& submitInfo : renderSubmitInfos)
+		{
+			if (submitInfo.Stages.size() != submitInfo.WaitSemaphores.size())
+			{
+				Logger::Error("Submit info stage mask count ({}) does not match wait semaphore count ({}).", submitInfo.Stages.size(), submitInfo.WaitSemaphores.size());
+				return false;
+			}
+
+			if (submitInfo.SignalSemaphores.size() != submitInfo.SignalValues.size())
+			{
+				Logger::Error("Signal semaphore count ({}) does not match signal value count ({}).", submitInfo.SignalSemaphores.size(), submitInfo.SignalValues.size());
+				return false;
+			}
+
+			if (submitInfo.WaitSemaphores.size() != submitInfo.WaitValues.size())
+			{
+				Logger::Error("Wait semaphore count ({}) does not match wait value count ({}).", submitInfo.WaitSemaphores.size(), submitInfo.WaitValues.size());
+				return false;
+			}
+
+			std::vector<vk::PipelineStageFlags>& stages = stageArrays.emplace_back();
+			for (MaterialStageFlags stage : submitInfo.Stages)
+			{
+				stages.emplace_back(static_cast<vk::PipelineStageFlagBits>(stage));
+			}
+
+			std::vector<vk::CommandBuffer>& commandBuffers = commandBufferArrays.emplace_back();
+			for (const ICommandBuffer* commandBuffer : submitInfo.CommandBuffers)
+			{
+				commandBuffers.emplace_back((static_cast<const CommandBuffer*>(commandBuffer))->Get());
+			}
+
+			std::vector<vk::Semaphore>& waitSemaphores = waitSemaphoreArrays.emplace_back();
+			for (const ISemaphore* semaphore : submitInfo.WaitSemaphores)
+			{
+				waitSemaphores.emplace_back((static_cast<const Semaphore*>(semaphore))->Get());
+			}
+
+			std::vector<vk::Semaphore>& signalSemaphores = signalSemaphoreArrays.emplace_back();
+			for (const ISemaphore* semaphore : submitInfo.SignalSemaphores)
+			{
+				signalSemaphores.emplace_back((static_cast<const Semaphore*>(semaphore))->Get());
+			}
+
+			timelineInfos.emplace_back(vk::TimelineSemaphoreSubmitInfo(submitInfo.WaitValues, submitInfo.SignalValues));
+			++count;
+		}
+
+		vkSubmitInfos.resize(count);
+		for (uint32_t i = 0; i < count; ++i)
+		{
+			vkSubmitInfos[i] = vk::SubmitInfo(waitSemaphoreArrays[i], stageArrays[i], commandBufferArrays[i], signalSemaphoreArrays[i], &timelineInfos[i]);
+		}
+
+		const vk::SwapchainKHR& swapchainImp = static_cast<SwapChain*>(m_swapChain.get())->Get();
+		vk::Queue graphicsQueue = vkDevice->GetGraphicsQueue();
+		vk::Queue presentQueue = vkDevice->GetPresentQueue();
+
+		graphicsQueue.submit(vkSubmitInfos, m_inFlightRenderFences[m_currentFrame].get());
 
 		vk::PresentInfoKHR presentInfo(1, &m_imageAvailableSemaphores[m_currentFrame].get(), 1, &swapchainImp, &m_presentImageIndex);
 		vk::Result result = presentQueue.presentKHR(presentInfo);
@@ -457,7 +528,8 @@ namespace Engine::Rendering::Vulkan
 			return true;
 		}
 
-		if (deviceImp.waitForFences(1, &m_inFlightFences[m_currentFrame].get(), true, UINT64_MAX) != vk::Result::eSuccess)
+		std::array<vk::Fence, 2> fences = { m_inFlightRenderFences[m_currentFrame].get(), m_inFlightComputeFences[m_currentFrame].get() };
+		if (deviceImp.waitForFences(fences, true, UINT64_MAX) != vk::Result::eSuccess)
 		{
 			Logger::Error("Failed to wait for fences.");
 			return false;
@@ -469,8 +541,9 @@ namespace Engine::Rendering::Vulkan
 		if (materialManagerDirty || renderGraphDirty)
 		{
 			// Wait for both fences.
-			vk::Fence nextFence = m_inFlightFences[(m_currentFrame + 1) % m_maxConcurrentFrames].get();
-			if (deviceImp.waitForFences(1, &nextFence, true, UINT64_MAX) != vk::Result::eSuccess)
+			uint32_t nextFrame = (m_currentFrame + 1) % m_maxConcurrentFrames;
+			std::array<vk::Fence, 2> nextFences = { m_inFlightRenderFences[nextFrame].get(), m_inFlightComputeFences[nextFrame].get() };
+			if (deviceImp.waitForFences(nextFences, true, UINT64_MAX) != vk::Result::eSuccess)
 			{
 				Logger::Error("Failed to wait for fences.");
 				return false;
@@ -510,12 +583,7 @@ namespace Engine::Rendering::Vulkan
 
 		m_presentImageIndex = acquireNextImageResult.value;
 
-		if (deviceImp.resetFences(1, &m_inFlightFences[m_currentFrame].get()) != vk::Result::eSuccess)
-		{
-			Logger::Error("Failed to reset fence.");
-			return false;
-		}
-
+		deviceImp.resetFences(fences);
 		if (!Renderer::Render())
 		{
 			return false;

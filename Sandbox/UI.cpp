@@ -6,7 +6,8 @@
 #include <UI/NodeManager.hpp>
 #include <Rendering/RenderStats.hpp>
 #include <Rendering/Renderer.hpp>
-#include <Rendering/Passes/IRenderPass.hpp>
+#include <Rendering/RenderPasses/IRenderPass.hpp>
+#include <Rendering/ComputePasses/IComputePass.hpp>
 
 using namespace Engine;
 using namespace Engine::Rendering;
@@ -71,6 +72,11 @@ namespace Sandbox
 		if (drawer.Checkbox("Use Temporal AA", &m_options.UseTAA))
 		{
 			m_renderer->SetTemporalAAState(m_options.UseTAA);
+		}
+
+		if (drawer.Checkbox("Pause Frustum Culling", &m_options.PauseCulling))
+		{
+			m_renderer->PauseFrustumCulling(m_options.PauseCulling);
 		}
 
 		bool hdrSupported = m_renderer->IsHDRSupported();
@@ -184,22 +190,19 @@ namespace Sandbox
 
 			// Setup links.
 			bool outputLinked = false;
-			for (const auto& stage : graph)
+			for (auto stage = graph.rbegin(); stage != graph.rend(); ++stage)
 			{
-				for (const auto& node : stage)
+				for (const auto& node : *stage)
 				{
-					if (node.Type != RenderNodeType::Pass) 
-						continue;
+					const char* nodeName = node.Node->GetName();
 
-					const char* nodeName = node.Pass->GetName();
-
-					for (const  auto& input : node.Pass->GetBufferInputs())
+					for (const auto& input : node.Node->GetBufferInputs())
 					{
 						const char* inputNodeName = node.InputBufferSources.at(input.first).Node->GetName();
-						drawer.NodeSetupLink(nodeName, input.first, inputNodeName, input.first, bufferPinColour);
+						drawer.NodeSetupLink(inputNodeName, input.first, nodeName, input.first, bufferPinColour);
 					}
 
-					for (const auto& input : node.Pass->GetImageInputInfos())
+					for (const auto& input : node.Node->GetImageInputInfos())
 					{
 						const char* inputNodeName = node.InputImageSources.at(input.first).Node->GetName();
 						drawer.NodeSetupLink(inputNodeName, input.first, nodeName, input.first, imagePinColour);
@@ -208,7 +211,7 @@ namespace Sandbox
 					if (!outputLinked)
 					{
 						// Implicitly link output to 'screen' end node.
-						for (const auto& output : node.Pass->GetImageOutputInfos())
+						for (const auto& output : node.Node->GetImageOutputInfos())
 						{
 							if (strcmp(output.first, "Output") == 0)
 							{
@@ -235,51 +238,38 @@ namespace Sandbox
 					Colour nodeColour;
 
 					std::vector<NodePin> inputPins;
-
-					if (node.Type == RenderNodeType::Pass)
+					for (const auto& input : node.Node->GetBufferInputs())
 					{
-						for (const auto& input : node.Pass->GetBufferInputs())
-						{
-							inputPins.emplace_back(NodePin(input.first, bufferPinColour));
-						}
-
-						for (const auto& input : node.Pass->GetImageInputInfos())
-						{
-							inputPins.emplace_back(NodePin(input.first, imagePinColour));
-						}
-
-						nodeColour = Colour(0.5f, 0.5f, 0.5f);
+						inputPins.emplace_back(NodePin(input.first, bufferPinColour));
 					}
-					else
+
+					for (const auto& input : node.Node->GetImageInputInfos())
 					{
-						nodeColour = Colour(0.4f, 0.6f, 0.4f);
+						inputPins.emplace_back(NodePin(input.first, imagePinColour));
 					}
 
 					std::vector<NodePin> outputPins;
+					for (const auto& output : node.Node->GetBufferOutputs())
+					{
+						outputPins.emplace_back(NodePin(output.first, bufferPinColour));
+					}
+
+					for (const auto& output : node.Node->GetImageOutputInfos())
+					{
+						outputPins.emplace_back(NodePin(output.first, imagePinColour));
+					}
 
 					if (node.Type == RenderNodeType::Pass)
 					{
-						for (const auto& output : node.Pass->GetBufferOutputs())
-						{
-							outputPins.emplace_back(NodePin(output.first, bufferPinColour));
-						}
-
-						for (const auto& output : node.Pass->GetImageOutputInfos())
-						{
-							outputPins.emplace_back(NodePin(output.first, imagePinColour));
-						}
+						nodeColour = Colour(0.5f, 0.5f, 0.5f); // Gray
+					}
+					else if (node.Type == RenderNodeType::Compute)
+					{
+						nodeColour = Colour(0.3f, 0.4f, 0.6f); // Blue-ish
 					}
 					else
 					{
-						for (const auto& output : node.Resource->GetBufferOutputs())
-						{
-							outputPins.emplace_back(NodePin(output.first, bufferPinColour));
-						}
-
-						for (const auto& output : node.Resource->GetImageOutputs())
-						{
-							outputPins.emplace_back(NodePin(output.first, imagePinColour));
-						}
+						nodeColour = Colour(0.4f, 0.6f, 0.4f); // Green-ish
 					}
 
 					drawer.DrawNode(nodeName, offset, inputPins, outputPins, nodeColour);
