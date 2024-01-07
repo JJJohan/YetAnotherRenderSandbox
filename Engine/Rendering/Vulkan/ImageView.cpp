@@ -13,13 +13,13 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	bool ImageView::Initialise(const IDevice& device, const IRenderImage& image, uint32_t mipLevels, 
+	bool ImageView::Initialise(const IDevice& device, const IRenderImage& image, uint32_t baseMipLevel, uint32_t mipLevels, 
 		uint32_t layerCount, Format format, ImageAspectFlags aspectFlags)
 	{
 		m_mipLevels = mipLevels;
 		m_layerCount = layerCount;
 
-		vk::ImageSubresourceRange subResourceRange(GetImageAspectFlags(aspectFlags), 0, mipLevels, 0, layerCount);
+		vk::ImageSubresourceRange subResourceRange(GetImageAspectFlags(aspectFlags), baseMipLevel, mipLevels, 0, layerCount);
 
 		vk::ImageViewType type = layerCount == 1 ? vk::ImageViewType::e2D : vk::ImageViewType::e2DArray;
 		vk::ImageViewCreateInfo createInfo(vk::ImageViewCreateFlags(), static_cast<const RenderImage&>(image).Get(), type, GetVulkanFormat(format));

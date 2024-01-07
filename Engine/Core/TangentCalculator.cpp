@@ -11,9 +11,9 @@ namespace Engine
 		std::vector<glm::vec3> tangents(vertexCount);
 		std::vector<glm::vec3> bitangents(vertexCount);
 
-		const glm::vec3* positions = static_cast<const glm::vec3*>(positionBuffer.GetData());
-		const glm::vec3* normals = static_cast<const glm::vec3*>(normalBuffer.GetData());
-		const glm::vec2* uvs = static_cast<const glm::vec2*>(uvBuffer.GetData());
+		const glm::vec3* positions = positionBuffer.GetData<glm::vec3>();
+		const glm::vec3* normals = normalBuffer.GetData<glm::vec3>();
+		const glm::vec2* uvs = uvBuffer.GetData<glm::vec2>();
 
 		uint32_t vertexIndex = 0;
 		size_t indexCount = indices.size();

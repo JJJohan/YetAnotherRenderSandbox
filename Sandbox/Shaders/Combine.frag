@@ -10,7 +10,6 @@ layout(binding = 0) uniform FrameInfo
 	vec4 viewPos;
 	vec2 viewSize;
 	vec2 jitter;
-	uint meshCount;
 } frameInfo;
 
 layout(binding = 1) uniform LightData
@@ -105,7 +104,7 @@ void main()
 	vec4 worldPosAndViewDepth = texture(sampler2D(textures[2], samp), fragUv);
 	vec2 metalRoughness = texture(sampler2D(textures[3], samp), fragUv).rg;
 	vec3 worldPos = worldPosAndViewDepth.xyz - frameInfo.viewPos.xyz;
-	float viewDepth = worldPosAndViewDepth.w;
+	float viewDepth = -worldPosAndViewDepth.w;
 
 	vec3 f0 = vec3(0.04);
 

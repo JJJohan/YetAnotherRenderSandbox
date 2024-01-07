@@ -1,7 +1,7 @@
 {
 	"Programs":
 	[
-		{ "Type": "Vertex", "Path": "Shaders/Combine_vert.spv" },
+		{ "Type": "Vertex", "Path": "Shaders/ScreenQuad_vert.spv" },
 		{ "Type": "Fragment", "Path": "Shaders/Combine_frag.spv" }
 	],
 

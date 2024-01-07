@@ -29,7 +29,7 @@ namespace Engine
 		for (auto it = vertexArrays.begin(); it != vertexArrays.end(); ++it)
 		{
 			const VertexData* vertexData = it->get();
-			streams.emplace_back(meshopt_Stream{ vertexData->GetData(), vertexData->GetElementSize(), vertexData->GetElementSize() });
+			streams.emplace_back(meshopt_Stream{ vertexData->GetData<uint8_t>(), vertexData->GetElementSize(), vertexData->GetElementSize() });
 		}
 
 		std::vector<uint32_t> remap(indexCount);
@@ -49,13 +49,13 @@ namespace Engine
 		{
 			VertexData* vertexData = it->get();
 			std::vector<uint8_t> optimisedVertexData(static_cast<size_t>(vertexData->GetCount()) * vertexData->GetElementSize());
-			meshopt_remapVertexBuffer(optimisedVertexData.data(), vertexData->GetData(), originalVertexCount, vertexData->GetElementSize(), vertexRemap.data());
+			meshopt_remapVertexBuffer(optimisedVertexData.data(), vertexData->GetData<uint8_t>(), originalVertexCount, vertexData->GetElementSize(), vertexRemap.data());
 			vertexData->ReplaceData(optimisedVertexData, static_cast<uint32_t>(vertexCount));
 		}
 
 		meshopt_optimizeVertexCache(optimisedIndices.data(), optimisedIndices.data(), indexCount, vertexCount);
 
-		meshopt_optimizeOverdraw(optimisedIndices.data(), optimisedIndices.data(), indexCount, static_cast<const float*>(vertexArrays[0]->GetData()), vertexCount, sizeof(glm::vec3), 1.05f);
+		meshopt_optimizeOverdraw(optimisedIndices.data(), optimisedIndices.data(), indexCount, vertexArrays[0]->GetData<float>(), vertexCount, sizeof(glm::vec3), 1.05f);
 
 		indices.clear();
 		indices.append_range(optimisedIndices);

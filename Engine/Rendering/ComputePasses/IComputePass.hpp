@@ -13,6 +13,7 @@ namespace Engine::Rendering
 	class IDevice;
 	class ICommandBuffer;
 	class Renderer;
+	class RenderGraph;
 
 	class IComputePass : public IRenderNode
 	{
@@ -30,9 +31,11 @@ namespace Engine::Rendering
 			return true;
 		}
 
-		virtual bool Build(const Renderer& renderer) = 0;
+		virtual bool Build(const Renderer& renderer,
+			const std::unordered_map<const char*, IRenderImage*>& imageInputs,
+			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) = 0;
 
-		virtual void Dispatch(const IDevice& device, const ICommandBuffer& commandBuffer, 
+		virtual void Dispatch(const Renderer& renderer, const ICommandBuffer& commandBuffer, 
 			uint32_t frameIndex) = 0;
 
 		virtual inline bool GetCustomSize(glm::uvec2& outSize) const { return false; }

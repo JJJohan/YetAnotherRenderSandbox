@@ -39,7 +39,8 @@ namespace Engine::Rendering
 			const Colour& colour,
 			std::shared_ptr<Image> diffuseImage,
 			std::shared_ptr<Image> normalImage,
-			std::shared_ptr<Image> metallicRoughnessImage);
+			std::shared_ptr<Image> metallicRoughnessImage,
+			bool convertToLHS);
 
 		bool Optimise();
 		bool Build(ChunkData* chunkData, AsyncData& asyncData);

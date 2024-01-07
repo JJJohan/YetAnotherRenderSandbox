@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Core/Colour.hpp>
+#include <Rendering/CullingMode.hpp>
 
 namespace Sandbox
 {
@@ -12,7 +13,7 @@ namespace Sandbox
 			, SunIntensity(5.0f)
 			, UseTAA(true)
 			, UseHDR(false)
-			, PauseCulling(false)
+			, CullingMode(Engine::Rendering::CullingMode::FrustumAndOcclusion)
 		{
 		}
 
@@ -21,6 +22,6 @@ namespace Sandbox
 		float SunIntensity;
 		bool UseTAA;
 		bool UseHDR;
-		bool PauseCulling;
+		Engine::Rendering::CullingMode CullingMode;
 	};
 }

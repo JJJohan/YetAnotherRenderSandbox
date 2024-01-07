@@ -259,6 +259,36 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
+	bool PipelineLayout::BindCombinedImageSamplersImp(uint32_t binding, const std::vector<const IImageSampler*>& samplers,
+		const std::vector<const IImageView*>& imageViews, const std::vector<ImageLayout>& imageLayouts)
+	{
+		DescriptorBindingInfo* bindingInfo = GetBindingInfo(binding, imageViews, vk::DescriptorType::eCombinedImageSampler, "combined image sampler");
+		if (!bindingInfo)
+			return false;
+
+		std::vector<vk::DescriptorImageInfo>& imageInfos = m_descriptorImageInfos.emplace_back(std::vector<vk::DescriptorImageInfo>(imageViews.size()));
+		for (size_t i = 0; i < imageViews.size(); ++i)
+		{
+			uint32_t layerCount = imageViews[i]->GetLayerCount();
+			if (layerCount != 1 && !bindingInfo->IsImageArray || layerCount == 1 && bindingInfo->IsImageArray)
+			{
+				Logger::Error("Binding at index {} for material '{}' image array state mismatch. (Shader expects array: {}, Image view layer count: {}).",
+					binding, GetName(), bindingInfo->IsImageArray, layerCount);
+				return false;
+			}
+
+			imageInfos[i] = vk::DescriptorImageInfo(static_cast<const ImageSampler&>(*samplers[i]).Get(), static_cast<const ImageView&>(*imageViews[i]).Get(), GetImageLayout(imageLayouts[i]));
+		}
+
+		if (m_writeDescriptorSets.empty())
+			m_writeDescriptorSets.resize(m_concurrentFrames);
+
+		bindingInfo->Binding.descriptorCount = static_cast<uint32_t>(imageViews.size());
+		for (uint32_t i = 0; i < m_concurrentFrames; ++i)
+			m_writeDescriptorSets[i].emplace_back(vk::WriteDescriptorSet(nullptr, binding, 0, vk::DescriptorType::eCombinedImageSampler, imageInfos));
+		return true;
+	}
+
 	bool PipelineLayout::BindSamplersImp(uint32_t binding, const std::vector<const IImageSampler*>& samplers)
 	{
 		DescriptorBindingInfo* bindingInfo = GetBindingInfo(binding, samplers, vk::DescriptorType::eSampler, "sampler");
@@ -315,6 +345,35 @@ namespace Engine::Rendering::Vulkan
 		for (uint32_t i = 0; i < m_concurrentFrames; ++i)
 			m_writeDescriptorSets[i].emplace_back(vk::WriteDescriptorSet(nullptr, binding, 0, vk::DescriptorType::eStorageBuffer, nullptr, bufferInfos));
 
+		return true;
+	}
+
+	bool PipelineLayout::BindStorageImagesImp(uint32_t binding, const std::vector<const IImageView*>& imageViews)
+	{
+		DescriptorBindingInfo* bindingInfo = GetBindingInfo(binding, imageViews, vk::DescriptorType::eStorageImage, "storage image");
+		if (!bindingInfo)
+			return false;
+
+		std::vector<vk::DescriptorImageInfo>& imageInfos = m_descriptorImageInfos.emplace_back(std::vector<vk::DescriptorImageInfo>(imageViews.size()));
+		for (size_t i = 0; i < imageViews.size(); ++i)
+		{
+			uint32_t layerCount = imageViews[i]->GetLayerCount();
+			if (layerCount != 1 && !bindingInfo->IsImageArray || layerCount == 1 && bindingInfo->IsImageArray)
+			{
+				Logger::Error("Binding at index {} for material '{}' image array state mismatch. (Shader expects array: {}, Image view layer count: {}).",
+					binding, GetName(), bindingInfo->IsImageArray, layerCount);
+				return false;
+			}
+
+			imageInfos[i] = vk::DescriptorImageInfo(nullptr, static_cast<const ImageView&>(*imageViews[i]).Get(), vk::ImageLayout::eGeneral);
+		}
+
+		if (m_writeDescriptorSets.empty())
+			m_writeDescriptorSets.resize(m_concurrentFrames);
+
+		bindingInfo->Binding.descriptorCount = static_cast<uint32_t>(imageViews.size());
+		for (uint32_t i = 0; i < m_concurrentFrames; ++i)
+			m_writeDescriptorSets[i].emplace_back(vk::WriteDescriptorSet(nullptr, binding, 0, vk::DescriptorType::eStorageImage, imageInfos));
 		return true;
 	}
 
@@ -398,18 +457,18 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool GetVulkanBindPoint(BindPoint bindPoint, vk::PipelineBindPoint* vulkanBindPoint)
+	bool PipelineLayout::GetVulkanBindPoint(BindPoint bindPoint, vk::PipelineBindPoint* vulkanBindPoint) const
 	{
 		switch (bindPoint)
 		{
-			case BindPoint::Graphics:
-				*vulkanBindPoint = vk::PipelineBindPoint::eGraphics;
-				return true;
-			case BindPoint::Compute: 
-				*vulkanBindPoint = vk::PipelineBindPoint::eCompute;
-				return true;
-			default:
-				return false;
+		case BindPoint::Graphics:
+			*vulkanBindPoint = vk::PipelineBindPoint::eGraphics;
+			return true;
+		case BindPoint::Compute:
+			*vulkanBindPoint = vk::PipelineBindPoint::eCompute;
+			return true;
+		default:
+			return false;
 		}
 	}
 
@@ -418,6 +477,12 @@ namespace Engine::Rendering::Vulkan
 		vk::PipelineBindPoint vulkanBindPoint;
 		if (!GetVulkanBindPoint(bindPoint, &vulkanBindPoint))
 			return false;
+
+		if (m_pipeline.get() == nullptr)
+		{
+			Logger::Error("Pipeline layout '{}' has not been initialised.", GetName());
+			return false;
+		}
 
 		vk::CommandBuffer vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
 		vkCommandBuffer.bindPipeline(vulkanBindPoint, m_pipeline.get());

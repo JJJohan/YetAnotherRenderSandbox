@@ -11,7 +11,6 @@ layout(binding = 0) uniform FrameInfo
 	vec4 viewPos;
 	vec2 viewSize;
 	vec2 jitter;
-	uint meshCount;
 } frameInfo;
 
 layout(std140, binding = 1) readonly buffer MeshInfoBuffer

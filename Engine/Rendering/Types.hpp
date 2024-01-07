@@ -145,6 +145,50 @@ namespace Engine::Rendering
 		return a &= b;
 	}
 
+	enum class MaterialAccessFlags
+	{
+		None = 0,
+		IndirectCommandRead = 1,
+		IndexRead = 2,
+		VertexAttributeRead = 4,
+		UniformRead = 8,
+		InputAttachmentRead = 16,
+		ShaderRead = 32,
+		ShaderWrite = 64,
+		ColorAttachmentRead = 128,
+		ColorAttachmentWrite = 256,
+		DepthStencilAttachmentRead = 512,
+		DepthStencilAttachmentWrite = 1024,
+		TransferRead = 2048,
+		TransferWrite = 4096,
+		HostRead = 8192,
+		HostWrite = 16384,
+		MemoryRead = 32768,
+		MemoryWrite = 65536
+	};
+
+	inline MaterialAccessFlags& operator&=(MaterialAccessFlags& a, MaterialAccessFlags b)
+	{
+		a = static_cast<MaterialAccessFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+		return a;
+	}
+
+	inline MaterialAccessFlags& operator|=(MaterialAccessFlags& a, MaterialAccessFlags b)
+	{
+		a = static_cast<MaterialAccessFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+		return a;
+	}
+
+	inline MaterialAccessFlags operator|(MaterialAccessFlags a, MaterialAccessFlags b)
+	{
+		return a |= b;
+	}
+
+	inline MaterialAccessFlags operator&(MaterialAccessFlags a, MaterialAccessFlags b)
+	{
+		return a &= b;
+	}
+
 	enum class Filter
 	{
 		Nearest,
@@ -176,6 +220,7 @@ namespace Engine::Rendering
 		TransferDst,
 		DepthAttachment,
 		PresentSrc,
+		General
 	};
 
 	enum class ImageUsageFlags : uint32_t

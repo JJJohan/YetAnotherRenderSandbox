@@ -14,6 +14,7 @@
 #include "RenderSettings.hpp"
 #include "Resources/SubmitInfo.hpp"
 #include <functional>
+#include "CullingMode.hpp"
 
 namespace Engine
 {
@@ -74,7 +75,7 @@ namespace Engine::Rendering
 		EXPORT void SetDebugMode(uint32_t mode);
 		inline uint32_t GetDebugMode() const { return m_debugMode; }
 
-		EXPORT void PauseFrustumCulling(bool pause);
+		EXPORT void SetCullingMode(CullingMode mode);
 
 		inline virtual void SetMultiSampleCount(uint32_t multiSampleCount);;
 		inline uint32_t GetMaxMultiSampleCount() const { return m_maxMultiSampleCount; }
@@ -91,6 +92,7 @@ namespace Engine::Rendering
 
 		inline void SetCamera(const Camera& camera) { m_camera = camera; }
 		inline Camera& GetCamera() { return m_camera; }
+		inline const Camera& GetCameraReadOnly() const { return m_camera; }
 
 		inline const IResourceFactory& GetResourceFactory() const { return *m_resourceFactory; }
 
@@ -110,6 +112,7 @@ namespace Engine::Rendering
 		inline const IImageSampler& GetLinearSampler() const { return *m_linearSampler; }
 		inline const IImageSampler& GetNearestSampler() const { return *m_nearestSampler; }
 		inline const IImageSampler& GetShadowSampler() const { return *m_shadowSampler; }
+		inline const IImageSampler& GetReductionSampler() const { return *m_reductionSampler; }
 
 		inline GeometryBatch& GetSceneGeometryBatch() const { return *m_sceneGeometryBatch; }
 
@@ -155,6 +158,7 @@ namespace Engine::Rendering
 		std::unique_ptr<IImageSampler> m_linearSampler;
 		std::unique_ptr<IImageSampler> m_nearestSampler;
 		std::unique_ptr<IImageSampler> m_shadowSampler;
+		std::unique_ptr<IImageSampler> m_reductionSampler;
 
 		std::unique_ptr<SceneManager> m_sceneManager;
 		std::unique_ptr<GeometryBatch> m_sceneGeometryBatch;

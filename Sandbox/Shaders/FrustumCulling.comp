@@ -1,7 +1,9 @@
 #version 460
 #extension GL_EXT_nonuniform_qualifier : require
 
-layout(local_size_x = 64) in;
+layout(local_size_x = 256) in;
+
+layout (constant_id = 0) const uint cullingMode = 3; // 0 = paused, 1 = reset, 2 = frustum, 3 = frustum + occlusion
 
 layout(binding = 0) uniform FrameInfo
 {
@@ -11,7 +13,6 @@ layout(binding = 0) uniform FrameInfo
 	vec4 viewPos;
 	vec2 viewSize;
 	vec2 jitter;
-	uint meshCount;
 } frameInfo;
 
 struct Bounds
@@ -39,40 +40,98 @@ layout(std430, binding = 2) writeonly buffer IndirectBuffer
 	VkDrawIndexedIndirectCommand commands[];
 } indirectBuffer;
 
-uint check_is_visible(mat4 viewProj, vec3 origin, float radius)
+layout(binding = 3) uniform sampler2D occlusionImage;
+
+struct DrawCullData
 {
-	uint plane_index = 0;
-	for (uint i = 0; i < 3; ++i)
+	float P00, P11, znear, zfar; // symmetric projection parameters
+	float frustum[4]; // data for left/right/top/bottom frustum planes
+	float pyramidWidth, pyramidHeight; // depth pyramid size in texels
+	uint meshCount;
+};
+
+layout(push_constant) uniform constants
+{
+   DrawCullData cullData;
+};
+
+// 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
+bool projectSphere(in vec3 C, float r, float znear, float P00, float P11, out vec4 aabb)
+{
+	if (C.z + r < znear)
+		return false;
+
+	vec2 cx = -C.xz;
+	vec2 vx = vec2(sqrt(dot(cx, cx) - r * r), r);
+	vec2 minx = mat2(vx.x, vx.y, -vx.y, vx.x) * cx;
+	vec2 maxx = mat2(vx.x, -vx.y, vx.y, vx.x) * cx;
+
+	vec2 cy = -C.yz;
+	vec2 vy = vec2(sqrt(dot(cy, cy) - r * r), r);
+	vec2 miny = mat2(vy.x, vy.y, -vy.y, vy.x) * cy;
+	vec2 maxy = mat2(vy.x, -vy.y, vy.y, vy.x) * cy;
+
+	aabb = vec4(minx.x / minx.y * P00, miny.x / miny.y * P11, maxx.x / maxx.y * P00, maxy.x / maxy.y * P11);
+	aabb = aabb.xwzy * vec4(0.5f, -0.5f, 0.5f, -0.5f) + vec4(0.5f); // clip space -> uv space
+
+	return true;
+}
+
+uint is_in_frustum(in vec3 center, float radius)
+{
+	bool visible = center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius;
+	visible = visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
+	return visible ? 1 : 0;
+}
+
+uint is_not_occluded(in vec3 center, float minZ, float radius)
+{
+	//flip Y because we access depth texture that way
+	//center.y *= -1;
+
+	//project the cull sphere into screenspace coordinates
+	vec4 aabb;
+	if (projectSphere(center, radius, cullData.znear, cullData.P00, cullData.P11, aabb))
 	{
-		for (uint j = 0; j < 2; ++j, ++plane_index)
-		{
-			if (plane_index == 2 || plane_index == 3)
-			{
-				continue;
-			}
-			const float sign = (j > 0) ? 1.f : -1.f;
-			vec4 plane = vec4(0, 0, 0, 0);
-			for (uint k = 0; k < 4; ++k)
-			{
-				plane[k] = viewProj[k][3] + sign * viewProj[k][i];
-			}
-			plane.xyzw /= sqrt(dot(plane.xyz, plane.xyz));
-			if (dot(origin, plane.xyz) + plane.w + radius < 0)
-			{
-				return 0;
-			}
-		}
+		float width = (aabb.z - aabb.x) * cullData.pyramidWidth;
+		float height = (aabb.w - aabb.y) * cullData.pyramidHeight;
+
+		//find the mipmap level that will match the screen size of the sphere
+		float level = floor(log2(max(width, height)));
+
+		//sample the depth pyramid at that specific level
+		float depth = textureLod(occlusionImage, (aabb.xy + aabb.zw) * 0.5, level).x;
+
+		float depthSphere = cullData.znear / (center.z + radius);
+
+		//if the depth of the sphere is in front of the depth pyramid value, then the object is visible
+		return depthSphere <= depth ? 1 : 0;
 	}
-	return 1;
+
+	return 0;
 }
 
 void main()
 {
 	uint id = gl_GlobalInvocationID.x;
-	if (id >= frameInfo.meshCount)
+	if (cullingMode == 0 || id >= cullData.meshCount)
 	{
 		return;
 	}
 
-	indirectBuffer.commands[id].instanceCount = check_is_visible(frameInfo.viewProj, boundsBuffer.bounds[id].center, boundsBuffer.bounds[id].radius);
+	uint visible = 1;
+	if (cullingMode > 1)
+	{
+		vec3 center = (frameInfo.view * vec4(boundsBuffer.bounds[id].center, 1.0f)).xyz;
+		float radius = boundsBuffer.bounds[id].radius;
+
+		visible = is_in_frustum(center, radius);
+		if (visible != 0 && cullingMode == 3)
+		{
+			float minZ = (frameInfo.viewProj * vec4(boundsBuffer.bounds[id].center, 1.0f)).z;
+			visible = is_not_occluded(center, minZ, radius);
+		}
+	}
+
+	indirectBuffer.commands[id].instanceCount = visible;
 }

@@ -11,7 +11,7 @@ namespace Engine::Rendering::Vulkan
 		ImageSampler();
 		inline const vk::Sampler& Get() const { return m_sampler.get(); }
 		virtual bool Initialise(const IDevice& device, Filter magFilter, Filter minFilter, SamplerMipmapMode mipMapMode,
-			SamplerAddressMode addressMode, float maxAnisotropy) override;
+			SamplerAddressMode addressMode, float maxAnisotropy, SamplerCreationFlags flags) override;
 
 	private:
 		vk::UniqueSampler m_sampler;

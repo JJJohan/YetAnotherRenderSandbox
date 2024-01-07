@@ -247,7 +247,7 @@ namespace Engine
 				}
 			}
 
-			importState.geometryBatch.CreateMesh(vertexDataArrays, indices, transform, colour, diffuseImage, normalImage, metallicRoughnessImage);
+			importState.geometryBatch.CreateMesh(vertexDataArrays, indices, transform, colour, diffuseImage, normalImage, metallicRoughnessImage, true);
 		}
 
 		return true;

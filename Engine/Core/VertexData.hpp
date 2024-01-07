@@ -32,7 +32,9 @@ namespace Engine
 
 		void ReplaceData(const std::vector<uint8_t>& data, uint32_t newCount);
 
-		inline const void* GetData() const { return m_data.data(); }
+		template <typename T>
+		constexpr inline const T* GetData() const { return reinterpret_cast<const T*>(m_data.data()); }
+
 		inline uint32_t GetCount() const { return m_elementCount; }
 		inline uint32_t GetElementSize() const { return m_elementSize; }
 		inline uint64_t GetHash() const { return m_hash; }

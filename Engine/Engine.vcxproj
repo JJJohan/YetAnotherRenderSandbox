@@ -110,7 +110,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>_DEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;IMPLOT_DISABLE_OBSOLETE_FUNCTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;GLM_FORCE_LEFT_HANDED;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;IMPLOT_DISABLE_OBSOLETE_FUNCTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;$(SolutionDir)Engine\UI\imgui;$(SolutionDir)Engine\UI\implot;$(SolutionDir)Engine\UI\imgui-node-editor;$(SolutionDir)Dependencies\include\rapidjson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -133,7 +133,7 @@
       <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NDEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;IMPLOT_DISABLE_OBSOLETE_FUNCTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;ENGINE_EXPORTS;_WINDOWS;_USRDLL;VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1;VK_USE_PLATFORM_WIN32_KHR;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;GLM_FORCE_LEFT_HANDED;IMGUI_DISABLE_OBSOLETE_FUNCTIONS;IMGUI_DISABLE_DEMO_WINDOWS;IMGUI_DISABLE_DEBUG_TOOLS;IMPLOT_DISABLE_OBSOLETE_FUNCTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\include;$(VULKAN_SDK)\Include;$(SolutionDir)Engine;$(SolutionDir)Engine\UI\imgui;$(SolutionDir)Engine\UI\implot;$(SolutionDir)Engine\UI\imgui-node-editor;$(SolutionDir)Dependencies\include\rapidjson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -176,6 +176,7 @@
     <ClCompile Include="OS\Win32\Win32Window.cpp" />
     <ClCompile Include="OS\Window.cpp" />
     <ClCompile Include="Rendering\Camera.cpp" />
+    <ClCompile Include="Rendering\ComputePasses\DepthReductionPass.cpp" />
     <ClCompile Include="Rendering\ComputePasses\FrustumCullingPass.cpp" />
     <ClCompile Include="Rendering\PostProcessing.cpp" />
     <ClCompile Include="Rendering\RenderGraph.cpp" />
@@ -250,8 +251,10 @@
     <ClInclude Include="OS\Win32\WindowProc.hpp" />
     <ClInclude Include="OS\Window.hpp" />
     <ClInclude Include="Rendering\Camera.hpp" />
+    <ClInclude Include="Rendering\ComputePasses\DepthReductionPass.hpp" />
     <ClInclude Include="Rendering\ComputePasses\FrustumCullingPass.hpp" />
     <ClInclude Include="Rendering\ComputePasses\IComputePass.hpp" />
+    <ClInclude Include="Rendering\CullingMode.hpp" />
     <ClInclude Include="Rendering\PostProcessing.hpp" />
     <ClInclude Include="Rendering\RenderGraph.hpp" />
     <ClInclude Include="Rendering\RenderPasses\CombinePass.hpp" />
@@ -262,6 +265,7 @@
     <ClInclude Include="Rendering\RenderPasses\TonemapperPass.hpp" />
     <ClInclude Include="Rendering\RenderPasses\UIPass.hpp" />
     <ClInclude Include="Rendering\Resources\ICommandPool.hpp" />
+    <ClInclude Include="Rendering\Resources\IndexedIndirectCommand.hpp" />
     <ClInclude Include="Rendering\Resources\ISemaphore.hpp" />
     <ClInclude Include="Rendering\Resources\RenderMeshInfo.hpp" />
     <ClInclude Include="Rendering\RenderSettings.hpp" />
@@ -271,7 +275,6 @@
     <ClInclude Include="Rendering\Resources\ICommandBuffer.hpp" />
     <ClInclude Include="Rendering\IDevice.hpp" />
     <ClInclude Include="Rendering\IMaterialManager.hpp" />
-    <ClInclude Include="Rendering\IndexedIndirectCommand.hpp" />
     <ClInclude Include="Rendering\IPhysicalDevice.hpp" />
     <ClInclude Include="Rendering\IResourceFactory.hpp" />
     <ClInclude Include="Rendering\ISwapChain.hpp" />

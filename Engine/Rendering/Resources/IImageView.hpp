@@ -14,11 +14,12 @@ namespace Engine::Rendering
 		IImageView()
 			: m_mipLevels(1)
 			, m_layerCount(1)
-		{}
+		{
+		}
 
 		virtual ~IImageView() = default;
-		virtual bool Initialise(const IDevice& device, const IRenderImage& image, uint32_t mipLevels,
-			uint32_t layerCount, Format format, ImageAspectFlags aspectFlags) = 0;
+		virtual bool Initialise(const IDevice& device, const IRenderImage& image, uint32_t baseMipLevel,
+			uint32_t mipLevels, uint32_t layerCount, Format format, ImageAspectFlags aspectFlags) = 0;
 
 		inline uint32_t GetMipLevels() const { return m_mipLevels; }
 		inline uint32_t GetLayerCount() const { return m_layerCount; }

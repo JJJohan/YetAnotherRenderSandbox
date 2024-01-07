@@ -114,16 +114,18 @@ namespace Engine::Rendering::Vulkan
 		uint32_t index = 0;
 		for (const auto& queueFamily : queueFamilies)
 		{
-			vk::QueueFlags flags = queueFamily.queueFamilyProperties.queueFlags;
-			if (!indices.GraphicsFamily.has_value() && flags & vk::QueueFlagBits::eGraphics)
-			{
-				indices.GraphicsFamily = index;
-			}			
+			vk::QueueFlags flags = queueFamily.queueFamilyProperties.queueFlags;	
 
-			uint32_t graphicsIndex = indices.GraphicsFamily.value_or(std::numeric_limits<uint32_t>::max());
-			if (!indices.ComputeFamily.has_value() && flags & vk::QueueFlagBits::eCompute && index != graphicsIndex)
+			// Attempt to find a compute family with graphics support to simplify memory barrier transitions.
+			if (!indices.ComputeFamily.has_value() && flags & vk::QueueFlagBits::eCompute && flags & vk::QueueFlagBits::eGraphics)
 			{
 				indices.ComputeFamily = index;
+			}
+
+			uint32_t computeIndex = indices.GraphicsFamily.value_or(std::numeric_limits<uint32_t>::max());
+			if (!indices.GraphicsFamily.has_value() && flags & vk::QueueFlagBits::eGraphics && index != computeIndex)
+			{
+				indices.GraphicsFamily = index;
 			}
 
 			if (!indices.PresentFamily.has_value())
@@ -152,14 +154,17 @@ namespace Engine::Rendering::Vulkan
 		// If indices are not complete, attempt to find shared queue with necessary support.
 		if (!indices.IsComplete())
 		{
-			asyncCompute = indices.ComputeFamily.has_value();
-
 			index = 0;
 			for (const auto& queueFamily : queueFamilies)
 			{
 				vk::QueueFlags flags = queueFamily.queueFamilyProperties.queueFlags;
 
-				if (!asyncCompute && flags & vk::QueueFlagBits::eCompute)
+				if (!indices.GraphicsFamily.has_value() && flags & vk::QueueFlagBits::eGraphics)
+				{
+					indices.GraphicsFamily = index;
+				}
+
+				if (!indices.ComputeFamily.has_value() && flags & vk::QueueFlagBits::eCompute)
 				{
 					indices.ComputeFamily = index;
 				}

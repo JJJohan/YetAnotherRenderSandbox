@@ -51,6 +51,7 @@ namespace Engine::Rendering::Vulkan
 		vulkan12Features.shaderOutputViewportIndex = true;
 		vulkan12Features.shaderOutputLayer = true;
 		vulkan12Features.hostQueryReset = true;
+		vulkan12Features.samplerFilterMinmax = true;
 		vulkan12Features.pNext = &vulkan13Features;
 
 		vk::PhysicalDeviceVulkan11Features vulkan11Features;

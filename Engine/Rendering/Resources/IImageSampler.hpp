@@ -6,6 +6,12 @@ namespace Engine::Rendering
 {
 	class IDevice;
 
+	enum class SamplerCreationFlags
+	{
+		None,
+		ReductionSampler
+	};
+
 	class IImageSampler
 	{
 	public:
@@ -13,6 +19,6 @@ namespace Engine::Rendering
 		virtual ~IImageSampler() = default;
 
 		virtual bool Initialise(const IDevice& device, Filter magFilter, Filter minFilter, SamplerMipmapMode mipmapMode,
-			SamplerAddressMode addressMode, float maxAnisotropy) = 0;
+			SamplerAddressMode addressMode, float maxAnisotropy, SamplerCreationFlags flags = SamplerCreationFlags::None) = 0;
 	};
 }

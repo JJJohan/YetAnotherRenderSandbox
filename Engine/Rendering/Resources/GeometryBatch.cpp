@@ -56,7 +56,8 @@ namespace Engine::Rendering
 		const Colour& colour,
 		std::shared_ptr<Image> diffuseImage,
 		std::shared_ptr<Image> normalImage,
-		std::shared_ptr<Image> metallicRoughnessImage)
+		std::shared_ptr<Image> metallicRoughnessImage,
+		bool convertToLHS)
 	{
 		if (vertexData.empty())
 		{
@@ -109,8 +110,26 @@ namespace Engine::Rendering
 
 			std::vector<std::unique_ptr<VertexData>> localVertexData;
 			localVertexData.reserve(vertexData.size() + 2);
-			for (auto& vertices : vertexData)
-				localVertexData.emplace_back(std::make_unique<VertexData>(vertices));
+			for (size_t i = 0; i < vertexData.size(); ++i)
+			{
+				if (i == 0 && convertToLHS)
+				{
+					uint32_t vertexCount = vertexData[i].GetCount();
+					const glm::vec3* vertices = vertexData[i].GetData<glm::vec3>();
+					std::vector<glm::vec3> newPositions(vertexCount);
+					for (uint32_t j = 0; j < vertexCount; ++j)
+					{
+						const glm::vec3& v = vertices[j];
+						newPositions[j] = glm::vec3(-v.x, v.y, v.z);
+					}
+
+					localVertexData.emplace_back(std::make_unique<VertexData>(newPositions));
+				}
+				else
+				{
+					localVertexData.emplace_back(std::make_unique<VertexData>(vertexData[i]));
+				}
+			}
 
 			m_vertexDataArrays.push_back(std::move(localVertexData));
 		}
@@ -326,7 +345,7 @@ namespace Engine::Rendering
 
 				const std::unique_ptr<VertexData>& data = m_vertexDataArrays[i][vertexBit];
 				uint32_t size = data->GetElementSize() * data->GetCount();
-				memcpy(vertexBufferData.data() + totalSize, data->GetData(), size);
+				memcpy(vertexBufferData.data() + totalSize, data->GetData<uint8_t>(), size);
 
 				m_vertexOffsets[i] = static_cast<uint32_t>(vertexOffset);
 
@@ -415,21 +434,24 @@ namespace Engine::Rendering
 
 			const std::unique_ptr<VertexData>& data = m_vertexDataArrays[i][0];
 			uint32_t size = data->GetCount();
-			const auto& positionData = static_cast<const glm::vec3*>(data->GetData());
+			const auto& positionData = data->GetData<glm::vec3>();
 
 			float radius = 0.0f;
 			glm::vec3 center{};
-			for (uint32_t i = 0; i < size; ++i)
+			for (uint32_t j = 0; j < size; ++j)
 			{
-				center += positionData[i];
+				center += positionData[j];
 			}
 			center /= static_cast<float>(size);
 			radius = glm::distance2(positionData[0], center);
-			for (uint32_t i = 1; i < size; ++i)
+			for (uint32_t j = 1; j < size; ++j)
 			{
-				radius = std::max(radius, glm::distance2(positionData[i], center));
+				radius = std::max(radius, glm::distance2(positionData[j], center));
 			}
 			radius = std::nextafter(sqrtf(radius), std::numeric_limits<float>::max());
+
+			const MeshInfo& meshInfo = m_meshInfos[i];
+			center += glm::vec3(meshInfo.transform[3]);
 
 			boundsData.emplace_back(glm::vec4(center, radius));
 		}

@@ -28,6 +28,7 @@
 
 #include "ComputePasses/IComputePass.hpp"
 #include "ComputePasses/FrustumCullingPass.hpp"
+#include "ComputePasses/DepthReductionPass.hpp"
 
 using namespace Engine::OS;
 using namespace Engine::UI;
@@ -71,6 +72,7 @@ namespace Engine::Rendering
 		, m_linearSampler(nullptr)
 		, m_nearestSampler(nullptr)
 		, m_shadowSampler(nullptr)
+		, m_reductionSampler(nullptr)
 		, m_sceneGeometryBatch(std::make_unique<GeometryBatch>(*this))
 	{
 	}
@@ -92,6 +94,7 @@ namespace Engine::Rendering
 		m_linearSampler.reset();
 		m_nearestSampler.reset();
 		m_shadowSampler.reset();
+		m_reductionSampler.reset();
 		m_sceneGeometryBatch.reset();
 		m_postProcessing.reset();
 		m_shadowMap.reset();
@@ -174,7 +177,6 @@ namespace Engine::Rendering
 		frameInfo->viewSize = size;
 		frameInfo->viewProj = m_camera.GetViewProjection();
 		frameInfo->jitter = m_renderSettings.m_temporalAA ? m_postProcessing->GetTAAJitter() : glm::vec2();
-		frameInfo->meshCount = m_sceneGeometryBatch->GetMeshCapacity();
 	}
 
 	bool Renderer::Initialise()
@@ -213,9 +215,17 @@ namespace Engine::Rendering
 		{
 			return false;
 		}
+
 		m_shadowSampler = std::move(m_resourceFactory->CreateImageSampler());
 		if (!m_shadowSampler->Initialise(*m_device, Filter::Linear, Filter::Linear, SamplerMipmapMode::Linear,
 			SamplerAddressMode::ClampToBorder, 1))
+		{
+			return false;
+		}
+
+		m_reductionSampler = std::move(m_resourceFactory->CreateImageSampler());
+		if (!m_reductionSampler->Initialise(*m_device, Filter::Linear, Filter::Linear, SamplerMipmapMode::Nearest,
+			SamplerAddressMode::ClampToEdge, 0.0f, SamplerCreationFlags::ReductionSampler))
 		{
 			return false;
 		}
@@ -231,6 +241,8 @@ namespace Engine::Rendering
 		m_renderPasses["Combine"] = std::make_unique<CombinePass>(*m_shadowMap);
 
 		m_computePasses["FrustumCulling"] = std::make_unique<FrustumCullingPass>(*m_sceneGeometryBatch);
+		FrustumCullingPass& frustumCullingPass = reinterpret_cast<FrustumCullingPass&>(*m_computePasses["FrustumCulling"].get());
+		m_computePasses["DepthReduction"] = std::make_unique<DepthReductionPass>(frustumCullingPass);
 
 		for (const auto& pair : m_renderPasses)
 		{
@@ -296,12 +308,10 @@ namespace Engine::Rendering
 		combinePass->GetMaterial()->SetSpecialisationConstant("debugMode", static_cast<int32_t>(mode));
 	}
 
-	void Renderer::PauseFrustumCulling(bool pause)
+	void Renderer::SetCullingMode(CullingMode mode)
 	{
 		const std::unique_ptr<FrustumCullingPass>& frustumCullingPass = reinterpret_cast<const std::unique_ptr<FrustumCullingPass>&>(m_computePasses.at("FrustumCulling"));
-		frustumCullingPass->SetEnabled(!pause);
-		m_renderGraph->MarkDirty();
-
+		frustumCullingPass->SetCullingMode(mode);
 	}
 
 	void Renderer::SetHDRState(bool enable)

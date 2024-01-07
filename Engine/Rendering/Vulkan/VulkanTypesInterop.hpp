@@ -241,6 +241,8 @@ namespace Engine::Rendering::Vulkan
 			return vk::ImageLayout::eDepthAttachmentOptimal;
 		case ImageLayout::PresentSrc:
 			return vk::ImageLayout::ePresentSrcKHR;
+		case ImageLayout::General:
+			return vk::ImageLayout::eGeneral;
 		default:
 			throw;
 		}

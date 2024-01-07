@@ -69,8 +69,10 @@ namespace Engine::Rendering
 			return false;
 		}
 
+		// TODO: Sort out render-compute synchronization.
 		m_computeCommandPool = std::move(resourceFactory.CreateCommandPool());
-		if (!m_computeCommandPool->Initialise(physicalDevice, device, indices.ComputeFamily.value(), CommandPoolFlags::Reset))
+		//if (!m_computeCommandPool->Initialise(physicalDevice, device, indices.ComputeFamily.value(), CommandPoolFlags::Reset))
+		if (!m_computeCommandPool->Initialise(physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
 		{
 			return false;
 		}
@@ -330,7 +332,7 @@ namespace Engine::Rendering
 		glm::uvec3 defaultExtents = glm::uvec3(swapchain.GetExtent(), 1);
 		Format swapchainFormat = swapchain.GetFormat();
 
-		std::vector<IRenderNode*> renderNodeStack;		
+		std::vector<IRenderNode*> renderNodeStack;
 		for (auto& renderResource : m_renderResources)
 		{
 			renderNodeStack.push_back(renderResource);
@@ -445,7 +447,7 @@ namespace Engine::Rendering
 					availableBufferSources.insert_or_assign(bufferOutput.first, &node);
 
 				for (const auto& imageOutput : node.Node->GetImageOutputInfos())
-					availableImageSources.insert_or_assign(imageOutput.first, &node);				
+					availableImageSources.insert_or_assign(imageOutput.first, &node);
 			}
 		}
 
@@ -470,7 +472,28 @@ namespace Engine::Rendering
 
 			for (auto& node : stage)
 			{
-				if (node.Type == RenderNodeType::Pass)
+
+				if (node.Type == RenderNodeType::Resource)
+				{
+					IRenderResource* resource = static_cast<IRenderResource*>(node.Node);
+
+					// Build resources before passes.
+					if (!resource->Build(renderer))
+					{
+						Logger::Error("Failed to build render resource '{}' while building render graph.", resource->GetName());
+						return false;
+					}
+
+					// Add available resource to the lookup.
+					for (const auto& output : resource->GetImageOutputInfos())
+					{
+
+						auto& imageMap = formatRenderTextureLookup[output.second.Format];
+						node.OutputImages[output.first] = output.second.Image;
+						imageMap.emplace_back(ImageInfo(*output.second.Image));
+					}
+				}
+				else
 				{
 					const auto& inputImageInfos = node.Node->GetImageInputInfos();
 					for (const auto& info : inputImageInfos)
@@ -531,26 +554,6 @@ namespace Engine::Rendering
 						node.OutputImages[info.first] = image;
 					}
 				}
-				else if (node.Type == RenderNodeType::Resource)
-				{
-					IRenderResource* resource = static_cast<IRenderResource*>(node.Node);
-
-					// Build resources before passes.
-					if (!resource->Build(renderer))
-					{
-						Logger::Error("Failed to build render resource '{}' while building render graph.", resource->GetName());
-						return false;
-					}
-
-					// Add available resource to the lookup.
-					for (const auto& output : resource->GetImageOutputInfos())
-					{
-						
-						auto& imageMap = formatRenderTextureLookup[output.second.Format];
-						node.OutputImages[output.first] = output.second.Image;
-						imageMap.emplace_back(ImageInfo(*output.second.Image));
-					}
-				}
 			}
 		}
 
@@ -579,7 +582,7 @@ namespace Engine::Rendering
 				else if (node.Type == RenderNodeType::Compute)
 				{
 					IComputePass* pass = static_cast<IComputePass*>(node.Node);
-					if (!pass->Build(renderer))
+					if (!pass->Build(renderer, node.InputImages, node.OutputImages))
 					{
 						Logger::Error("Failed to build compute pass '{}' while building render graph.", pass->GetName());
 						return false;
@@ -724,7 +727,7 @@ namespace Engine::Rendering
 
 					m_renderStats.Begin(commandBuffer, pass->GetName(), true);
 
-					pass->Dispatch(device, commandBuffer, frameIndex);
+					pass->Dispatch(renderer, commandBuffer, frameIndex);
 
 					m_renderStats.End(commandBuffer, true);
 					stageHasComputePasses = true;
@@ -771,7 +774,11 @@ namespace Engine::Rendering
 				renderSubmitInfos.emplace_back(std::move(renderSubmitInfo));
 
 			if (!computeSubmitInfo.CommandBuffers.empty())
-				computeSubmitInfos.emplace_back(std::move(computeSubmitInfo));
+			{
+				// TODO: Sort out render-compute synchronization.
+				//computeSubmitInfos.emplace_back(std::move(computeSubmitInfo));
+				renderSubmitInfos.emplace_back(std::move(computeSubmitInfo));
+			}
 		}
 
 		// Blit to swapchain image.

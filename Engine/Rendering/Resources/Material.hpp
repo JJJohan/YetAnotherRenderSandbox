@@ -83,6 +83,21 @@ namespace Engine::Rendering
 			return BindSamplersImp(binding, { sampler });
 		}
 
+		inline bool BindCombinedImageSampler(uint32_t binding, const std::unique_ptr<IImageSampler>& sampler, const std::unique_ptr<IImageView>& imageView, ImageLayout imageLayout)
+		{
+			return BindCombinedImageSamplersImp(binding, { sampler.get() }, { imageView.get() }, { imageLayout });
+		}
+
+		inline bool BindCombinedImageSampler(uint32_t binding, const IImageSampler& sampler, const IImageView& imageView, ImageLayout imageLayout)
+		{
+			return BindCombinedImageSamplersImp(binding, { &sampler }, { &imageView }, { imageLayout });
+		}
+
+		inline bool BindCombinedImageSampler(uint32_t binding, const IImageSampler* sampler, const IImageView* imageView, ImageLayout imageLayout)
+		{
+			return BindCombinedImageSamplersImp(binding, { sampler }, { imageView }, { imageLayout });
+		}
+
 		inline bool BindStorageBuffer(uint32_t binding, const std::unique_ptr<IBuffer>& storageBuffer)
 		{
 			return BindStorageBuffersImp(binding, { storageBuffer.get() });
@@ -96,6 +111,21 @@ namespace Engine::Rendering
 		inline bool BindStorageBuffer(uint32_t binding, const IBuffer& storageBuffer)
 		{
 			return BindStorageBuffersImp(binding, { &storageBuffer });
+		}
+
+		inline bool BindStorageImage(uint32_t binding, const std::unique_ptr<IImageView>& imageView)
+		{
+			return BindStorageImagesImp(binding, { imageView.get() });
+		}
+
+		inline bool BindStorageImage(uint32_t binding, const IImageView* imageView)
+		{
+			return BindStorageImagesImp(binding, { imageView });
+		}
+
+		inline bool BindStorageImage(uint32_t binding, const IImageView& imageView)
+		{
+			return BindStorageImagesImp(binding, { &imageView });
 		}
 
 		inline bool BindImageViews(uint32_t binding, const std::vector<std::unique_ptr<IImageView>>& imageViews)
@@ -119,12 +149,29 @@ namespace Engine::Rendering
 			return BindSamplersImp(binding, samplerPtrs);
 		}
 
+		inline bool BindCombinedImageSamplers(uint32_t binding, const std::vector<const IImageSampler*>& samplers,
+			const std::vector<const IImageView*>& imageViews, const std::vector<ImageLayout>& imageLayouts)
+		{
+			if (samplers.size() != imageViews.size() || samplers.size() != imageLayouts.size())
+			{
+				Engine::Logging::Logger::Error("Sampler, ImageView and imageLayouts arrays should have identical counts.");
+				return false;
+			}
+
+			return BindCombinedImageSamplersImp(binding, samplers, imageViews, imageLayouts);
+		}
+
 		inline bool BindStorageBuffers(uint32_t binding, const std::vector<std::unique_ptr<IBuffer>>& storageBuffers)
 		{
 			std::vector<const IBuffer*> storageBufferPtrs(storageBuffers.size());
 			for (size_t i = 0; i < storageBuffers.size(); ++i)
 				storageBufferPtrs[i] = storageBuffers[i].get();
 			return BindStorageBuffersImp(binding, storageBufferPtrs);
+		}	
+		
+		inline bool BindStorageImages(uint32_t binding, const std::vector<const IImageView*>& imageViews)
+		{
+			return BindStorageImagesImp(binding, imageViews);
 		}
 
 		inline bool BindUniformBuffers(uint32_t binding, const std::vector<std::unique_ptr<IBuffer>>& uniformBuffers)
@@ -141,7 +188,10 @@ namespace Engine::Rendering
 	protected:
 		virtual bool BindImageViewsImp(uint32_t binding, const std::vector<const IImageView*>& imageViews) = 0;
 		virtual bool BindSamplersImp(uint32_t binding, const std::vector<const IImageSampler*>& samplers) = 0;
+		virtual bool BindCombinedImageSamplersImp(uint32_t binding, const std::vector<const IImageSampler*>& samplers, 
+			const std::vector<const IImageView*>& imageViews, const std::vector<ImageLayout>& imageLayouts) = 0;
 		virtual bool BindStorageBuffersImp(uint32_t binding, const std::vector<const IBuffer*>& storageBuffers) = 0;
+		virtual bool BindStorageImagesImp(uint32_t binding, const std::vector<const IImageView*>& imageViews) = 0;
 		virtual bool BindUniformBuffersImp(uint32_t binding, const std::vector<const IBuffer*>& uniformBuffers) = 0;
 
 	private:

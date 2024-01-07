@@ -13,7 +13,7 @@ namespace Engine::Rendering::Vulkan
 	}
 
 	bool ImageSampler::Initialise(const IDevice& device, Filter magFilter, Filter minFilter, SamplerMipmapMode mipMapMode,
-		SamplerAddressMode addressMode, float maxAnisotropy)
+		SamplerAddressMode addressMode, float maxAnisotropy, SamplerCreationFlags flags)
 	{
 		const vk::SamplerAddressMode& vulkanAddressMode = GetSamplerAddressMode(addressMode);
 		vk::SamplerCreateInfo createInfo(vk::SamplerCreateFlags(), GetFilter(magFilter), GetFilter(minFilter),
@@ -21,6 +21,13 @@ namespace Engine::Rendering::Vulkan
 			vulkanAddressMode, vulkanAddressMode, 0.0f, maxAnisotropy > 0.0f, maxAnisotropy);
 		createInfo.borderColor = vk::BorderColor::eFloatOpaqueWhite;
 		createInfo.maxLod = VK_LOD_CLAMP_NONE;
+
+		if (flags == SamplerCreationFlags::ReductionSampler)
+		{
+			vk::SamplerReductionModeCreateInfo createInfoReduction(vk::SamplerReductionMode::eMax);
+			createInfo.pNext = &createInfoReduction;
+			createInfo.maxLod = 16.0f;
+		}
 
 		m_sampler = static_cast<const Device&>(device).Get().createSamplerUnique(createInfo);
 		if (!m_sampler.get())

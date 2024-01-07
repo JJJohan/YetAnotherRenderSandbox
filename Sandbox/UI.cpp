@@ -23,6 +23,7 @@ namespace Sandbox
 		, m_prevTime()
 	{
 		m_debugModes = { "None", "Albedo", "Normal", "WorldPos", "MetalRoughness", "Cascade Index" };
+		m_cullingModes = { "Paused", "None", "Frustum", "Frustum + Occlusion" };
 	}
 
 	void UI::Draw(const Drawer& drawer)
@@ -74,9 +75,11 @@ namespace Sandbox
 			m_renderer->SetTemporalAAState(m_options.UseTAA);
 		}
 
-		if (drawer.Checkbox("Pause Frustum Culling", &m_options.PauseCulling))
+		int32_t cullingMode = static_cast<int32_t>(m_options.CullingMode);
+		if (drawer.ComboBox("Culling Mode", m_cullingModes, &cullingMode))
 		{
-			m_renderer->PauseFrustumCulling(m_options.PauseCulling);
+			m_options.CullingMode = static_cast<CullingMode>(cullingMode);
+			m_renderer->SetCullingMode(m_options.CullingMode);
 		}
 
 		bool hdrSupported = m_renderer->IsHDRSupported();

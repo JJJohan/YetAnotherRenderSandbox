@@ -35,13 +35,20 @@ namespace Engine::Rendering
 
 		virtual bool UpdateContents(const void* data, uint64_t size) = 0;
 		virtual void TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout) = 0;
+		virtual void TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
+			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags) = 0;
+		virtual void TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer, 
+			MaterialStageFlags oldStageFlags, ImageLayout oldLayout, MaterialAccessFlags oldAccessFlags,
+			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags) = 0;
 		virtual void GenerateMipmaps(const IDevice& device, const ICommandBuffer& commandBuffer) = 0;
+		virtual bool CreateView(const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const = 0;
 
 		inline const glm::uvec3& GetDimensions() const { return m_dimensions; }
-		inline const Format& GetFormat() const { return m_format; }
+		inline Format GetFormat() const { return m_format; }
+		inline ImageUsageFlags GetUsageFlags() const { return m_usageFlags; }
 		inline uint32_t GetMiplevels() const { return m_mipLevels; }
 		inline uint32_t GetLayerCount() const { return m_layerCount; }
-		inline const ImageLayout& GetLayout() const { return m_layout; }
+		inline ImageLayout GetLayout() const { return m_layout; }
 		inline const IImageView& GetView() const { return *m_imageView; }
 
 	protected:

@@ -81,9 +81,13 @@ namespace Engine::Rendering::Vulkan
 		bool CreateDescriptorSetLayout(const IDevice& device);
 
 		virtual bool BindImageViewsImp(uint32_t binding, const std::vector<const IImageView*>& imageViews) override;
+		virtual bool BindCombinedImageSamplersImp(uint32_t binding, const std::vector<const IImageSampler*>& samplers,
+			const std::vector<const IImageView*>& imageViews, const std::vector<ImageLayout>& imageLayouts) override;
 		virtual bool BindSamplersImp(uint32_t binding, const std::vector<const IImageSampler*>& samplers) override;
 		virtual bool BindStorageBuffersImp(uint32_t binding, const std::vector<const IBuffer*>& storageBuffers) override;
+		virtual bool BindStorageImagesImp(uint32_t binding, const std::vector<const IImageView*>& imageViews) override;
 		virtual bool BindUniformBuffersImp(uint32_t binding, const std::vector<const IBuffer*>& uniformBuffers) override;
+		bool GetVulkanBindPoint(BindPoint bindPoint, vk::PipelineBindPoint* vulkanBindPoint) const;
 
 		template <typename T>
 		inline DescriptorBindingInfo* GetBindingInfo(uint32_t binding, const std::vector<T>& bindingData,

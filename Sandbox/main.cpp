@@ -112,7 +112,7 @@ int main()
 			}
 			if (window->InputState.KeyPressed(KeyCode::A))
 			{
-				camera.TranslateLocal(glm::vec3(speed, 0.0f, 0.0f));
+				camera.TranslateLocal(glm::vec3(-speed, 0.0f, 0.0f));
 			}
 			if (window->InputState.KeyPressed(KeyCode::S))
 			{
@@ -120,7 +120,7 @@ int main()
 			}
 			if (window->InputState.KeyPressed(KeyCode::D))
 			{
-				camera.TranslateLocal(glm::vec3(-speed, 0.0f, 0.0f));
+				camera.TranslateLocal(glm::vec3(speed, 0.0f, 0.0f));
 			}
 
 			const float mouseSensitivity = 0.005f;

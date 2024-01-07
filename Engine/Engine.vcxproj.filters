@@ -271,6 +271,9 @@
     <ClCompile Include="Rendering\RenderPasses\CombinePass.cpp">
       <Filter>Rendering\RenderPasses</Filter>
     </ClCompile>
+    <ClCompile Include="Rendering\ComputePasses\DepthReductionPass.cpp">
+      <Filter>Rendering\ComputePasses</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Macros.hpp">
@@ -540,7 +543,6 @@
     <ClInclude Include="Rendering\RenderResources\ShadowMap.hpp">
       <Filter>Rendering\RenderResources</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\IndexedIndirectCommand.hpp" />
     <ClInclude Include="Rendering\Resources\ICommandPool.hpp">
       <Filter>Rendering\Resources</Filter>
     </ClInclude>
@@ -579,6 +581,15 @@
     </ClInclude>
     <ClInclude Include="Rendering\RenderPasses\UIPass.hpp">
       <Filter>Rendering\RenderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Resources\IndexedIndirectCommand.hpp">
+      <Filter>Rendering\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\CullingMode.hpp">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\ComputePasses\DepthReductionPass.hpp">
+      <Filter>Rendering\ComputePasses</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

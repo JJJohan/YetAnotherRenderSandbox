@@ -6,5 +6,4 @@ struct MeshInfo
 	uint diffuseImageIndex;
 	uint normalImageIndex;
 	uint metallicRoughnessImageIndex;
-	float radius;
 };

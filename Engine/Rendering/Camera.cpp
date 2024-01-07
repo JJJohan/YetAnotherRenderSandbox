@@ -23,7 +23,7 @@ namespace Engine::Rendering
 	{
 		if (m_projDirty)
 		{
-			m_proj = glm::perspectiveFov(m_fov, static_cast<float>(m_dimensions.x), static_cast<float>(m_dimensions.y), m_nearFar.x, m_nearFar.y);
+			m_proj = glm::perspective(m_fov, static_cast<float>(m_dimensions.x) / static_cast<float>(m_dimensions.y), m_nearFar.x, m_nearFar.y);
 			m_proj[1][1] *= -1.0f;
 			m_viewProj = m_proj * m_view;
 			m_projDirty = false;
@@ -52,7 +52,7 @@ namespace Engine::Rendering
 
 	void Camera::TranslateLocal(const glm::vec3& translation)
 	{
-		m_position += translation * m_rotation;
+		m_position -= translation * m_rotation;
 		m_viewDirty = true;
 	}
 
@@ -71,8 +71,8 @@ namespace Engine::Rendering
 
 	void Camera::RotateFPS(float pitch, float yaw)
 	{
-		m_pitch = glm::clamp(m_pitch + pitch, m_pitchClamp.x, m_pitchClamp.y);
-		m_yaw = std::remainder(m_yaw + yaw, glm::two_pi<float>());
+		m_pitch = glm::clamp(m_pitch - pitch, m_pitchClamp.x, m_pitchClamp.y);
+		m_yaw = std::remainder(m_yaw - yaw, glm::two_pi<float>());
 
 		glm::quat qPitch = glm::angleAxis(m_pitch, glm::vec3(1, 0, 0));
 		glm::quat qYaw = glm::angleAxis(m_yaw, glm::vec3(0, 1, 0));
