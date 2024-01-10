@@ -45,9 +45,9 @@ namespace Engine::Rendering
 		ICommandPool() = default;
 		virtual ~ICommandPool() = default;
 
-		virtual bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t queueFamilyIndex, CommandPoolFlags flags) = 0;
+		virtual bool Initialise(const char* name, const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t queueFamilyIndex, CommandPoolFlags flags) = 0;
 
-		virtual std::vector<std::unique_ptr<ICommandBuffer>> CreateCommandBuffers(const IDevice& device, uint32_t count) const = 0;
+		virtual std::vector<std::unique_ptr<ICommandBuffer>> CreateCommandBuffers(const char* name, const IDevice& device, uint32_t count) const = 0;
 		virtual std::unique_ptr<ICommandBuffer> BeginResourceCommandBuffer(const IDevice& device) const = 0;
 		virtual void Reset(const IDevice& device) const = 0;
 	};

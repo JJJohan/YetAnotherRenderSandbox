@@ -85,7 +85,8 @@ namespace Engine::Rendering::Vulkan
 
 		std::unique_ptr<CommandPool> m_resourceCommandPool;
 
-		std::vector<vk::UniqueSemaphore> m_imageAvailableSemaphores;
+		std::vector<vk::UniqueSemaphore> m_releaseSemaphores;
+		std::vector<vk::UniqueSemaphore> m_acquireSemaphores;
 		std::vector<vk::UniqueFence> m_inFlightRenderFences;
 		std::vector<vk::UniqueFence> m_inFlightComputeFences;
 		std::vector<std::pair<vk::UniqueFence, std::vector<ResourceCommandData>>> m_inFlightResources;

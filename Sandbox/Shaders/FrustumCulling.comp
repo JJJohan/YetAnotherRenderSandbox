@@ -48,6 +48,7 @@ struct DrawCullData
 	float frustum[4]; // data for left/right/top/bottom frustum planes
 	float pyramidWidth, pyramidHeight; // depth pyramid size in texels
 	uint meshCount;
+	uint enableOcclusion; // Skipped for first frame as we need last frame's depth output.
 };
 
 layout(push_constant) uniform constants
@@ -84,7 +85,7 @@ uint is_in_frustum(in vec3 center, float radius)
 	return visible ? 1 : 0;
 }
 
-uint is_not_occluded(in vec3 center, float minZ, float radius)
+uint is_not_occluded(in vec3 center, float radius)
 {
 	//flip Y because we access depth texture that way
 	//center.y *= -1;
@@ -96,16 +97,19 @@ uint is_not_occluded(in vec3 center, float minZ, float radius)
 		float width = (aabb.z - aabb.x) * cullData.pyramidWidth;
 		float height = (aabb.w - aabb.y) * cullData.pyramidHeight;
 
-		//find the mipmap level that will match the screen size of the sphere
 		float level = floor(log2(max(width, height)));
 
-		//sample the depth pyramid at that specific level
+		// Sampler is set up to do min reduction, so this computes the minimum depth of a 2x2 texel quad
+
 		float depth = textureLod(occlusionImage, (aabb.xy + aabb.zw) * 0.5, level).x;
+		//float depthSphere = cullData.znear / (center.z - radius);
 
-		float depthSphere = cullData.znear / (center.z + radius);
+		//float depthSphere = ((center.z - radius) + cullData.znear)/(cullData.zfar - cullData.znear);
+		float depthSphere = center.z - radius;
 
-		//if the depth of the sphere is in front of the depth pyramid value, then the object is visible
-		return depthSphere <= depth ? 1 : 0;
+		depth = 2.0 * cullData.znear * cullData.zfar / (cullData.zfar + cullData.znear - depth * (cullData.zfar - cullData.znear));
+
+		return depthSphere < depth ? 1 : 0;
 	}
 
 	return 0;
@@ -122,14 +126,15 @@ void main()
 	uint visible = 1;
 	if (cullingMode > 1)
 	{
-		vec3 center = (frameInfo.view * vec4(boundsBuffer.bounds[id].center, 1.0f)).xyz;
+		vec3 center = boundsBuffer.bounds[id].center;
+
+		vec3 centerVS = (frameInfo.view * vec4(center, 1.0f)).xyz;
 		float radius = boundsBuffer.bounds[id].radius;
 
-		visible = is_in_frustum(center, radius);
-		if (visible != 0 && cullingMode == 3)
+		visible = is_in_frustum(centerVS, radius);
+		if (cullingMode == 3 && visible != 0 && cullData.enableOcclusion != 0)
 		{
-			float minZ = (frameInfo.viewProj * vec4(boundsBuffer.bounds[id].center, 1.0f)).z;
-			visible = is_not_occluded(center, minZ, radius);
+			visible = is_not_occluded(centerVS, radius);
 		}
 	}
 

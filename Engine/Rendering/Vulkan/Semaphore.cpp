@@ -11,7 +11,7 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	bool Semaphore::Initialise(const IDevice& device, bool binary)
+	bool Semaphore::Initialise(const char* name, const IDevice& device, bool binary)
 	{
 		const Device& vkDevice = static_cast<const Device&>(device);
 
@@ -24,6 +24,8 @@ namespace Engine::Rendering::Vulkan
 			Logger::Error("Failed to create semaphore.");
 			return false;
 		}
+
+		vkDevice.SetResourceName(ResourceType::Semaphore, m_semaphore.get(), name);
 
 		return true;
 	}

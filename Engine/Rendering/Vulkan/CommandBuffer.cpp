@@ -135,4 +135,16 @@ namespace Engine::Rendering::Vulkan
 	{
 		m_commandBuffer->drawIndexedIndirect(static_cast<const Buffer&>(buffer).Get(), offset, drawCount, stride);
 	}
+
+	void CommandBuffer::MemoryBarrier(MaterialStageFlags srcStage, MaterialAccessFlags srcMask, MaterialStageFlags dstStage, MaterialAccessFlags dstMask) const
+	{
+		vk::PipelineStageFlagBits2 vkSrcStage = static_cast<vk::PipelineStageFlagBits2>(srcStage);
+		vk::PipelineStageFlagBits2 vkDstStage = static_cast<vk::PipelineStageFlagBits2>(dstStage);
+		vk::AccessFlagBits2 vkSrcMask = static_cast<vk::AccessFlagBits2>(srcMask);
+		vk::AccessFlagBits2 vkDstMask = static_cast<vk::AccessFlagBits2>(dstMask);
+
+		vk::MemoryBarrier2 barrier(vkSrcStage, vkSrcMask, vkDstStage, vkDstMask);
+		vk::DependencyInfo dependencyInfo(vk::DependencyFlagBits::eByRegion, 1, &barrier);
+		m_commandBuffer->pipelineBarrier2(dependencyInfo);
+	}
 }

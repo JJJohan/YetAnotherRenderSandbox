@@ -10,7 +10,7 @@ namespace Engine::Rendering::Vulkan
 	public:
 		ImageView();
 		inline const vk::ImageView& Get() const { return m_imageView.get(); }
-		virtual bool Initialise(const IDevice& device, const IRenderImage& image, uint32_t baseMipLevel,
+		virtual bool Initialise(const char* name, const IDevice& device, const IRenderImage& image, uint32_t baseMipLevel,
 			uint32_t mipLevels, uint32_t layerCount, Format format, ImageAspectFlags aspectFlags) override;
 
 	private:

@@ -18,7 +18,7 @@ namespace Engine::Rendering
 		}
 
 		virtual ~IImageView() = default;
-		virtual bool Initialise(const IDevice& device, const IRenderImage& image, uint32_t baseMipLevel,
+		virtual bool Initialise(const char* name, const IDevice& device, const IRenderImage& image, uint32_t baseMipLevel,
 			uint32_t mipLevels, uint32_t layerCount, Format format, ImageAspectFlags aspectFlags) = 0;
 
 		inline uint32_t GetMipLevels() const { return m_mipLevels; }

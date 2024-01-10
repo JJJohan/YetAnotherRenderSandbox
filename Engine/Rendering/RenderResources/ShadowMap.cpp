@@ -120,7 +120,7 @@ namespace Engine::Rendering
 	bool ShadowMap::CreateShadowImages(const IDevice& device, const IResourceFactory& resourceFactory, Format depthFormat)
 	{
 		m_shadowImage = std::move(resourceFactory.CreateRenderImage());
-		if (!m_shadowImage->Initialise(device, ImageType::e2D, depthFormat, m_extent, 1, m_cascadeCount, ImageTiling::Optimal,
+		if (!m_shadowImage->Initialise("ShadowImage", device, ImageType::e2D, depthFormat, m_extent, 1, m_cascadeCount, ImageTiling::Optimal,
 			ImageUsageFlags::Sampled | ImageUsageFlags::DepthStencilAttachment,
 			ImageAspectFlags::Depth, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{

@@ -31,6 +31,7 @@ namespace Engine::Rendering
 			glm::vec4 frustum; // data for left/right/top/bottom frustum planes
 			float pyramidWidth, pyramidHeight; // depth pyramid size in texels
 			uint32_t meshCount;
+			uint32_t enableOcclusion;
 		};
 
 		const GeometryBatch& m_sceneGeometryBatch;

@@ -2,6 +2,7 @@
 #include "CommandBuffer.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "VulkanTypesInterop.hpp"
+#include "Device.hpp"
 
 using namespace Engine::Logging;
 
@@ -126,7 +127,7 @@ namespace Engine::Rendering::Vulkan
 			nullptr, nullptr, { barrier });
 	}
 
-	bool RenderImage::Initialise(const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
+	bool RenderImage::Initialise(const char* name, const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
 		uint32_t mipLevels, uint32_t layerCount, ImageTiling tiling, ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags,
 		MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode)
 	{
@@ -147,20 +148,23 @@ namespace Engine::Rendering::Vulkan
 		VkResult createResult = vmaCreateImage(m_allocator, &renderImageInfoImp, &allocCreateInfo, &m_image, &m_imageAlloc, &m_imageAllocInfo);
 		if (createResult != VK_SUCCESS)
 		{
-			Logger::Error("Failed to create RenderImage.");
+			Logger::Error("Failed to create RenderImage '{}'.", name);
 			return false;
 		}
 
-		if (!InitialiseView(device, aspectFlags))
+		if (!InitialiseView(name, device, aspectFlags))
 		{
-			Logger::Error("Failed to create image view.");
+			Logger::Error("Failed to create image view for image '{}'.", name);
 			return false;
 		}
+
+		const Device& deviceImp = static_cast<const Device&>(device);
+		deviceImp.SetResourceName(ResourceType::Image, m_image, name);
 
 		return true;
 	}
 
-	bool RenderImage::CreateView(const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const
+	bool RenderImage::CreateView(const char* name, const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const
 	{
 		if (m_layerCount != 1)
 		{
@@ -169,7 +173,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		imageView = std::make_unique<ImageView>();
-		if (!imageView->Initialise(device, *this, baseMipLevel, 1, 1, m_format, aspectFlags))
+		if (!imageView->Initialise(name, device, *this, baseMipLevel, 1, 1, m_format, aspectFlags))
 		{
 			Logger::Error("Failed to create image view.");
 			return false;
@@ -178,10 +182,10 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool RenderImage::InitialiseView(const IDevice& device, ImageAspectFlags aspectFlags)
+	bool RenderImage::InitialiseView(const char* name, const IDevice& device, ImageAspectFlags aspectFlags)
 	{
 		m_imageView = std::make_unique<ImageView>();
-		if (!m_imageView->Initialise(device, *this, 0, m_mipLevels, m_layerCount, m_format, aspectFlags))
+		if (!m_imageView->Initialise(name, device, *this, 0, m_mipLevels, m_layerCount, m_format, aspectFlags))
 		{
 			Logger::Error("Failed to create image view.");
 			return false;
@@ -200,41 +204,41 @@ namespace Engine::Rendering::Vulkan
 		return HasStencilComponent(format) || format == Format::D32Sfloat;
 	}
 
-	inline bool SetFlags(const ImageLayout& imageLayout, vk::AccessFlags& accessMask, vk::PipelineStageFlags& stage)
+	inline bool SetFlags(const ImageLayout& imageLayout, vk::AccessFlags2& accessMask, vk::PipelineStageFlags2& stage)
 	{
 		switch (imageLayout)
 		{
 		case ImageLayout::Undefined:
-			accessMask = vk::AccessFlagBits::eNone;
-			stage = vk::PipelineStageFlagBits::eTopOfPipe;
+			accessMask = vk::AccessFlagBits2::eNone;
+			stage = vk::PipelineStageFlagBits2::eTopOfPipe;
 			return true;
 		case ImageLayout::TransferSrc:
-			accessMask = vk::AccessFlagBits::eTransferRead;
-			stage = vk::PipelineStageFlagBits::eTransfer;
+			accessMask = vk::AccessFlagBits2::eTransferRead;
+			stage = vk::PipelineStageFlagBits2::eTransfer;
 			return true;
 		case ImageLayout::TransferDst:
-			accessMask = vk::AccessFlagBits::eTransferWrite;
-			stage = vk::PipelineStageFlagBits::eTransfer;
+			accessMask = vk::AccessFlagBits2::eTransferWrite;
+			stage = vk::PipelineStageFlagBits2::eTransfer;
 			return true;
 		case ImageLayout::ShaderReadOnly:
-			accessMask = vk::AccessFlagBits::eShaderRead;
-			stage = vk::PipelineStageFlagBits::eFragmentShader;
+			accessMask = vk::AccessFlagBits2::eShaderRead;
+			stage = vk::PipelineStageFlagBits2::eFragmentShader;
 			return true;
 		case ImageLayout::ColorAttachment:
-			accessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-			stage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+			accessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
+			stage = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
 			return true;
 		case ImageLayout::DepthStencilAttachment:
-			accessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-			stage = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+			accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+			stage = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests;
 			return true;
 		case ImageLayout::General:
-			accessMask = vk::AccessFlagBits::eShaderWrite;
-			stage = vk::PipelineStageFlagBits::eComputeShader;
+			accessMask = vk::AccessFlagBits2::eShaderWrite;
+			stage = vk::PipelineStageFlagBits2::eComputeShader;
 			return true;
 		case ImageLayout::PresentSrc:
-			accessMask = vk::AccessFlagBits::eNone;
-			stage = vk::PipelineStageFlagBits::eBottomOfPipe;
+			accessMask = vk::AccessFlagBits2::eNone;
+			stage = vk::PipelineStageFlagBits2::eBottomOfPipe;
 			return true;
 		default:
 			return false;
@@ -277,10 +281,10 @@ namespace Engine::Rendering::Vulkan
 			return;
 		}
 
-		vk::AccessFlags srcAccessMask;
-		vk::AccessFlags dstAccessMask;
-		vk::PipelineStageFlags srcStage;
-		vk::PipelineStageFlags dstStage;
+		vk::AccessFlags2 srcAccessMask;
+		vk::AccessFlags2 dstAccessMask;
+		vk::PipelineStageFlags2 srcStage;
+		vk::PipelineStageFlags2 dstStage;
 
 		if (!SetFlags(m_layout, srcAccessMask, srcStage))
 		{
@@ -311,18 +315,20 @@ namespace Engine::Rendering::Vulkan
 
 		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, m_layerCount);
 
-		vk::ImageMemoryBarrier barrier(srcAccessMask, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
+		vk::ImageMemoryBarrier2 barrier(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
+
 			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
+		vk::DependencyInfo dependencyInfo(vk::DependencyFlagBits::eByRegion, 0, nullptr, 0, nullptr, 1, &barrier);
 
 		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);
-		vulkanCommandBuffer.Get().pipelineBarrier(srcStage, dstStage,
-			vk::DependencyFlagBits::eByRegion, nullptr, nullptr, { barrier });
+		vulkanCommandBuffer.Get().pipelineBarrier2(dependencyInfo);
 
 		m_layout = newLayout;
 	}
 
 	void RenderImage::TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
-		MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags)
+		MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags, 
+		uint32_t baseMipLevel, uint32_t mipLevelCount)
 	{
 		if (!LayoutSupported(m_usageFlags, newLayout))
 		{
@@ -330,10 +336,10 @@ namespace Engine::Rendering::Vulkan
 			return;
 		}
 
-		vk::AccessFlags srcAccessMask;
-		vk::AccessFlags dstAccessMask = static_cast<vk::AccessFlagBits>(newAccessFlags);
-		vk::PipelineStageFlags srcStage;
-		vk::PipelineStageFlags dstStage = static_cast<vk::PipelineStageFlagBits>(newStageFlags);
+		vk::AccessFlags2 srcAccessMask;
+		vk::AccessFlags2 dstAccessMask = static_cast<vk::AccessFlagBits2>(newAccessFlags);
+		vk::PipelineStageFlags2 srcStage;
+		vk::PipelineStageFlags2 dstStage = static_cast<vk::PipelineStageFlagBits2>(newStageFlags);
 
 		if (!SetFlags(m_layout, srcAccessMask, srcStage))
 		{
@@ -356,21 +362,23 @@ namespace Engine::Rendering::Vulkan
 			aspectFlags = vk::ImageAspectFlagBits::eColor;
 		}
 
-		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, m_layerCount);
+		vk::ImageSubresourceRange subResourceRange(aspectFlags, baseMipLevel, mipLevelCount == 0 ? m_mipLevels : mipLevelCount, 0, m_layerCount);
 
-		vk::ImageMemoryBarrier barrier(srcAccessMask, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
+		vk::ImageMemoryBarrier2 barrier(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
+
 			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
+		vk::DependencyInfo dependencyInfo(vk::DependencyFlagBits::eByRegion, 0, nullptr, 0, nullptr, 1, &barrier);
 
 		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);
-		vulkanCommandBuffer.Get().pipelineBarrier(srcStage, dstStage,
-			vk::DependencyFlagBits::eByRegion, nullptr, nullptr, { barrier });
+		vulkanCommandBuffer.Get().pipelineBarrier2(dependencyInfo);
 
 		m_layout = newLayout;
 	}
 
 	void RenderImage::TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
 		MaterialStageFlags oldStageFlags, ImageLayout oldLayout, MaterialAccessFlags oldAccessFlags,
-		MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags)
+		MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
+		uint32_t baseMipLevel, uint32_t mipLevelCount)
 	{
 		if (!LayoutSupported(m_usageFlags, newLayout))
 		{
@@ -378,10 +386,10 @@ namespace Engine::Rendering::Vulkan
 			return;
 		}
 
-		vk::AccessFlags srcAccessMask = static_cast<vk::AccessFlagBits>(oldAccessFlags);
-		vk::AccessFlags dstAccessMask = static_cast<vk::AccessFlagBits>(newAccessFlags);
-		vk::PipelineStageFlags srcStage = static_cast<vk::PipelineStageFlagBits>(oldStageFlags);
-		vk::PipelineStageFlags dstStage = static_cast<vk::PipelineStageFlagBits>(newStageFlags);
+		vk::AccessFlags2 srcAccessMask = static_cast<vk::AccessFlagBits2>(oldAccessFlags);
+		vk::AccessFlags2 dstAccessMask = static_cast<vk::AccessFlagBits2>(newAccessFlags);
+		vk::PipelineStageFlags2 srcStage = static_cast<vk::PipelineStageFlagBits2>(oldStageFlags);
+		vk::PipelineStageFlags2 dstStage = static_cast<vk::PipelineStageFlagBits2>(newStageFlags);
 
 		vk::ImageAspectFlags aspectFlags;
 		if (IsDepthFormat(m_format))
@@ -398,14 +406,15 @@ namespace Engine::Rendering::Vulkan
 			aspectFlags = vk::ImageAspectFlagBits::eColor;
 		}
 
-		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, m_layerCount);
+		vk::ImageSubresourceRange subResourceRange(aspectFlags, baseMipLevel, mipLevelCount == 0 ? m_mipLevels : mipLevelCount, 0, m_layerCount);
 
-		vk::ImageMemoryBarrier barrier(srcAccessMask, dstAccessMask, GetImageLayout(oldLayout), GetImageLayout(newLayout),
+		vk::ImageMemoryBarrier2 barrier(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(oldLayout), GetImageLayout(newLayout),
+
 			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
+		vk::DependencyInfo dependencyInfo(vk::DependencyFlagBits::eByRegion, 0, nullptr, 0, nullptr, 1, &barrier);
 
 		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);
-		vulkanCommandBuffer.Get().pipelineBarrier(srcStage, dstStage,
-			vk::DependencyFlagBits::eByRegion, nullptr, nullptr, { barrier });
+		vulkanCommandBuffer.Get().pipelineBarrier2(dependencyInfo);
 
 		m_layout = newLayout;
 	}

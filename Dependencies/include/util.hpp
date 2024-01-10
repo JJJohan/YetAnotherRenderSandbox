@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 - 2023 spnda
+ * Copyright (C) 2022 - 2024 spnda
  * This file is part of fastgltf <https://github.com/spnda/fastgltf>.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -67,7 +67,7 @@
 
 #if FASTGLTF_CPP_23
 #define FASTGLTF_UNREACHABLE std::unreachable();
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) || defined(__clang__)
 #define FASTGLTF_UNREACHABLE __builtin_unreachable();
 #elif defined(_MSC_VER)
 #define FASTGLTF_UNREACHABLE __assume(false);
@@ -211,7 +211,7 @@ namespace fastgltf {
     [[gnu::hot, gnu::const]] constexpr std::uint32_t crc32c(std::string_view str) noexcept {
         std::uint32_t crc = 0;
         for (auto c : str)
-            crc = (crc >> 8) ^ crcHashTable[(crc ^ c) & 0xff];
+            crc = (crc >> 8) ^ crcHashTable[(crc ^ static_cast<std::uint8_t>(c)) & 0xff];
         return crc;
     }
 
@@ -247,7 +247,7 @@ namespace fastgltf {
 #if FASTGLTF_HAS_CONCEPTS
     requires std::integral<T>
 #endif
-    [[gnu::const]] inline std::uint8_t clz(T value) {
+    [[gnu::const]] std::uint8_t clz(T value) {
         static_assert(std::is_integral_v<T>);
 #if FASTGLTF_HAS_BIT
         return static_cast<std::uint8_t>(std::countl_zero(value));
@@ -267,7 +267,7 @@ namespace fastgltf {
     }
 
 	template <typename T>
-	[[gnu::const]] inline std::uint8_t popcount(T value) {
+	[[gnu::const]] std::uint8_t popcount(T value) {
 		static_assert(std::is_integral_v<T>);
 #if FASTGLTF_HAS_BIT
 		return static_cast<std::uint8_t>(std::popcount(value));
@@ -327,6 +327,15 @@ namespace fastgltf {
         static_assert(std::is_enum_v<T>); \
         return static_cast<T>(op to_underlying(a)); \
     }
+
+	// Simple non-constexpr bit_cast implementation.
+	template<typename To, typename From>
+	To bit_cast(const From& from) noexcept {
+		static_assert(std::is_trivially_constructible_v<To>);
+		To dst;
+		std::memcpy(&dst, &from, sizeof(To));
+		return dst;
+	}
 } // namespace fastgltf
 
 #ifdef _MSC_VER

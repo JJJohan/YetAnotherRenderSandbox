@@ -36,7 +36,7 @@ namespace Engine::Rendering
 	{
 		ImageUsageFlags usageFlags = ImageUsageFlags::Storage | ImageUsageFlags::Sampled | ImageUsageFlags::TransferSrc;
 		m_occlusionImage = std::move(resourceFactory.CreateRenderImage());
-		if (!m_occlusionImage->Initialise(device, ImageType::e2D, Format::R32Sfloat, m_depthImage->GetDimensions(), m_depthPyramidLevels, 1,
+		if (!m_occlusionImage->Initialise("OcclusionImage", device, ImageType::e2D, Format::R32Sfloat, m_depthImage->GetDimensions(), m_depthPyramidLevels, 1,
 			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice,
 			AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
@@ -90,7 +90,8 @@ namespace Engine::Rendering
 		m_occlusionMipViews.resize(m_depthPyramidLevels);
 		for (uint32_t i = 0; i < m_depthPyramidLevels; ++i)
 		{
-			if (!m_occlusionImage->CreateView(device, i, ImageAspectFlags::Color, m_occlusionMipViews[i]))
+			std::string name = std::format("OcclusionMipView{}", i);
+			if (!m_occlusionImage->CreateView(name.c_str(), device, i, ImageAspectFlags::Color, m_occlusionMipViews[i]))
 			{
 				return false;
 			}
@@ -141,27 +142,36 @@ namespace Engine::Rendering
 		// TODO: Handle queue barriers between graphicsFamily and computeFamily to avoid issues with image layout.
 
 		m_depthImage->TransitionImageLayoutExt(device, commandBuffer,
+			MaterialStageFlags::LateFragmentTests, ImageLayout::DepthStencilAttachment, MaterialAccessFlags::DepthStencilAttachmentWrite,
 			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly, MaterialAccessFlags::ShaderRead);
+
+		bool firstDraw = m_occlusionImage->GetLayout() == ImageLayout::Undefined;
+
+		m_occlusionImage->TransitionImageLayoutExt(device, commandBuffer,
+			firstDraw ? MaterialStageFlags::None : MaterialStageFlags::ComputeShader,
+			m_occlusionImage->GetLayout(),
+			firstDraw ? MaterialAccessFlags::None : MaterialAccessFlags::ShaderRead,
+			MaterialStageFlags::ComputeShader, ImageLayout::General, 
+			MaterialAccessFlags::ShaderWrite | MaterialAccessFlags::ShaderRead);
 
 		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
 
 		for (uint32_t i = 0; i < m_depthPyramidLevels; ++i)
 		{
-			uint32_t levelWidth = m_depthPyramidWidth >> i;
-			uint32_t levelHeight = m_depthPyramidHeight >> i;
-			if (levelHeight < 1) levelHeight = 1;
-			if (levelWidth < 1) levelWidth = 1;
+			uint32_t levelWidth = std::max(1U, m_depthPyramidWidth >> i);
+			uint32_t levelHeight = std::max(1U, m_depthPyramidHeight >> i);
 
-			m_occlusionImage->TransitionImageLayoutExt(device, commandBuffer, MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderWrite);
-
-			DimensionsAndIndex dimensionsAndIndex = { glm::vec2(levelWidth, levelHeight), i};
+			DimensionsAndIndex dimensionsAndIndex = { glm::vec2(levelWidth, levelHeight), i };
 			commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(dimensionsAndIndex), reinterpret_cast<uint32_t*>(&dimensionsAndIndex));
 			commandBuffer.Dispatch(getGroupCount(levelWidth, 32), getGroupCount(levelHeight, 32), 1);
 
-			m_occlusionImage->TransitionImageLayoutExt(device, commandBuffer, MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderRead);
+			m_occlusionImage->TransitionImageLayoutExt(device, commandBuffer,
+				MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderWrite,
+				MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderRead);
 		}
 
 		m_depthImage->TransitionImageLayoutExt(device, commandBuffer,
+			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly, MaterialAccessFlags::ShaderRead,
 			MaterialStageFlags::EarlyFragmentTests, ImageLayout::DepthStencilAttachment, MaterialAccessFlags::DepthStencilAttachmentRead | MaterialAccessFlags::DepthStencilAttachmentWrite);
 	}
 }

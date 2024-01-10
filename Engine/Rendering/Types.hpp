@@ -145,7 +145,7 @@ namespace Engine::Rendering
 		return a &= b;
 	}
 
-	enum class MaterialAccessFlags
+	enum class MaterialAccessFlags : uint64_t
 	{
 		None = 0,
 		IndirectCommandRead = 1,
@@ -164,7 +164,10 @@ namespace Engine::Rendering
 		HostRead = 8192,
 		HostWrite = 16384,
 		MemoryRead = 32768,
-		MemoryWrite = 65536
+		MemoryWrite = 65536,
+		eShaderSampledRead = 4294967296,
+		eShaderStorageRead = 8589934592,
+		eShaderStorageWrite = 17179869184
 	};
 
 	inline MaterialAccessFlags& operator&=(MaterialAccessFlags& a, MaterialAccessFlags b)
@@ -208,6 +211,35 @@ namespace Engine::Rendering
 		ClampToEdge,
 		ClampToBorder,
 		MirrorClampToEdge
+	};
+
+	enum class ResourceType
+	{
+		Instance,
+		PhysicalDevice,
+		Device,
+		Queue,
+		Semaphore,
+		CommandBuffer,
+		Fence,
+		DeviceMemory,
+		Buffer,
+		Image,
+		Event,
+		QueryPool,
+		BufferView,
+		ImageView,
+		ShaderModule,
+		PipelineCache,
+		PipelineLayout,
+		RenderPass,
+		Pipeline,
+		DescriptorSetLayout,
+		Sampler,
+		DescriptorPool,
+		DescriptorSet,
+		Framebuffer,
+		CommandPool
 	};
 
 	enum class ImageLayout

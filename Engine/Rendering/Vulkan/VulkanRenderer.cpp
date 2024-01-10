@@ -45,7 +45,8 @@ namespace Engine::Rendering::Vulkan
 		, m_Debug()
 		, m_surface()
 		, m_resourceCommandPool()
-		, m_imageAvailableSemaphores()
+		, m_acquireSemaphores()
+		, m_releaseSemaphores()
 		, m_inFlightRenderFences()
 		, m_inFlightComputeFences()
 		, m_inFlightResources()
@@ -63,7 +64,8 @@ namespace Engine::Rendering::Vulkan
 	{
 		m_pendingResources.clear();
 		m_inFlightResources.clear();
-		m_imageAvailableSemaphores.clear();
+		m_acquireSemaphores.clear();
+		m_releaseSemaphores.clear();
 		m_inFlightRenderFences.clear();
 		m_inFlightComputeFences.clear();
 
@@ -130,22 +132,25 @@ namespace Engine::Rendering::Vulkan
 
 		vk::FenceCreateInfo fenceInfo(vk::FenceCreateFlagBits::eSignaled);
 
-		m_imageAvailableSemaphores.reserve(m_maxConcurrentFrames);
+		m_releaseSemaphores.reserve(m_maxConcurrentFrames);
+		m_acquireSemaphores.reserve(m_maxConcurrentFrames);
 		m_inFlightRenderFences.reserve(m_maxConcurrentFrames);
 		m_inFlightComputeFences.reserve(m_maxConcurrentFrames);
 		for (uint32_t i = 0; i < m_maxConcurrentFrames; ++i)
 		{
-			vk::UniqueSemaphore imageAvailableSemaphore = deviceImp.createSemaphoreUnique({});
+			vk::UniqueSemaphore releaseSemaphore = deviceImp.createSemaphoreUnique({});
+			vk::UniqueSemaphore acquireSemaphore = deviceImp.createSemaphoreUnique({});
 			vk::UniqueFence inFlightRenderFence = deviceImp.createFenceUnique(fenceInfo);
 			vk::UniqueFence inFlightComputeFence = deviceImp.createFenceUnique(fenceInfo);
-			
-			if (!imageAvailableSemaphore.get() || !inFlightRenderFence.get() || !inFlightComputeFence.get())
+
+			if (!releaseSemaphore.get() || !acquireSemaphore.get() || !inFlightRenderFence.get() || !inFlightComputeFence.get())
 			{
 				Logger::Error("Failed to create synchronisation objects.");
 				return false;
 			}
 
-			m_imageAvailableSemaphores.push_back(std::move(imageAvailableSemaphore));
+			m_releaseSemaphores.push_back(std::move(releaseSemaphore));
+			m_acquireSemaphores.push_back(std::move(acquireSemaphore));
 			m_inFlightRenderFences.push_back(std::move(inFlightRenderFence));
 			m_inFlightComputeFences.push_back(std::move(inFlightComputeFence));
 		}
@@ -235,7 +240,7 @@ namespace Engine::Rendering::Vulkan
 
 		if (!CreateAllocator()
 			|| !static_cast<SwapChain*>(m_swapChain.get())->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, m_lastWindowSize, m_renderSettings.m_hdr)
-			|| !m_resourceCommandPool->Initialise(*m_physicalDevice, *m_device, indices.GraphicsFamily.value(), CommandPoolFlags::Transient)
+			|| !m_resourceCommandPool->Initialise("ResourceCommandPool", *m_physicalDevice, *m_device, indices.GraphicsFamily.value(), CommandPoolFlags::Transient)
 			|| !CreateSyncObjects())
 		{
 			return false;
@@ -423,20 +428,45 @@ namespace Engine::Rendering::Vulkan
 			++count;
 		}
 
-		vkSubmitInfos.resize(count);
-		for (uint32_t i = 0; i < count; ++i)
+		vk::Result result = vk::Result::eSuccess;
+		if (count > 0)
 		{
-			vkSubmitInfos[i] = vk::SubmitInfo(waitSemaphoreArrays[i], stageArrays[i], commandBufferArrays[i], signalSemaphoreArrays[i], &timelineInfos[i]);
+			const vk::Semaphore& acquireSemaphore = m_acquireSemaphores[m_currentFrame].get();
+			const vk::Semaphore& presentSemaphore = m_releaseSemaphores[m_currentFrame].get();
+
+			waitSemaphoreArrays.front().emplace_back(acquireSemaphore);
+			std::vector<vk::PipelineStageFlags>& firstStageInfo = stageArrays.front();
+			firstStageInfo.emplace_back(vk::PipelineStageFlagBits::eTopOfPipe);
+			vk::TimelineSemaphoreSubmitInfo& firstTimelineInfo = timelineInfos.front();
+			std::vector<uint64_t> firstSignalValues(firstTimelineInfo.signalSemaphoreValueCount + 1);
+			memcpy(firstSignalValues.data(), firstTimelineInfo.pWaitSemaphoreValues, sizeof(uint64_t) * firstTimelineInfo.waitSemaphoreValueCount);
+			firstSignalValues[firstTimelineInfo.waitSemaphoreValueCount++] = 0; // Dummy value to wait for acquire semaphore.
+			firstTimelineInfo.pWaitSemaphoreValues = firstSignalValues.data();
+
+			signalSemaphoreArrays.back().emplace_back(presentSemaphore);
+			vk::TimelineSemaphoreSubmitInfo& lastTimelineInfo = timelineInfos.back();
+			std::vector<uint64_t> lastSignalValues(lastTimelineInfo.signalSemaphoreValueCount + 1);
+			memcpy(lastSignalValues.data(), lastTimelineInfo.pSignalSemaphoreValues, sizeof(uint64_t) * lastTimelineInfo.signalSemaphoreValueCount);
+			lastSignalValues[lastTimelineInfo.signalSemaphoreValueCount++] = 0; // Dummy value to signal present semaphore.
+			lastTimelineInfo.pSignalSemaphoreValues = lastSignalValues.data();
+
+			vkSubmitInfos.resize(count);
+			for (uint32_t i = 0; i < count; ++i)
+			{
+				vkSubmitInfos[i] = vk::SubmitInfo(waitSemaphoreArrays[i], stageArrays[i], commandBufferArrays[i], signalSemaphoreArrays[i], &timelineInfos[i]);
+			}
+
+			auto& lastSubmit = vkSubmitInfos.back();
+
+			const vk::SwapchainKHR& swapchainImp = static_cast<SwapChain*>(m_swapChain.get())->Get();
+			vk::Queue graphicsQueue = vkDevice->GetGraphicsQueue();	
+			vk::Queue presentQueue = vkDevice->GetPresentQueue();
+
+			graphicsQueue.submit(vkSubmitInfos, m_inFlightRenderFences[m_currentFrame].get());
+
+			vk::PresentInfoKHR presentInfo(1, &presentSemaphore, 1, &swapchainImp, &m_presentImageIndex);
+			result = presentQueue.presentKHR(presentInfo);
 		}
-
-		const vk::SwapchainKHR& swapchainImp = static_cast<SwapChain*>(m_swapChain.get())->Get();
-		vk::Queue graphicsQueue = vkDevice->GetGraphicsQueue();
-		vk::Queue presentQueue = vkDevice->GetPresentQueue();
-
-		graphicsQueue.submit(vkSubmitInfos, m_inFlightRenderFences[m_currentFrame].get());
-
-		vk::PresentInfoKHR presentInfo(1, &m_imageAvailableSemaphores[m_currentFrame].get(), 1, &swapchainImp, &m_presentImageIndex);
-		vk::Result result = presentQueue.presentKHR(presentInfo);
 
 		m_currentFrame = (m_currentFrame + 1) % m_maxConcurrentFrames;
 		return result == vk::Result::eSuccess;
@@ -569,7 +599,7 @@ namespace Engine::Rendering::Vulkan
 
 		const vk::SwapchainKHR& swapchainImp = static_cast<SwapChain*>(m_swapChain.get())->Get();
 
-		vk::ResultValue<uint32_t> acquireNextImageResult = deviceImp.acquireNextImageKHR(swapchainImp, UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame].get());
+		vk::ResultValue<uint32_t> acquireNextImageResult = deviceImp.acquireNextImageKHR(swapchainImp, UINT64_MAX, m_acquireSemaphores[m_currentFrame].get());
 		if (acquireNextImageResult.result == vk::Result::eErrorOutOfDateKHR)
 		{
 			m_swapChainOutOfDate = true;

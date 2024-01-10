@@ -147,7 +147,7 @@ namespace Engine::Rendering::Vulkan
 		for (const auto& image : images)
 		{
 			std::unique_ptr<RenderImage> renderImage = std::make_unique<RenderImage>(image, surfaceFormat.format, usageFlags);
-			if (!renderImage->InitialiseView(device, ImageAspectFlags::Color))
+			if (!renderImage->InitialiseView("SwapchainImage", device, ImageAspectFlags::Color))
 			{
 				return false;
 			}

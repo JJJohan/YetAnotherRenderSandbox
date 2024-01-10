@@ -60,7 +60,7 @@ namespace Engine
 			return base * glm::mat4x4(glm::make_mat4x4(pMatrix->data()));
 		}
 
-		else if (const auto* pTransform = std::get_if<fastgltf::Node::TRS>(&node.transform))
+		else if (const auto* pTransform = std::get_if<fastgltf::TRS>(&node.transform))
 		{
 			return base
 				* glm::translate(glm::mat4(1.0f), glm::make_vec3(pTransform->translation.data()))
@@ -320,7 +320,7 @@ namespace Engine
 		auto type = fastgltf::determineGltfFileType(&data);
 		if (type == fastgltf::GltfType::glTF)
 		{
-			fastgltf::Expected<fastgltf::Asset> parserResult = parser.loadGLTF(&data, path.parent_path(), gltfOptions);
+			fastgltf::Expected<fastgltf::Asset> parserResult = parser.loadGltfJson(&data, path.parent_path(), gltfOptions);
 
 			if (parserResult.error() != fastgltf::Error::None)
 			{
@@ -332,7 +332,7 @@ namespace Engine
 		}
 		else if (type == fastgltf::GltfType::GLB)
 		{
-			fastgltf::Expected<fastgltf::Asset> parserResult = parser.loadBinaryGLTF(&data, path.parent_path(), gltfOptions);
+			fastgltf::Expected<fastgltf::Asset> parserResult = parser.loadGltfBinary(&data, path.parent_path(), gltfOptions);
 
 			if (parserResult.error() != fastgltf::Error::None)
 			{

@@ -59,5 +59,7 @@ namespace Engine::Rendering
 		virtual void BindIndexBuffer(const IBuffer& buffer, size_t offset, IndexType indexType) const = 0;
 
 		virtual void DrawIndexedIndirect(const IBuffer& buffer, size_t offset, uint32_t drawCount, uint32_t stride) const = 0;
+
+		virtual void MemoryBarrier(MaterialStageFlags srcStage, MaterialAccessFlags srcMask, MaterialStageFlags dstStage, MaterialAccessFlags dstMask) const = 0;
 	};
 }

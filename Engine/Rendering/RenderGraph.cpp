@@ -46,24 +46,24 @@ namespace Engine::Rendering
 		const QueueFamilyIndices& indices = physicalDevice.GetQueueFamilyIndices();
 
 		m_renderSemaphore = std::move(resourceFactory.CreateGraphicsSemaphore());
-		if (!m_renderSemaphore->Initialise(device))
+		if (!m_renderSemaphore->Initialise("GraphicsSemaphore", device))
 		{
 			return false;
 		}
 
 		m_computeSemaphore = std::move(resourceFactory.CreateGraphicsSemaphore());
-		if (!m_computeSemaphore->Initialise(device))
+		if (!m_computeSemaphore->Initialise("ComputeSemaphore", device))
 		{
 			return false;
 		}
 
 		m_renderCommandPool = std::move(resourceFactory.CreateCommandPool());
-		if (!m_renderCommandPool->Initialise(physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
+		if (!m_renderCommandPool->Initialise("RenderCommandPool", physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
 		{
 			return false;
 		}
 
-		m_blitCommandBuffers = std::move(m_renderCommandPool->CreateCommandBuffers(device, concurrentFrameCount));
+		m_blitCommandBuffers = std::move(m_renderCommandPool->CreateCommandBuffers("BlitCommandBuffer", device, concurrentFrameCount));
 		if (m_blitCommandBuffers.empty())
 		{
 			return false;
@@ -72,7 +72,7 @@ namespace Engine::Rendering
 		// TODO: Sort out render-compute synchronization.
 		m_computeCommandPool = std::move(resourceFactory.CreateCommandPool());
 		//if (!m_computeCommandPool->Initialise(physicalDevice, device, indices.ComputeFamily.value(), CommandPoolFlags::Reset))
-		if (!m_computeCommandPool->Initialise(physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
+		if (!m_computeCommandPool->Initialise("ComputeCommandPool", physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
 		{
 			return false;
 		}
@@ -292,7 +292,7 @@ namespace Engine::Rendering
 			usageFlags = ImageUsageFlags::ColorAttachment | ImageUsageFlags::Sampled | ImageUsageFlags::TransferSrc;
 		}
 
-		if (!image->Initialise(device, ImageType::e2D, format, dimensions, 1, 1, ImageTiling::Optimal,
+		if (!image->Initialise("RenderGraphImage", device, ImageType::e2D, format, dimensions, 1, 1, ImageTiling::Optimal,
 			usageFlags, aspectFlags, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			*result = nullptr;
@@ -571,7 +571,7 @@ namespace Engine::Rendering
 						return false;
 					}
 
-					std::vector<std::unique_ptr<ICommandBuffer>> commandBuffers = std::move(m_renderCommandPool->CreateCommandBuffers(device, concurrentFrameCount));
+					std::vector<std::unique_ptr<ICommandBuffer>> commandBuffers = std::move(m_renderCommandPool->CreateCommandBuffers(node.Node->GetName(), device, concurrentFrameCount));
 					if (commandBuffers.empty())
 					{
 						return false;
@@ -588,7 +588,7 @@ namespace Engine::Rendering
 						return false;
 					}
 
-					std::vector<std::unique_ptr<ICommandBuffer>> commandBuffers = std::move(m_computeCommandPool->CreateCommandBuffers(device, concurrentFrameCount));
+					std::vector<std::unique_ptr<ICommandBuffer>> commandBuffers = std::move(m_computeCommandPool->CreateCommandBuffers(node.Node->GetName(), device, concurrentFrameCount));
 					if (commandBuffers.empty())
 					{
 						return false;
@@ -668,6 +668,8 @@ namespace Engine::Rendering
 						return false;
 					}
 
+					m_renderStats.Begin(commandBuffer, pass->GetName(), false);
+
 					for (const auto& imageInput : node.InputImages)
 					{
 						imageInput.second->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
@@ -686,7 +688,9 @@ namespace Engine::Rendering
 						depthAttachment->renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::DepthStencilAttachment);
 					}
 
-					m_renderStats.Begin(commandBuffer, pass->GetName(), false);
+					// Handle case of buffers being transferred in.
+					commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::MemoryWrite,
+						MaterialStageFlags::DrawIndirect | MaterialStageFlags::VertexInput | MaterialStageFlags::VertexShader, MaterialAccessFlags::MemoryRead);
 
 					glm::uvec2 passSize = size;
 					pass->GetCustomSize(passSize);

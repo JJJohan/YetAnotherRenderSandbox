@@ -655,7 +655,7 @@ namespace Engine::Rendering
 				}
 
 				std::unique_ptr<IRenderImage>& renderImage = m_imageArray.emplace_back(std::move(resourceFactory.CreateRenderImage()));
-				bool imageInitialised = renderImage->Initialise(device, ImageType::e2D, format, dimensions,
+				bool imageInitialised = renderImage->Initialise("SceneImage", device, ImageType::e2D, format, dimensions,
 					imageData.Header.MipLevels, 1, ImageTiling::Optimal,
 					ImageUsageFlags::TransferSrc | ImageUsageFlags::TransferDst | ImageUsageFlags::Sampled, ImageAspectFlags::Color,
 					MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive);
@@ -770,7 +770,7 @@ namespace Engine::Rendering
 			glm::uvec3 dimensions(size.x, size.y, 1);
 
 			std::unique_ptr<IRenderImage>& renderImage = m_imageArray.emplace_back(std::move(resourceFactory.CreateRenderImage()));
-			bool imageInitialised = renderImage->Initialise(device, ImageType::e2D, format, dimensions,
+			bool imageInitialised = renderImage->Initialise("SceneImage", device, ImageType::e2D, format, dimensions,
 				static_cast<uint32_t>(pixels.size()), 1, ImageTiling::Optimal,
 				ImageUsageFlags::TransferSrc | ImageUsageFlags::TransferDst | ImageUsageFlags::Sampled, ImageAspectFlags::Color,
 				MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive);

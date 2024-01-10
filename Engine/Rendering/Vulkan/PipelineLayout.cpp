@@ -227,6 +227,8 @@ namespace Engine::Rendering::Vulkan
 			m_pipeline = std::move(result.value);
 		}
 
+		static_cast<const Device&>(device).SetResourceName(ResourceType::Pipeline, m_pipeline.get(), GetName().data());
+
 		return true;
 	}
 

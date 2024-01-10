@@ -91,10 +91,21 @@ namespace Engine::Rendering
 
 		const IDevice& device = renderer.GetDevice();
 
-		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
+		bool firstDraw = m_occlusionImage->GetLayout() == ImageLayout::Undefined;
 
+		// Occlusion image may be used for the first time in this pass, so transition it to a shader read layout.
 		m_occlusionImage->TransitionImageLayoutExt(device, commandBuffer,
-			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly, MaterialAccessFlags::ShaderRead);
+			firstDraw ? MaterialStageFlags::None : MaterialStageFlags::ComputeShader,
+			m_occlusionImage->GetLayout(),
+			firstDraw ? MaterialAccessFlags::None : MaterialAccessFlags::ShaderRead,
+			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly,
+			MaterialAccessFlags::ShaderRead);
+
+		// Handle case of geometry batch buffers being updated.
+		commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::TransferWrite,
+						MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderRead);
+
+		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
 
 		const Camera& camera = renderer.GetCameraReadOnly();
 		const glm::mat4& projection = camera.GetProjection();
@@ -108,10 +119,9 @@ namespace Engine::Rendering
 		m_drawCullData.frustum.y = frustumX.z;
 		m_drawCullData.frustum.z = frustumY.y;
 		m_drawCullData.frustum.w = frustumY.z;
+		m_drawCullData.enableOcclusion = firstDraw ? 0 : 1;
 		commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(DrawCullData), reinterpret_cast<uint32_t*>(&m_drawCullData));
 
 		commandBuffer.Dispatch(m_dispatchSize, 1, 1);
-
-		// TODO: Memory barrier for indirect buffer.
 	}
 }

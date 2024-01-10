@@ -10,7 +10,7 @@ namespace Engine::Rendering::Vulkan
 	public:
 		Semaphore();
 
-		virtual bool Initialise(const IDevice& device, bool binary) override;
+		virtual bool Initialise(const char* name, const IDevice& device, bool binary) override;
 
 		inline const vk::Semaphore& Get() const { return m_semaphore.get(); }
 

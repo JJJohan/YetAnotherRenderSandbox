@@ -45,6 +45,8 @@ namespace Engine::Rendering::Vulkan
 		virtual void BindIndexBuffer(const IBuffer& buffer, size_t offset, IndexType indexType) const override;
 
 		virtual void DrawIndexedIndirect(const IBuffer& buffer, size_t offset, uint32_t drawCount, uint32_t stride) const override;
+		
+		virtual void MemoryBarrier(MaterialStageFlags srcStage, MaterialAccessFlags srcMask, MaterialStageFlags dstStage, MaterialAccessFlags dstMask) const override;
 
 	private:
 		vk::UniqueCommandBuffer m_commandBuffer;

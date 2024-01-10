@@ -221,6 +221,39 @@ namespace Engine::Rendering::Vulkan
 		}
 	}
 
+	constexpr inline vk::ObjectType GetObjectType(ResourceType resourceType)
+	{
+		switch (resourceType)
+		{
+		case ResourceType::Instance: return vk::ObjectType::eInstance;
+		case ResourceType::PhysicalDevice: return vk::ObjectType::ePhysicalDevice;
+		case ResourceType::Device: return vk::ObjectType::eDevice;
+		case ResourceType::Queue: return vk::ObjectType::eQueue;
+		case ResourceType::Semaphore: return vk::ObjectType::eSemaphore;
+		case ResourceType::CommandBuffer: return vk::ObjectType::eCommandBuffer;
+		case ResourceType::Fence: return vk::ObjectType::eFence;
+		case ResourceType::DeviceMemory: return vk::ObjectType::eDeviceMemory;
+		case ResourceType::Buffer: return vk::ObjectType::eBuffer;
+		case ResourceType::Image: return vk::ObjectType::eImage;
+		case ResourceType::Event: return vk::ObjectType::eEvent;
+		case ResourceType::QueryPool: return vk::ObjectType::eQueryPool;
+		case ResourceType::BufferView: return vk::ObjectType::eBufferView;
+		case ResourceType::ImageView: return vk::ObjectType::eImageView;
+		case ResourceType::ShaderModule: return vk::ObjectType::eShaderModule;
+		case ResourceType::PipelineCache: return vk::ObjectType::ePipelineCache;
+		case ResourceType::PipelineLayout: return vk::ObjectType::ePipelineLayout;
+		case ResourceType::RenderPass: return vk::ObjectType::eRenderPass;
+		case ResourceType::Pipeline: return vk::ObjectType::ePipeline;
+		case ResourceType::DescriptorSetLayout: return vk::ObjectType::eDescriptorSetLayout;
+		case ResourceType::Sampler: return vk::ObjectType::eSampler;
+		case ResourceType::DescriptorPool: return vk::ObjectType::eDescriptorPool;
+		case ResourceType::DescriptorSet: return vk::ObjectType::eDescriptorSet;
+		case ResourceType::Framebuffer: return vk::ObjectType::eFramebuffer;
+		case ResourceType::CommandPool: return vk::ObjectType::eCommandPool;
+		default: throw;
+		}
+	}
+
 	constexpr inline vk::ImageLayout GetImageLayout(ImageLayout layout)
 	{
 		switch (layout)
@@ -246,7 +279,7 @@ namespace Engine::Rendering::Vulkan
 		default:
 			throw;
 		}
-	};
+	}
 
 	inline vk::RenderingAttachmentInfo GetAttachmentInfo(const AttachmentInfo& attachmentInfo)
 	{

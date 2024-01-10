@@ -28,25 +28,27 @@ namespace Engine::Rendering
 
 		virtual ~IRenderImage() = default;
 
-		virtual bool Initialise(const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
+		virtual bool Initialise(const char* name, const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
 			uint32_t mipLevels, uint32_t layerCount, ImageTiling tiling, ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags,
 			MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode) = 0;
-		virtual bool InitialiseView(const IDevice& device, ImageAspectFlags aspectFlags) = 0;
+		virtual bool InitialiseView(const char* name, const IDevice& device, ImageAspectFlags aspectFlags) = 0;
 
 		virtual bool UpdateContents(const void* data, uint64_t size) = 0;
 		virtual void TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout) = 0;
 		virtual void TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
-			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags) = 0;
+			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
+			uint32_t baseMipLevel = 0, uint32_t mipLevelCount = 0) = 0;
 		virtual void TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer, 
 			MaterialStageFlags oldStageFlags, ImageLayout oldLayout, MaterialAccessFlags oldAccessFlags,
-			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags) = 0;
+			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
+			uint32_t baseMipLevel = 0, uint32_t mipLevelCount = 0) = 0;
 		virtual void GenerateMipmaps(const IDevice& device, const ICommandBuffer& commandBuffer) = 0;
-		virtual bool CreateView(const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const = 0;
+		virtual bool CreateView(const char* name, const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const = 0;
 
 		inline const glm::uvec3& GetDimensions() const { return m_dimensions; }
 		inline Format GetFormat() const { return m_format; }
 		inline ImageUsageFlags GetUsageFlags() const { return m_usageFlags; }
-		inline uint32_t GetMiplevels() const { return m_mipLevels; }
+		inline uint32_t GetMipLevels() const { return m_mipLevels; }
 		inline uint32_t GetLayerCount() const { return m_layerCount; }
 		inline ImageLayout GetLayout() const { return m_layout; }
 		inline const IImageView& GetView() const { return *m_imageView; }

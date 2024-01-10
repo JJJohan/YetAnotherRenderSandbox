@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 #include "../IDevice.hpp"
+#include "VulkanTypesInterop.hpp"
 
 namespace Engine::Rendering
 {
@@ -20,6 +21,16 @@ namespace Engine::Rendering::Vulkan
 		inline const vk::Queue& GetComputeQueue() const { return m_computeQueue; }
 		inline bool AsyncCompute() const { return m_graphicsQueue != m_computeQueue; }
 		bool Initialise(const IPhysicalDevice& physicalDevice);
+
+#ifndef NDEBUG
+		inline void SetResourceName(ResourceType type, const void* handle, const char* name) const
+		{
+			vk::DebugUtilsObjectNameInfoEXT debugUtilsObjectNameInfo(GetObjectType(type), reinterpret_cast<uint64_t>(handle), name);
+			m_device->setDebugUtilsObjectNameEXT(debugUtilsObjectNameInfo);
+		}
+#else
+		inline void SetResourceName(ResourceType type, const T& handle, const char* name) const {};
+#endif
 
 	private:
 		vk::UniqueDevice m_device;

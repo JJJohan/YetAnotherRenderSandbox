@@ -5,7 +5,7 @@ namespace Engine::Rendering
 {
 	Camera::Camera()
 		: m_fov(glm::radians(75.0f))
-		, m_nearFar(0.01f, 100.0f)
+		, m_nearFar(0.5f, 100.0f)
 		, m_dimensions(100, 100)
 		, m_position(0.0f, 0.0f, -5.0f)
 		, m_rotation(1.0f, 0.0f, 0.0f, 0.0f)
