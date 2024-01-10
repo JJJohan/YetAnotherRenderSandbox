@@ -6,7 +6,7 @@ The project consists of a Windows-specific solution file with dependencies pre-c
 
 The current focus is on building up a fairly solid foundation, with graphical fidelity not being the immediate goal which will result in some sub-par output. Currently a hard-coded directional light spins around an arbitrary GLTF file (with the assumption it contains PBR data.)
 
-Current features:
+## Current features:
 * Render graph system that manages render dependencies between render passes as well as sharing buffer and texture resources.
 * Integration with [ImGui}(https://github.com/ocornut/imgui) UI system.
 * Asset import pipeline to convert GLTF data to BC5 & BC7 textures & optimised mesh data.
@@ -16,9 +16,17 @@ Current features:
 * GPU-based frustum culling.
 * (mostly working) Hi-Z GPU-based occlusion culling.
 
-![preview](ReadmeAssets/preview_v3.png)
+## Screenshots
+### Options & Rendering
+![preview](ReadmeAssets/preview_v4.png)
 
-Some short-term goals I'll be looking at:
+### Frame statistics
+![stats](ReadmeAssets/stats.png)
+
+### Render graph
+![render_graph](ReadmeAssets/render_graph.png)
+
+## Some short-term goals I'll be looking at:
 * Finishing up the compute-based culling
 	* Current depth checking in occlusion culling shader isn't really correct.
 	* Also apply frustum culling to shadow rendering pass.
@@ -31,11 +39,13 @@ Some short-term goals I'll be looking at:
 	* Some simple sanity checks that applies even without Vulkan validation would be good.
 	* Investigate if there's a nicer way to pass through "last frame" textures and buffers through the render graph (used for TAA and Hi-Z occlusion culling)
 
-Wishlist:
+## Wishlist:
 * Experimenting with basic animation.
 * Get a basic transparency pass in.
 	* Probably need a different test scene to display too.
-* HDR display output is working, but lacks any form of calibration - there's no 'nits' input.
+* HDR improvements
+	* Add some form of calibration - there's no 'nits' input right now.
+	* Render UI to a regular SDR sRGB texture - currently it looks too bright and wrong.
 * Handle asset streaming - currently everything is loaded into a few big buffers with no cheap way to load new data in.
 * Possibly investigate replacing LZ4 compression with 'DirectStorage-like' GPU decompression during loading
 * Look at raytracing!
