@@ -65,21 +65,29 @@ namespace Engine::Rendering
 
 		bool SetupIndirectDrawBuffer(const ICommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory);
+		bool UploadIndirectDrawBuffer(const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
+			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, IBuffer* buffer, const void* data, size_t dataSize);
 
 		bool SetupBoundsBuffer(const ICommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory);
+		bool UploadBoundsBuffer(const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
+			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, IBuffer* buffer, const void* data, size_t dataSize);
 
 		bool SetupVertexBuffers(const ICommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory);
 
 		bool SetupIndexBuffer(const ICommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory);
+		bool UploadIndexBuffer(const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
+			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, IBuffer* buffer, const void* data, size_t dataSize);
 
 		bool SetupRenderImage(AsyncData* asyncData, const IDevice& device, const IPhysicalDevice& physicalDevice, const ICommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory, float maxAnisotropy, uint32_t& imageCount);
 
 		bool SetupMeshInfoBuffer(const ICommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory);
+		bool UploadMeshInfoBuffer(const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
+			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, IBuffer* buffer, const void* data, size_t dataSize);
 
 		bool CreateStagingBuffer(const IResourceFactory& resourceFactory,
 			const ICommandBuffer& commandBuffer, const IBuffer* destinationBuffer, const void* data,

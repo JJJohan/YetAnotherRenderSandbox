@@ -688,10 +688,6 @@ namespace Engine::Rendering
 						depthAttachment->renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::DepthStencilAttachment);
 					}
 
-					// Handle case of buffers being transferred in.
-					commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::MemoryWrite,
-						MaterialStageFlags::DrawIndirect | MaterialStageFlags::VertexInput | MaterialStageFlags::VertexShader, MaterialAccessFlags::MemoryRead);
-
 					glm::uvec2 passSize = size;
 					pass->GetCustomSize(passSize);
 
