@@ -88,7 +88,7 @@ uint is_in_frustum(in vec3 center, float radius)
 uint is_not_occluded(in vec3 center, float radius)
 {
 	//flip Y because we access depth texture that way
-	//center.y *= -1;
+	center.y *= -1;
 
 	//project the cull sphere into screenspace coordinates
 	vec4 aabb;
@@ -96,20 +96,15 @@ uint is_not_occluded(in vec3 center, float radius)
 	{
 		float width = (aabb.z - aabb.x) * cullData.pyramidWidth;
 		float height = (aabb.w - aabb.y) * cullData.pyramidHeight;
-
 		float level = floor(log2(max(width, height)));
-
-		// Sampler is set up to do min reduction, so this computes the minimum depth of a 2x2 texel quad
-
+		
+		// Convert depth sample to eye depth for comparing against nearest view-space sphere distance.
 		float depth = textureLod(occlusionImage, (aabb.xy + aabb.zw) * 0.5, level).x;
-		//float depthSphere = cullData.znear / (center.z - radius);
+		float ndcDepth = 2.0 * depth - 1.0;
+		float eyeDepth = 2.0 * cullData.znear * cullData.zfar / (cullData.zfar + cullData.znear - ndcDepth * (cullData.zfar - cullData.znear));
 
-		//float depthSphere = ((center.z - radius) + cullData.znear)/(cullData.zfar - cullData.znear);
 		float depthSphere = center.z - radius;
-
-		depth = 2.0 * cullData.znear * cullData.zfar / (cullData.zfar + cullData.znear - depth * (cullData.zfar - cullData.znear));
-
-		return depthSphere < depth ? 1 : 0;
+		return depthSphere < eyeDepth ? 1 : 0;
 	}
 
 	return 0;

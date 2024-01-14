@@ -14,7 +14,7 @@ The current focus is on building up a fairly solid foundation, with graphical fi
 * Asset cache system to store imported assets in ready-to-consume GPU buffer data, currently LZ4 compressed on disk.
 * HDR display output support.
 * GPU-based frustum culling.
-* (mostly working) Hi-Z GPU-based occlusion culling.
+* Hi-Z GPU-based occlusion culling.
 
 ## Screenshots
 ### Options & Rendering
@@ -28,7 +28,6 @@ The current focus is on building up a fairly solid foundation, with graphical fi
 
 ## Some short-term goals I'll be looking at:
 * Finishing up the compute-based culling
-	* Current depth checking in occlusion culling shader isn't really correct.
 	* Also apply frustum culling to shadow rendering pass.
 * Use drawIndirectCount instead of just drawIndirect.
 	* Provides opportunity to clean up render graph by using 'generic buffer' entries for node graph.

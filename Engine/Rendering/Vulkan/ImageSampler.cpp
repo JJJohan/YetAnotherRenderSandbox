@@ -26,7 +26,6 @@ namespace Engine::Rendering::Vulkan
 		{
 			vk::SamplerReductionModeCreateInfo createInfoReduction(vk::SamplerReductionMode::eMax);
 			createInfo.pNext = &createInfoReduction;
-			createInfo.maxLod = 16.0f;
 		}
 
 		m_sampler = static_cast<const Device&>(device).Get().createSamplerUnique(createInfo);

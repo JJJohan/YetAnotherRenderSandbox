@@ -34,9 +34,11 @@ namespace Engine::Rendering
 
 	bool DepthReductionPass::CreateOcclusionImage(const IDevice& device, const IResourceFactory& resourceFactory)
 	{
+		glm::uvec3 dimensions(m_depthPyramidWidth, m_depthPyramidHeight, 1);
+
 		ImageUsageFlags usageFlags = ImageUsageFlags::Storage | ImageUsageFlags::Sampled | ImageUsageFlags::TransferSrc;
 		m_occlusionImage = std::move(resourceFactory.CreateRenderImage());
-		if (!m_occlusionImage->Initialise("OcclusionImage", device, ImageType::e2D, Format::R32Sfloat, m_depthImage->GetDimensions(), m_depthPyramidLevels, 1,
+		if (!m_occlusionImage->Initialise("OcclusionImage", device, ImageType::e2D, Format::R32Sfloat, dimensions, m_depthPyramidLevels, 1,
 			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice,
 			AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
@@ -61,6 +63,16 @@ namespace Engine::Rendering
 		return result;
 	}
 
+	static inline uint32_t previousPow2(uint32_t v)
+	{
+		uint32_t r = 1;
+
+		while (r * 2 < v)
+			r *= 2;
+
+		return r;
+	}
+
 	bool DepthReductionPass::Build(const Renderer& renderer,
 		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
 		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
@@ -72,8 +84,8 @@ namespace Engine::Rendering
 		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();
 		const glm::uvec3& extents = m_depthImage->GetDimensions();
 
-		m_depthPyramidWidth = extents.x;
-		m_depthPyramidHeight = extents.y;
+		m_depthPyramidWidth = previousPow2(extents.x);
+		m_depthPyramidHeight = previousPow2(extents.y);
 		m_depthPyramidLevels = getImageMipLevels(m_depthPyramidWidth, m_depthPyramidHeight);
 
 		if (!CreateOcclusionImage(device, resourceFactory))
