@@ -15,8 +15,10 @@ namespace Engine::Rendering
 		TAAPass();
 
 		virtual bool Build(const Renderer& renderer,
-			const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) override;
+			const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+			const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
+			const std::unordered_map<std::string, IBuffer*>& bufferInputs,
+			const std::unordered_map<std::string, IBuffer*>& bufferOutputs) override;
 
 		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat) override;
 
@@ -24,12 +26,12 @@ namespace Engine::Rendering
 			const glm::uvec2& size, uint32_t frameIndex, uint32_t passIndex) override;
 
 		virtual void PreDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
-			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) override;
+			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+			const std::unordered_map<std::string, IRenderImage*>& imageOutputs) override;
 
 		virtual void PostDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
-			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) override;
+			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+			const std::unordered_map<std::string, IRenderImage*>& imageOutputs) override;
 
 		inline virtual void ClearResources() override
 		{

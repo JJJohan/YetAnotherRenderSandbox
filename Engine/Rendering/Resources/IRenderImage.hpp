@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include "IImageView.hpp"
 #include <memory>
+#include <string_view>
 
 namespace Engine::Rendering
 {
@@ -28,12 +29,12 @@ namespace Engine::Rendering
 
 		virtual ~IRenderImage() = default;
 
-		virtual bool Initialise(const char* name, const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
+		virtual bool Initialise(std::string_view name, const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
 			uint32_t mipLevels, uint32_t layerCount, ImageTiling tiling, ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags,
 			MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode) = 0;
-		virtual bool InitialiseView(const char* name, const IDevice& device, ImageAspectFlags aspectFlags) = 0;
+		virtual bool InitialiseView(std::string_view name, const IDevice& device, ImageAspectFlags aspectFlags) = 0;
 
-		virtual bool UpdateContents(const void* data, uint64_t size) = 0;
+		virtual bool UpdateContents(const void* data, size_t offset, uint64_t size) = 0;
 		virtual void TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout) = 0;
 		virtual void TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
 			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
@@ -43,7 +44,7 @@ namespace Engine::Rendering
 			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
 			uint32_t baseMipLevel = 0, uint32_t mipLevelCount = 0) = 0;
 		virtual void GenerateMipmaps(const IDevice& device, const ICommandBuffer& commandBuffer) = 0;
-		virtual bool CreateView(const char* name, const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const = 0;
+		virtual bool CreateView(std::string_view name, const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const = 0;
 
 		inline const glm::uvec3& GetDimensions() const { return m_dimensions; }
 		inline Format GetFormat() const { return m_format; }

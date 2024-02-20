@@ -121,7 +121,7 @@ namespace Sandbox
 
 			for (const auto& resource : memoryStats.ResourceMemoryUsage)
 			{
-				drawer.Text("%s Usage: %.2f MB", resource.first, static_cast<float>(resource.second) / 1024.0f / 1024.0f);
+				drawer.Text("%s Usage: %.2f MB", resource.first.c_str(), static_cast<float>(resource.second) / 1024.0f / 1024.0f);
 			}
 
 			drawer.Text("Dedicated VRAM Usage: %.2f MB / %.2f MB (%.2f%%)", dedicatedUsage, dedicatedBudget, dedicatedPercent);
@@ -137,7 +137,7 @@ namespace Sandbox
 
 			float fps = m_renderer->GetUIManager().GetFPS();
 
-			const std::unordered_map<const char*, FrameStats>& frameStats = m_renderer->GetRenderStats();
+			const std::unordered_map<std::string, FrameStats>& frameStats = m_renderer->GetRenderStats();
 
 			// Iterate over the unordered map of graphs by reference and remove any that are no longer in the render graph.
 			for (auto it = m_statGraphBuffers.begin(); it != m_statGraphBuffers.end();)
@@ -160,7 +160,7 @@ namespace Sandbox
 					m_statGraphBuffers.emplace(pass.first, ScrollingGraphBuffer(pass.first, 1000));
 				}
 
-				if (gpuFrameTime < 1e-5f && strcmp(pass.first, "Total") == 0)
+				if (gpuFrameTime < 1e-5f && pass.first == "Total")
 				{
 					gpuFrameTime = pass.second.RenderTime;
 				}
@@ -197,18 +197,20 @@ namespace Sandbox
 			{
 				for (const auto& node : *stage)
 				{
-					const char* nodeName = node.Node->GetName();
+					const char* nodeName = node.Node->GetName().c_str();
 
 					for (const auto& input : node.Node->GetBufferInputs())
 					{
-						const char* inputNodeName = node.InputBufferSources.at(input.first).Node->GetName();
-						drawer.NodeSetupLink(inputNodeName, input.first, nodeName, input.first, bufferPinColour);
+						const char* inputNodeName = node.InputBufferSources.at(input.first).Node->GetName().c_str();
+						const char* inputCstr = input.first.c_str();
+						drawer.NodeSetupLink(inputNodeName, inputCstr, nodeName, inputCstr, bufferPinColour);
 					}
 
 					for (const auto& input : node.Node->GetImageInputInfos())
 					{
-						const char* inputNodeName = node.InputImageSources.at(input.first).Node->GetName();
-						drawer.NodeSetupLink(inputNodeName, input.first, nodeName, input.first, imagePinColour);
+						const char* inputNodeName = node.InputImageSources.at(input.first).Node->GetName().c_str();
+						const char* inputCstr = input.first.c_str();
+						drawer.NodeSetupLink(inputNodeName, inputCstr, nodeName, inputCstr, imagePinColour);
 					}
 
 					if (!outputLinked)
@@ -216,9 +218,10 @@ namespace Sandbox
 						// Implicitly link output to 'screen' end node.
 						for (const auto& output : node.Node->GetImageOutputInfos())
 						{
-							if (strcmp(output.first, "Output") == 0)
+							if (output.first == "Output")
 							{
-								drawer.NodeSetupLink(nodeName, output.first, "Screen", "Output", imagePinColour);
+								const char* outputCstr = output.first.c_str();
+								drawer.NodeSetupLink(nodeName, outputCstr, "Screen", "Output", imagePinColour);
 								outputLinked = true;
 								break;
 							}
@@ -237,7 +240,7 @@ namespace Sandbox
 				// Vertically place nodes.
 				for (const auto& node : stage)
 				{
-					const char* nodeName = node.Node->GetName();
+					const char* nodeName = node.Node->GetName().c_str();
 					Colour nodeColour;
 
 					std::vector<NodePin> inputPins;

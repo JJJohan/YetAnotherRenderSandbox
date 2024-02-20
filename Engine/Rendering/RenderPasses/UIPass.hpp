@@ -20,8 +20,10 @@ namespace Engine::Rendering
 		UIPass(Engine::UI::UIManager& uiManager);
 
 		virtual bool Build(const Renderer& renderer,
-			const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) override;
+			const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+			const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
+			const std::unordered_map<std::string, IBuffer*>& bufferInputs,
+			const std::unordered_map<std::string, IBuffer*>& bufferOutputs) override;
 
 		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat) override;
 

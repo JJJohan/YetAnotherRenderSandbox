@@ -136,6 +136,11 @@ namespace Engine::Rendering::Vulkan
 		m_commandBuffer->drawIndexedIndirect(static_cast<const Buffer&>(buffer).Get(), offset, drawCount, stride);
 	}
 
+	void CommandBuffer::DrawIndexedIndirectCount(const IBuffer& buffer, size_t offset, const IBuffer& countBuffer, size_t countOffset, uint32_t maxDrawCount, uint32_t stride) const
+	{
+		m_commandBuffer->drawIndexedIndirectCount(static_cast<const Buffer&>(buffer).Get(), offset, static_cast<const Buffer&>(buffer).Get(), countOffset, maxDrawCount, stride);
+	}
+
 	void CommandBuffer::MemoryBarrier(MaterialStageFlags srcStage, MaterialAccessFlags srcMask, MaterialStageFlags dstStage, MaterialAccessFlags dstMask) const
 	{
 		vk::PipelineStageFlagBits2 vkSrcStage = static_cast<vk::PipelineStageFlagBits2>(srcStage);

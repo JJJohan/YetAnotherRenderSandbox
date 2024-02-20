@@ -9,7 +9,7 @@
 #include <rgbcx.h>
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
-#include <stb_image_resize.h>
+#include <stb_image_resize2.h>
 
 #define WUFFS_IMPLEMENTATION
 #define WUFFS_CONFIG__STATIC_FUNCTIONS
@@ -172,10 +172,10 @@ namespace Engine
 			mipPitchY = ((mipHeight + blockDimY - 1) / blockDimY) * blockDimY;
 			inputMips[mip].resize(mipPitchX * mipPitchY * m_components);
 
-			stbir_resize_uint8(
+			stbir_resize_uint8_linear(
 				inputMips[mip - 1].data(), srcWidth, srcHeight, srcPitchX * m_components,
 				inputMips[mip].data(), mipWidth, mipHeight, mipPitchX * m_components,
-				m_components);
+				static_cast<stbir_pixel_layout>(m_components));
 		}
 
 		bc7enc_compress_block_params params;

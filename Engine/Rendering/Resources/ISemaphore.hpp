@@ -14,7 +14,7 @@ namespace Engine::Rendering
 
 		virtual ~ISemaphore() = default;
 
-		virtual bool Initialise(const char* name, const IDevice& device, bool binary = false) = 0;
+		virtual bool Initialise(std::string_view name, const IDevice& device, bool binary = false) = 0;
 
 		uint64_t Value;
 	};

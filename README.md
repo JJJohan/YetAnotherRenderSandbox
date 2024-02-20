@@ -2,7 +2,7 @@
 
 This codebase serves as an on-going hobby project to familiarise myself with some modern C++ paradigms as well as some low-level Vulkan concepts.
 
-The project consists of a Windows-specific solution file with dependencies pre-compiled with AVX2 as a pre-requisite which may render some hardware configurations unable to compile this codebase.
+The project uses CMake as the build system - Currently only Windows is supported. All required dependencies are linked as Git submodules with the exception of a level asset which is downloaded as part of the CMake configure step.
 
 The current focus is on building up a fairly solid foundation, with graphical fidelity not being the immediate goal which will result in some sub-par output. Currently a hard-coded directional light spins around an arbitrary GLTF file (with the assumption it contains PBR data.)
 
@@ -27,16 +27,14 @@ The current focus is on building up a fairly solid foundation, with graphical fi
 ![render_graph](ReadmeAssets/render_graph.png)
 
 ## Some short-term goals I'll be looking at:
-* Finishing up the compute-based culling
-	* Also apply frustum culling to shadow rendering pass.
-* Use drawIndirectCount instead of just drawIndirect.
-	* Provides opportunity to clean up render graph by using 'generic buffer' entries for node graph.
+* Apply separate frustum culling to shadow pass to avoid re-rendering geometry from previous cascades if it doesn't intersect the current one.
 * Add additional post-process AA variants (FXAA, SMAA & eventually DLAA).
 * Considering adding some upscalers (DLSS, FSR & XeSS).
 * Give synchronisation and render graph a once-over.
 	* Currently there's no syncronisation validation errors, but would like to avoid creating messy, error-prone architecture.
 	* Some simple sanity checks that applies even without Vulkan validation would be good.
-	* Investigate if there's a nicer way to pass through "last frame" textures and buffers through the render graph (used for TAA and Hi-Z occlusion culling)
+	* Investigate if there's a nicer way to pass through "last frame" textures and buffers through the render graph (used for TAA and Hi-Z occlusion culling).
+	* Add simple push buffer size check.
 
 ## Wishlist:
 * Experimenting with basic animation.
@@ -48,6 +46,3 @@ The current focus is on building up a fairly solid foundation, with graphical fi
 * Handle asset streaming - currently everything is loaded into a few big buffers with no cheap way to load new data in.
 * Possibly investigate replacing LZ4 compression with 'DirectStorage-like' GPU decompression during loading
 * Look at raytracing!
-* Use a proper build system (maybe CMake?) so that third-party dependencies aren't pre-compiled, which requires matching compiler versions to link.
-	* Probably add some sort of shader compilation build step in there as well to avoid having to manually run a PowerShell script to compile these when shaders are updated.
-	* Clean up the AVX2 requirements - make it a build option maybe, but don't hard-code it into the project.

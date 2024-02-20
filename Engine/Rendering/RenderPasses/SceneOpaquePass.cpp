@@ -12,6 +12,7 @@ namespace Engine::Rendering
 		: IRenderPass("SceneOpaque", "PBR")
 		, m_sceneGeometryBatch(sceneGeometryBatch)
 		, m_built(false)
+		, m_indirectDrawBuffer(nullptr)
 	{
 		m_imageOutputInfos =
 		{
@@ -35,8 +36,10 @@ namespace Engine::Rendering
 	}
 
 	bool SceneOpaquePass::Build(const Renderer& renderer,
-		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
+		const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+		const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
+		const std::unordered_map<std::string, IBuffer*>& bufferInputs,
+		const std::unordered_map<std::string, IBuffer*>& bufferOutputs)
 	{
 		m_built = false;
 		const std::vector<std::unique_ptr<IBuffer>>& frameInfoBuffers = renderer.GetFrameInfoBuffers();
@@ -50,6 +53,8 @@ namespace Engine::Rendering
 		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(2, imageOutputs.at("WorldPos"), AttachmentLoadOp::Clear));
 		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(3, imageOutputs.at("MetalRoughness"), AttachmentLoadOp::Clear));
 		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(4, imageOutputs.at("Velocity"), AttachmentLoadOp::Clear));
+
+		m_indirectDrawBuffer = bufferInputs.at("IndirectDraw");
 
 		m_depthAttachment = AttachmentInfo(imageOutputs.at("Depth"), ImageLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
 
@@ -97,7 +102,7 @@ namespace Engine::Rendering
 		commandBuffer.BindVertexBuffers(0, vertexBufferViews, vertexBufferOffsets);
 		commandBuffer.BindIndexBuffer(m_sceneGeometryBatch.GetIndexBuffer(), 0, IndexType::Uint32);
 
-		uint32_t drawCount = m_sceneGeometryBatch.GetMeshCapacity(); // TODO: Compute counted, after culling, etc.
-		commandBuffer.DrawIndexedIndirect(m_sceneGeometryBatch.GetIndirectDrawBuffer(), 0, drawCount, sizeof(IndexedIndirectCommand));
+		uint32_t maxDrawCount = m_sceneGeometryBatch.GetMeshCapacity();
+		commandBuffer.DrawIndexedIndirectCount(*m_indirectDrawBuffer, sizeof(uint32_t), *m_indirectDrawBuffer, 0, maxDrawCount, sizeof(IndexedIndirectCommand));
 	}
 }

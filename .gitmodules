@@ -1,10 +1,25 @@
-[submodule "Engine/UI/imgui"]
-	path = Engine/UI/imgui
-url=https://github.com/JJJohan/imgui.git
-[submodule "Engine/UI/implot"]
-	path = Engine/UI/implot
+[submodule "ThirdParty/imgui"]
+	path = ThirdParty/imgui
+	url = https://github.com/JJJohan/imgui.git
+[submodule "ThirdParty/implot"]
+	path = ThirdParty/implot
 	url = https://github.com/epezent/implot.git
-[submodule "Engine/UI/imgui-node-editor"]
-	path = Engine/UI/imgui-node-editor
-url=https://github.com/JJJohan/imgui-node-editor.git
-	branch = master
+[submodule "ThirdParty/imgui-node-editor"]
+	path = ThirdParty/imgui-node-editor
+	url = https://github.com/JJJohan/imgui-node-editor.git
+[submodule "ThirdParty/bc7enc_rdo"]
+	path = ThirdParty/bc7enc_rdo
+	url = https://github.com/richgel999/bc7enc_rdo.git
+[submodule "ThirdParty/meshoptimizer"]
+	path = ThirdParty/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer.git
+[submodule "ThirdParty/lz4"]
+	path = ThirdParty/lz4
+	url = https://github.com/lz4/lz4.git
+[submodule "ThirdParty/fastgltf"]
+	path = ThirdParty/fastgltf
+	url = https://github.com/spnda/fastgltf.git
+[submodule "ThirdParty/SPIRV-Reflect"]
+	path = ThirdParty/SPIRV-Reflect
+	url = https://github.com/shangjiaxuan/SPIRV-Reflect.git
+	branch = spec-constant

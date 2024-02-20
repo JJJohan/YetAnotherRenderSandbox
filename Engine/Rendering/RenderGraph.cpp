@@ -9,6 +9,7 @@
 #include "IResourceFactory.hpp"
 #include "IPhysicalDevice.hpp"
 #include <unordered_set>
+#include <ranges>
 
 using namespace Engine::Logging;
 
@@ -88,15 +89,15 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		std::unordered_map<const char*, IBuffer*> inputBuffers;
-		std::unordered_map<const char*, IBuffer*> outputBuffers;
+		std::unordered_map<std::string, IBuffer*> inputBuffers;
+		std::unordered_map<std::string, IBuffer*> outputBuffers;
 
 		if (renderNode->GetNodeType() == RenderNodeType::Pass)
 		{
 			IRenderPass* renderPass = static_cast<IRenderPass*>(renderNode);
 			inputBuffers = renderPass->GetBufferInputs();
 			outputBuffers = renderPass->GetBufferOutputs();
-			std::unordered_map<const char*, RenderPassImageInfo> inputImageInfos(renderPass->GetImageInputInfos().begin(), renderPass->GetImageInputInfos().end());
+			std::unordered_map<std::string, RenderPassImageInfo> inputImageInfos(renderPass->GetImageInputInfos().begin(), renderPass->GetImageInputInfos().end());
 
 			for (const auto& imageOutput : renderPass->GetImageOutputInfos())
 			{
@@ -158,7 +159,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	void RenderGraph::SetPassEnabled(const char* passName, bool enabled)
+	void RenderGraph::SetPassEnabled(const std::string& passName, bool enabled)
 	{
 		auto pass = m_renderNodeLookup.find(passName);
 		if (pass == m_renderNodeLookup.end())
@@ -314,7 +315,7 @@ namespace Engine::Rendering
 		const IDevice& device = renderer.GetDevice();
 		uint32_t concurrentFrameCount = renderer.GetConcurrentFrameCount();
 
-		std::unordered_map<const char*, RenderGraphNode&> renderGraphNodeLookup;
+		std::unordered_map<std::string, RenderGraphNode&> renderGraphNodeLookup;
 		std::unordered_map<Format, std::vector<ImageInfo>> formatRenderTextureLookup;
 		std::unordered_map<IRenderImage*, uint32_t> imageInfoLookup;
 		m_renderTextures.clear();
@@ -323,8 +324,8 @@ namespace Engine::Rendering
 		m_computeCommandBuffers.clear();
 		m_renderTextures.clear();
 
-		std::unordered_map<const char*, RenderGraphNode*> availableBufferSources{};
-		std::unordered_map<const char*, RenderGraphNode*> availableImageSources{};
+		std::unordered_map<std::string, RenderGraphNode*> availableBufferSources{};
+		std::unordered_map<std::string, RenderGraphNode*> availableImageSources{};
 
 		const IPhysicalDevice& physicalDevice = renderer.GetPhysicalDevice();
 		Format depthFormat = physicalDevice.GetDepthFormat();
@@ -332,9 +333,13 @@ namespace Engine::Rendering
 		glm::uvec3 defaultExtents = glm::uvec3(swapchain.GetExtent(), 1);
 		Format swapchainFormat = swapchain.GetFormat();
 
+		auto nodeLookupKeys = std::views::keys(m_renderNodeLookup);
+		std::vector<std::string_view> passNames{ nodeLookupKeys.begin(), nodeLookupKeys.end() };
+
 		std::vector<IRenderNode*> renderNodeStack;
 		for (auto& renderResource : m_renderResources)
 		{
+			renderResource->UpdateConnections(renderer, passNames);
 			renderNodeStack.push_back(renderResource);
 		}
 
@@ -344,6 +349,7 @@ namespace Engine::Rendering
 		{
 			if (pass->GetEnabled())
 			{
+				pass->UpdateConnections(renderer, passNames);
 				renderNodeStack.emplace_back(pass);
 				++enabledPasses;
 			}
@@ -352,6 +358,7 @@ namespace Engine::Rendering
 		{
 			if (pass->GetEnabled())
 			{
+				pass->UpdateConnections(renderer, passNames);
 				pass->UpdatePlaceholderFormats(swapchainFormat, depthFormat);
 
 				renderNodeStack.emplace_back(pass);
@@ -364,8 +371,8 @@ namespace Engine::Rendering
 			std::vector<RenderGraphNode>& stage = m_renderGraph.emplace_back(std::vector<RenderGraphNode>());
 
 			// Per-stage available resources.
-			std::unordered_map<const char*, RenderGraphNode*> stageAvailableBufferSources(availableBufferSources);
-			std::unordered_map<const char*, RenderGraphNode*> stageAvailableImageSources(availableImageSources);
+			std::unordered_map<std::string, RenderGraphNode*> stageAvailableBufferSources(availableBufferSources);
+			std::unordered_map<std::string, RenderGraphNode*> stageAvailableImageSources(availableImageSources);
 
 			// Attempt to satisfy all requirements for each remaining render pass. If all requirements are met for a pass, remove it from the stack.
 			for (auto it = renderNodeStack.begin(); it != renderNodeStack.end();)
@@ -383,7 +390,7 @@ namespace Engine::Rendering
 						node.InputBufferSources.emplace(bufferInput.first, *search->second);
 						for (const auto& bufferOutput : node.Node->GetBufferOutputs())
 						{
-							if (strcmp(bufferOutput.first, search->first) == 0)
+							if (bufferOutput.first == search->first)
 							{
 								stageAvailableBufferSources.erase(bufferOutput.first);
 								break;
@@ -408,7 +415,7 @@ namespace Engine::Rendering
 							node.InputImageSources.insert_or_assign(imageInputInfo.first, *search->second);
 							for (const auto& imageOutput : node.Node->GetImageOutputInfos())
 							{
-								if (strcmp(imageOutput.first, search->first) == 0)
+								if (imageOutput.first == search->first)
 								{
 									stageAvailableImageSources.erase(imageOutput.first);
 									break;
@@ -472,22 +479,22 @@ namespace Engine::Rendering
 
 			for (auto& node : stage)
 			{
+				// Build resources before passes.
+				if (!node.Node->BuildResources(renderer))
+				{
+					Logger::Error("Failed to build resources for render node '{}' while building render graph.", node.Node->GetName());
+					return false;
+				}
+
+				for (const auto& output : node.Node->GetBufferOutputs())
+				{
+					node.OutputBuffers[output.first] = output.second;
+				}
 
 				if (node.Type == RenderNodeType::Resource)
 				{
-					IRenderResource* resource = static_cast<IRenderResource*>(node.Node);
-
-					// Build resources before passes.
-					if (!resource->Build(renderer))
+					for (const auto& output : node.Node->GetImageOutputInfos())
 					{
-						Logger::Error("Failed to build render resource '{}' while building render graph.", resource->GetName());
-						return false;
-					}
-
-					// Add available resource to the lookup.
-					for (const auto& output : resource->GetImageOutputInfos())
-					{
-
 						auto& imageMap = formatRenderTextureLookup[output.second.Format];
 						node.OutputImages[output.first] = output.second.Image;
 						imageMap.emplace_back(ImageInfo(*output.second.Image));
@@ -553,6 +560,22 @@ namespace Engine::Rendering
 
 						node.OutputImages[info.first] = image;
 					}
+
+					const auto& inputBuffers = node.Node->GetBufferInputs();
+					for (const auto& info : inputBuffers)
+					{
+						const auto& previousOutput = node.InputBufferSources.find(info.first);
+						if (previousOutput != node.InputBufferSources.end())
+						{
+							const auto buffer = previousOutput->second.OutputBuffers[info.first];
+							node.InputBuffers[info.first] = buffer;
+						}
+						else
+						{
+							Logger::Error("Could not find buffer input '{}' for render node '{}' while building render graph.", info.first, node.Node->GetName());
+							return false;
+						}
+					}
 				}
 			}
 		}
@@ -565,7 +588,7 @@ namespace Engine::Rendering
 				if (node.Type == RenderNodeType::Pass)
 				{
 					IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
-					if (!pass->Build(renderer, node.InputImages, node.OutputImages))
+					if (!pass->Build(renderer, node.InputImages, node.OutputImages, node.InputBuffers, node.OutputBuffers))
 					{
 						Logger::Error("Failed to build render pass '{}' while building render graph.", pass->GetName());
 						return false;
@@ -582,7 +605,7 @@ namespace Engine::Rendering
 				else if (node.Type == RenderNodeType::Compute)
 				{
 					IComputePass* pass = static_cast<IComputePass*>(node.Node);
-					if (!pass->Build(renderer, node.InputImages, node.OutputImages))
+					if (!pass->Build(renderer, node.InputImages, node.OutputImages, node.InputBuffers, node.OutputBuffers))
 					{
 						Logger::Error("Failed to build compute pass '{}' while building render graph.", pass->GetName());
 						return false;
@@ -609,7 +632,7 @@ namespace Engine::Rendering
 				{
 					for (const auto& imageOutput : node.Node->GetImageOutputInfos())
 					{
-						if (strcmp(imageOutput.first, "Output") == 0)
+						if (imageOutput.first == "Output")
 						{
 							m_finalNode = &node;
 							break;

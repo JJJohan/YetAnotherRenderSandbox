@@ -16,12 +16,12 @@ namespace Engine::Rendering::Vulkan
 		RenderImage(const RenderImage&) = delete;
 
 		~RenderImage();
-		virtual bool Initialise(const char* name, const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
+		virtual bool Initialise(std::string_view name, const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
 			uint32_t mipLevels, uint32_t layerCount, ImageTiling tiling, ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags,
 			MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode) override;
-		virtual bool InitialiseView(const char* name, const IDevice& device, ImageAspectFlags aspectFlags) override;
+		virtual bool InitialiseView(std::string_view name, const IDevice& device, ImageAspectFlags aspectFlags) override;
 
-		virtual bool UpdateContents(const void* data, size_t size) override;
+		virtual bool UpdateContents(const void* data, size_t offset, size_t size) override;
 		virtual void TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout) override;
 		virtual void TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
 			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
@@ -31,7 +31,7 @@ namespace Engine::Rendering::Vulkan
 			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
 			uint32_t baseMipLevel, uint32_t mipLevelCount) override;
 		virtual void GenerateMipmaps(const IDevice& device, const ICommandBuffer& commandBuffer) override;
-		virtual bool CreateView(const char* name, const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const override;
+		virtual bool CreateView(std::string_view name, const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const override;
 
 		inline const VkImage& Get() const { return m_image; }
 

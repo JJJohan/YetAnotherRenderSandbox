@@ -22,7 +22,7 @@ namespace Engine::Rendering::Vulkan
 			vmaDestroyBuffer(m_allocator, m_buffer, m_bufferAlloc);
 	}
 
-	bool Buffer::UpdateContents(const void* data, size_t size)
+	bool Buffer::UpdateContents(const void* data, size_t offset, size_t size)
 	{
 		if (m_bufferAllocInfo.pMappedData == nullptr)
 		{
@@ -34,12 +34,12 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
-			memcpy(mappedData, data, size);
+			memcpy((uint8_t*)mappedData + offset, data, size);
 			vmaUnmapMemory(m_allocator, m_bufferAlloc);
 			return true;
 		}
 
-		memcpy(m_bufferAllocInfo.pMappedData, data, size);
+		memcpy((uint8_t*)m_bufferAllocInfo.pMappedData + offset, data, size);
 		return true;
 	}
 

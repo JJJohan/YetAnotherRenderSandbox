@@ -2,6 +2,7 @@
 #include <vector>
 #include <memory>
 #include <unordered_map>
+#include <string>
 #include <glm/glm.hpp>
 #include "Core/Colour.hpp"
 
@@ -11,10 +12,10 @@ namespace Engine::UI
 
 	struct NodePin
 	{
-		const char* Name;
+		std::string Name;
 		Colour Colour;
 
-		NodePin(const char* name, const Engine::Colour& colour = {1.0f, 1.0f, 1.0f})
+		NodePin(std::string_view name, const Engine::Colour& colour = {1.0f, 1.0f, 1.0f})
 			: Name(name)
 			, Colour(colour)
 		{
@@ -62,8 +63,8 @@ namespace Engine::UI
 		struct Node
 		{
 			uint32_t ID;
-			std::unordered_map<const char*, Pin> Inputs;
-			std::unordered_map<const char*, Pin> Outputs;
+			std::unordered_map<std::string, Pin> Inputs;
+			std::unordered_map<std::string, Pin> Outputs;
 			Colour Colour;
 
 			inline void Setup(uint32_t id, Engine::Colour colour = { 0.4f, 0.4f, 0.4f })
@@ -89,15 +90,15 @@ namespace Engine::UI
 			}
 		};
 
-		Node& GetOrCreateNode(const char* nodeName);
-		Pin& GetOrCreatePin(std::unordered_map<const char*, Pin>& pinMap, const char* pinName);
+		Node& GetOrCreateNode(const std::string& nodeName);
+		Pin& GetOrCreatePin(std::unordered_map<std::string, Pin>& pinMap, const std::string& pinName);
 
 		void DrawIcon(const glm::vec2& size, bool filled, uint32_t color, uint32_t innerColor);
 		void DrawPinIcon(const Pin& pin, bool connected, uint8_t alpha, const Colour& colour);
 
 		uint32_t m_currentId;
 		std::unique_ptr<NodeBuilder> m_builder;
-		std::unordered_map<const char*, Node> m_nodeMap;
+		std::unordered_map<std::string, Node> m_nodeMap;
 		std::vector<Link> m_links;
 	};
 }

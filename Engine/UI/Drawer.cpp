@@ -149,7 +149,7 @@ namespace Engine::UI
 		return ImGui::CollapsingHeader(label, startOpen ? ImGuiTreeNodeFlags_DefaultOpen : 0);
 	}
 
-	void Drawer::PlotGraphs(const char* label, const std::unordered_map<const char*, ScrollingGraphBuffer>& buffers,
+	void Drawer::PlotGraphs(const char* label, const std::unordered_map<std::string, ScrollingGraphBuffer>& buffers,
 		const glm::vec2& size) const
 	{
 		if (buffers.empty())
@@ -163,7 +163,7 @@ namespace Engine::UI
 			ImPlot::SetupAxisLimits(ImAxis_X1, 0.0f, static_cast<float>(buffers.begin()->second.Capacity), ImGuiCond_Always);
 			for (const auto& buffer : buffers)
 			{
-				ImPlot::PlotLine(buffer.first, buffer.second.Values.data(), static_cast<int32_t>(buffer.second.Values.size()));
+				ImPlot::PlotLine(buffer.first.c_str(), buffer.second.Values.data(), static_cast<int32_t>(buffer.second.Values.size()));
 			}
 			ImPlot::EndPlot();
 		}

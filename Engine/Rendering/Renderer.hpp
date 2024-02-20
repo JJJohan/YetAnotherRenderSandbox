@@ -62,7 +62,7 @@ namespace Engine::Rendering
 
 		inline virtual bool Initialise();
 		inline virtual bool Render();
-		inline const std::unordered_map<const char*, FrameStats>& GetRenderStats() const { return m_renderStats->GetFrameStats(); }
+		inline const std::unordered_map<std::string, FrameStats>& GetRenderStats() const { return m_renderStats->GetFrameStats(); }
 		inline const MemoryStats& GetMemoryStats() const { return m_renderStats->GetMemoryStats(); }
 		inline const RenderGraph& GetRenderGraph() const { return *m_renderGraph; }
 
@@ -152,8 +152,8 @@ namespace Engine::Rendering
 		std::vector<std::unique_ptr<IBuffer>> m_lightBuffers;
 		std::vector<FrameInfoUniformBuffer*> m_frameInfoBufferData;
 		std::vector<LightUniformBuffer*> m_lightBufferData;
-		std::unordered_map<const char*, std::unique_ptr<IRenderPass>> m_renderPasses;
-		std::unordered_map<const char*, std::unique_ptr<IComputePass>> m_computePasses;
+		std::unordered_map<std::string, std::unique_ptr<IRenderPass>> m_renderPasses;
+		std::unordered_map<std::string, std::unique_ptr<IComputePass>> m_computePasses;
 		std::unique_ptr<RenderGraph> m_renderGraph;
 		std::unique_ptr<IImageSampler> m_linearSampler;
 		std::unique_ptr<IImageSampler> m_nearestSampler;

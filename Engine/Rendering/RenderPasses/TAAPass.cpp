@@ -53,8 +53,10 @@ namespace Engine::Rendering
 	}
 
 	bool TAAPass::Build(const Renderer& renderer,
-		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
+		const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+		const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
+		const std::unordered_map<std::string, IBuffer*>& bufferInputs,
+		const std::unordered_map<std::string, IBuffer*>& bufferOutputs)
 	{
 		ClearResources();
 
@@ -88,8 +90,8 @@ namespace Engine::Rendering
 	}
 
 	void TAAPass::PreDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
-		const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
+		const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+		const std::unordered_map<std::string, IRenderImage*>& imageOutputs)
 	{
 		m_taaHistoryImage->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
 	}
@@ -102,8 +104,8 @@ namespace Engine::Rendering
 	}
 
 	void TAAPass::PostDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
-		const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
+		const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+		const std::unordered_map<std::string, IRenderImage*>& imageOutputs)
 	{
 		IRenderImage* outputImage = imageOutputs.at("Output");
 

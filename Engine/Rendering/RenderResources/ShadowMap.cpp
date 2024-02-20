@@ -131,7 +131,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool ShadowMap::Build(const Renderer& renderer)
+	bool ShadowMap::BuildResources(const Renderer& renderer)
 	{
 		m_shadowImage.reset();
 

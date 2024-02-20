@@ -91,7 +91,7 @@ namespace Engine::Rendering::Vulkan
 
 		template <typename T>
 		inline DescriptorBindingInfo* GetBindingInfo(uint32_t binding, const std::vector<T>& bindingData,
-			vk::DescriptorType expectedType, const char* typeName)
+			vk::DescriptorType expectedType, std::string_view typeName)
 		{
 			auto& setInfo = m_descriptorSetInfos[0];
 			const auto& bindingInfoSearch = setInfo.BindingInfos.find(binding);

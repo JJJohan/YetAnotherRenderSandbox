@@ -11,7 +11,7 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	bool Semaphore::Initialise(const char* name, const IDevice& device, bool binary)
+	bool Semaphore::Initialise(std::string_view name, const IDevice& device, bool binary)
 	{
 		const Device& vkDevice = static_cast<const Device&>(device);
 

@@ -18,7 +18,7 @@ namespace Engine::Rendering::Vulkan
 		m_commandPool.reset();
 	}
 
-	bool CommandPool::Initialise(const char* name, const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t queueFamilyIndex, CommandPoolFlags flags)
+	bool CommandPool::Initialise(std::string_view name, const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t queueFamilyIndex, CommandPoolFlags flags)
 	{
 		const Device& vkDevice = static_cast<const Device&>(device);
 		const PhysicalDevice& vkPhysicalDevice = static_cast<const PhysicalDevice&>(physicalDevice);
@@ -36,7 +36,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	std::vector<std::unique_ptr<ICommandBuffer>> CommandPool::CreateCommandBuffers(const char* name, const IDevice& device, uint32_t count) const
+	std::vector<std::unique_ptr<ICommandBuffer>> CommandPool::CreateCommandBuffers(std::string_view name, const IDevice& device, uint32_t count) const
 	{
 		const Device& vkDevice = static_cast<const Device&>(device);
 		vk::CommandBufferAllocateInfo allocInfo(m_commandPool.get(), vk::CommandBufferLevel::ePrimary, count);

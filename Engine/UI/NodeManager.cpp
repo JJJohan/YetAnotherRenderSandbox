@@ -61,7 +61,7 @@ namespace Engine::UI
 		ax::NodeEditor::End();
 	}
 
-	NodeManager::Node& NodeManager::GetOrCreateNode(const char* nodeName)
+	NodeManager::Node& NodeManager::GetOrCreateNode(const std::string& nodeName)
 	{
 		const auto& search = m_nodeMap.find(nodeName);
 		if (search != m_nodeMap.cend())
@@ -74,7 +74,7 @@ namespace Engine::UI
 		return node;
 	}
 
-	NodeManager::Pin& NodeManager::GetOrCreatePin(std::unordered_map<const char*, Pin>& pinMap, const char* pinName)
+	NodeManager::Pin& NodeManager::GetOrCreatePin(std::unordered_map<std::string, Pin>& pinMap, const std::string& pinName)
 	{
 		const auto& search = pinMap.find(pinName);
 		if (search != pinMap.cend())
@@ -138,7 +138,7 @@ namespace Engine::UI
 			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
 			DrawPinIcon(input, input.Node != nullptr, static_cast<uint8_t>(alpha * 255.0f), inputPin.Colour);
 			ImGui::Spring(0);
-			ImGui::TextUnformatted(inputPin.Name);
+			ImGui::TextUnformatted(inputPin.Name.c_str());
 			ImGui::Spring(0);
 			ImGui::PopStyleVar();
 			m_builder->EndInput();
@@ -151,7 +151,7 @@ namespace Engine::UI
 			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
 			m_builder->Output(output.ID);
 			ImGui::Spring(0);
-			ImGui::TextUnformatted(outputPin.Name);
+			ImGui::TextUnformatted(outputPin.Name.c_str());
 			ImGui::Spring(0);
 			DrawPinIcon(output, output.Node != nullptr, static_cast<uint8_t>(alpha * 255.0f), outputPin.Colour);
 			ImGui::PopStyleVar();

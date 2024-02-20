@@ -13,8 +13,10 @@ namespace Engine::Rendering
 		SceneShadowPass(const GeometryBatch& sceneGeometryBatch, const ShadowMap& shadowMap);
 
 		virtual bool Build(const Renderer& renderer,
-			const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) override;
+			const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+			const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
+			const std::unordered_map<std::string, IBuffer*>& bufferInputs,
+			const std::unordered_map<std::string, IBuffer*>& bufferOutputs) override;
 
 		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat) override;
 
@@ -31,6 +33,7 @@ namespace Engine::Rendering
 		const GeometryBatch& m_sceneGeometryBatch;
 		const ShadowMap& m_shadowMap;
 		glm::uvec2 m_shadowResolution;
+		IBuffer* m_indirectDrawBuffer;
 		bool m_built;
 	};
 }

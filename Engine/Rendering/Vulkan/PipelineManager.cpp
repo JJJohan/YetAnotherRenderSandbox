@@ -19,7 +19,7 @@ namespace Engine::Rendering::Vulkan
 
 	bool PipelineManager::BuildMaterials(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t concurrentFrames, Format swapchainFormat, Format depthFormat)
 	{
-		for (const auto& materialPath : std::filesystem::recursive_directory_iterator("materials"))
+		for (const auto& materialPath : std::filesystem::recursive_directory_iterator("Materials"))
 		{
 			if (materialPath.is_regular_file())
 			{

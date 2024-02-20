@@ -35,20 +35,33 @@ struct VkDrawIndexedIndirectCommand
 	uint firstInstance;
 };
 
-layout(std430, binding = 2) writeonly buffer IndirectBuffer
+layout(std430, binding = 2) readonly buffer InIndirectBuffer
 {
+	uint count;
 	VkDrawIndexedIndirectCommand commands[];
-} indirectBuffer;
+} inIndirectBuffer;
 
-layout(binding = 3) uniform sampler2D occlusionImage;
+layout(std430, binding = 3) writeonly buffer OutIndirectBuffer
+{
+	uint count;
+	VkDrawIndexedIndirectCommand commands[];
+} outIndirectBuffer;
+
+layout(std430, binding = 4) writeonly buffer ShadowIndirectBuffer
+{
+	uint count;
+	VkDrawIndexedIndirectCommand commands[];
+} shadowIndirectBuffer;
+
+layout(binding = 5) uniform sampler2D occlusionImage;
 
 struct DrawCullData
 {
 	float P00, P11, znear, zfar; // symmetric projection parameters
 	float frustum[4]; // data for left/right/top/bottom frustum planes
 	float pyramidWidth, pyramidHeight; // depth pyramid size in texels
-	uint meshCount;
 	uint enableOcclusion; // Skipped for first frame as we need last frame's depth output.
+	uint resetCounter; // Indicate this pass is just used to clear the atomic counters.
 };
 
 layout(push_constant) uniform constants
@@ -78,14 +91,13 @@ bool projectSphere(in vec3 C, float r, float znear, float P00, float P11, out ve
 	return true;
 }
 
-uint is_in_frustum(in vec3 center, float radius)
+bool is_in_frustum(in vec3 center, float radius)
 {
 	bool visible = center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius;
-	visible = visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
-	return visible ? 1 : 0;
+	return visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
 }
 
-uint is_not_occluded(in vec3 center, float radius)
+bool is_not_occluded(in vec3 center, float radius)
 {
 	//flip Y because we access depth texture that way
 	center.y *= -1;
@@ -104,21 +116,29 @@ uint is_not_occluded(in vec3 center, float radius)
 		float eyeDepth = 2.0 * cullData.znear * cullData.zfar / (cullData.zfar + cullData.znear - ndcDepth * (cullData.zfar - cullData.znear));
 
 		float depthSphere = center.z - radius;
-		return depthSphere < eyeDepth ? 1 : 0;
+		return depthSphere < eyeDepth;
 	}
 
-	return 0;
+	return false;
 }
 
 void main()
 {
+	// Is this inefficient?
+	if (cullData.resetCounter == 1)
+	{
+		outIndirectBuffer.count = 0;
+		shadowIndirectBuffer.count = 0;
+		return;
+	}
+
 	uint id = gl_GlobalInvocationID.x;
-	if (cullingMode == 0 || id >= cullData.meshCount)
+	if (cullingMode == 0 || id >= inIndirectBuffer.count)
 	{
 		return;
 	}
 
-	uint visible = 1;
+	bool visible = true;
 	if (cullingMode > 1)
 	{
 		vec3 center = boundsBuffer.bounds[id].center;
@@ -127,11 +147,20 @@ void main()
 		float radius = boundsBuffer.bounds[id].radius;
 
 		visible = is_in_frustum(centerVS, radius);
-		if (cullingMode == 3 && visible != 0 && cullData.enableOcclusion != 0)
+		if (cullingMode == 3 && visible && cullData.enableOcclusion != 0)
 		{
 			visible = is_not_occluded(centerVS, radius);
 		}
 	}
 
-	indirectBuffer.commands[id].instanceCount = visible;
+	if (visible)
+	{
+		uint idx1 = atomicAdd(outIndirectBuffer.count, 1);
+		outIndirectBuffer.commands[idx1] = inIndirectBuffer.commands[id];
+		outIndirectBuffer.commands[idx1].firstInstance = id;
+		
+		uint idx2 = atomicAdd(shadowIndirectBuffer.count, 1);
+		shadowIndirectBuffer.commands[idx2] = inIndirectBuffer.commands[id];
+		shadowIndirectBuffer.commands[idx2].firstInstance = id;
+	}
 }

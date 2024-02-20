@@ -36,7 +36,7 @@ namespace Engine::Rendering::Vulkan
 			vmaDestroyImage(m_allocator, m_image, m_imageAlloc);
 	}
 
-	bool RenderImage::UpdateContents(const void* data, size_t size)
+	bool RenderImage::UpdateContents(const void* data, size_t offset, size_t size)
 	{
 		if (m_imageAllocInfo.pMappedData == nullptr)
 		{
@@ -48,12 +48,12 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
-			memcpy(mappedData, data, size);
+			memcpy((uint8_t*)mappedData + offset, data, size);
 			vmaUnmapMemory(m_allocator, m_imageAlloc);
 			return true;
 		}
 
-		memcpy(m_imageAllocInfo.pMappedData, data, size);
+		memcpy((uint8_t*)m_imageAllocInfo.pMappedData + offset, data, size);
 		return true;
 	}
 
@@ -127,7 +127,7 @@ namespace Engine::Rendering::Vulkan
 			nullptr, nullptr, { barrier });
 	}
 
-	bool RenderImage::Initialise(const char* name, const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
+	bool RenderImage::Initialise(std::string_view name, const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
 		uint32_t mipLevels, uint32_t layerCount, ImageTiling tiling, ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags,
 		MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode)
 	{
@@ -164,7 +164,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool RenderImage::CreateView(const char* name, const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const
+	bool RenderImage::CreateView(std::string_view name, const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const
 	{
 		if (m_layerCount != 1)
 		{
@@ -182,7 +182,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool RenderImage::InitialiseView(const char* name, const IDevice& device, ImageAspectFlags aspectFlags)
+	bool RenderImage::InitialiseView(std::string_view name, const IDevice& device, ImageAspectFlags aspectFlags)
 	{
 		m_imageView = std::make_unique<ImageView>();
 		if (!m_imageView->Initialise(name, device, *this, 0, m_mipLevels, m_layerCount, m_format, aspectFlags))

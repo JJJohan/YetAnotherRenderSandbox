@@ -60,7 +60,7 @@ int main()
 	renderer->SetSunLightIntensity(g_options.SunIntensity);
 
 	renderer->GetUIManager().RegisterDrawCallback(DrawLoadProgress);
-	renderer->GetSceneManager().LoadScene("C:/Users/Johan/Desktop/test/Bistro_small.glb", renderer.get(), true, g_sceneLoad);
+	renderer->GetSceneManager().LoadScene("DownloadedAssets/Bistro_small.glb", renderer.get(), true, g_sceneLoad);
 
 	Camera& camera = renderer->GetCamera();
 

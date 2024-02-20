@@ -14,7 +14,7 @@ using namespace Engine::UI;
 namespace Engine::Rendering
 {
 	UIPass::UIPass(UIManager& uiManager)
-		: IRenderPass("UI", nullptr)
+		: IRenderPass("UI", "")
 		, m_uiManager(uiManager)
 	{
 		m_imageInputInfos =
@@ -35,8 +35,10 @@ namespace Engine::Rendering
 	}
 
 	bool UIPass::Build(const Renderer& renderer,
-		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
+		const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+		const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
+		const std::unordered_map<std::string, IBuffer*>& bufferInputs,
+		const std::unordered_map<std::string, IBuffer*>& bufferOutputs)
 	{
 		ClearResources();
 

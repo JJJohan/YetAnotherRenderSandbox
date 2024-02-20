@@ -22,7 +22,7 @@ namespace Engine::Rendering
 
 		inline bool Initialise(const IMaterialManager& materialManager)
 		{
-			if (m_materialName != nullptr && !materialManager.TryGetMaterial(m_materialName, &m_material))
+			if (m_materialName != "" && !materialManager.TryGetMaterial(m_materialName, &m_material))
 			{
 				Engine::Logging::Logger::Error("Failed to find material '{}' for render pass '{}'.", m_materialName, GetName());
 				return false;
@@ -32,8 +32,10 @@ namespace Engine::Rendering
 		}
 
 		virtual bool Build(const Renderer& renderer,
-			const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) = 0;
+			const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+			const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
+			const std::unordered_map<std::string, IBuffer*>& bufferInputs,
+			const std::unordered_map<std::string, IBuffer*>& bufferOutputs) = 0;
 
 		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
 		{
@@ -41,8 +43,8 @@ namespace Engine::Rendering
 
 		// Call before BeginRendering, but after command buffer Begin.
 		inline virtual void PreDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
-			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
+			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+			const std::unordered_map<std::string, IRenderImage*>& imageOutputs)
 		{
 		}
 
@@ -51,8 +53,8 @@ namespace Engine::Rendering
 
 		// Called after EndRendering, but before command buffer End.
 		inline virtual void PostDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
-			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
+			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+			const std::unordered_map<std::string, IRenderImage*>& imageOutputs)
 		{
 		}
 
@@ -73,7 +75,7 @@ namespace Engine::Rendering
 		inline Material* GetMaterial() const { return m_material; }
 
 	protected:
-		IRenderPass(const char* name, const char* materialName)
+		IRenderPass(std::string_view name, std::string_view materialName)
 			: IRenderNode(name, RenderNodeType::Pass)
 			, m_layerCount(1)
 			, m_material(nullptr)
@@ -89,6 +91,6 @@ namespace Engine::Rendering
 		uint32_t m_layerCount;
 
 	private:
-		const char* m_materialName;
+		std::string m_materialName;
 	};
 }

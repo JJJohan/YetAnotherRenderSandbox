@@ -20,10 +20,12 @@ namespace Engine::Rendering
 
 	struct RenderGraphNode
 	{
-		std::unordered_map<const char*, RenderGraphNode&> InputBufferSources;
-		std::unordered_map<const char*, RenderGraphNode&> InputImageSources;
-		std::unordered_map<const char*, IRenderImage*> InputImages;
-		std::unordered_map<const char*, IRenderImage*> OutputImages;
+		std::unordered_map<std::string, RenderGraphNode&> InputBufferSources;
+		std::unordered_map<std::string, RenderGraphNode&> InputImageSources;
+		std::unordered_map<std::string, IRenderImage*> InputImages;
+		std::unordered_map<std::string, IRenderImage*> OutputImages;
+		std::unordered_map<std::string, IBuffer*> InputBuffers;
+		std::unordered_map<std::string, IBuffer*> OutputBuffers;
 		IRenderNode* Node;
 		RenderNodeType Type;
 
@@ -34,6 +36,8 @@ namespace Engine::Rendering
 			, InputImageSources()
 			, InputImages()
 			, OutputImages()
+			, InputBuffers()
+			, OutputBuffers()
 		{
 		}
 	};
@@ -51,13 +55,13 @@ namespace Engine::Rendering
 		bool AddResource(IRenderResource* renderResource);
 		bool Build(const Renderer& renderer);
 		bool Draw(Renderer& renderer, uint32_t frameIndex) const;
-		void SetPassEnabled(const char* passName, bool enabled);
+		void SetPassEnabled(const std::string& passName, bool enabled);
 
 		inline const std::vector<std::vector<RenderGraphNode>>& GetBuiltGraph() const { return m_renderGraph; }
 		inline void MarkDirty() { m_dirty = true; }
 		inline bool CheckDirty() const { return m_dirty; }
 
-		inline bool TryGetRenderPass(const char* name, const IRenderPass** result) const
+		inline bool TryGetRenderPass(const std::string& name, const IRenderPass** result) const
 		{
 			const auto& search = m_renderNodeLookup.find(name);
 			if (search != m_renderNodeLookup.end() && search->second->GetNodeType() == RenderNodeType::Pass)
@@ -69,7 +73,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		inline bool TryGetComputePass(const char* name, const IComputePass** result) const
+		inline bool TryGetComputePass(const std::string& name, const IComputePass** result) const
 		{
 			const auto& search = m_renderNodeLookup.find(name);
 			if (search != m_renderNodeLookup.end() && search->second->GetNodeType() == RenderNodeType::Compute)
@@ -86,7 +90,7 @@ namespace Engine::Rendering
 		const RenderGraphNode* m_finalNode;
 		RenderStats& m_renderStats;
 
-		std::unordered_map<const char*, IRenderNode*> m_renderNodeLookup;
+		std::unordered_map<std::string, IRenderNode*> m_renderNodeLookup;
 		std::vector<IRenderPass*> m_renderPasses;
 		std::vector<IComputePass*> m_computePasses;
 		std::vector<IRenderResource*> m_renderResources;
@@ -100,8 +104,8 @@ namespace Engine::Rendering
 		std::unique_ptr<ISemaphore> m_renderSemaphore;
 		std::unique_ptr<ISemaphore> m_computeSemaphore;
 
-		std::unordered_map<const char*, const IRenderNode*> m_imageResourceNodeLookup;
-		std::unordered_map<const char*, const IRenderNode*> m_bufferResourceNodeLookup;
+		std::unordered_map<std::string, const IRenderNode*> m_imageResourceNodeLookup;
+		std::unordered_map<std::string, const IRenderNode*> m_bufferResourceNodeLookup;
 		std::vector<std::unique_ptr<IRenderImage>> m_renderTextures;
 	};
 }

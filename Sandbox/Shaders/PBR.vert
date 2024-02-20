@@ -35,18 +35,18 @@ layout(location = 8) out vec3 fragNormal;
 
 void main()
 {
-	vec4 transformedPos = infoBuffer.meshInfo[gl_DrawID].transform * vec4(position, 1.0);
+	vec4 transformedPos = infoBuffer.meshInfo[gl_InstanceIndex].transform * vec4(position, 1.0);
 
-	fragDiffuseImageIndex = infoBuffer.meshInfo[gl_DrawID].diffuseImageIndex;
-	fragNormalImageIndex = infoBuffer.meshInfo[gl_DrawID].normalImageIndex;
-	fragMetallicRoughnessImageIndex = infoBuffer.meshInfo[gl_DrawID].metallicRoughnessImageIndex;
+	fragDiffuseImageIndex = infoBuffer.meshInfo[gl_InstanceIndex].diffuseImageIndex;
+	fragNormalImageIndex = infoBuffer.meshInfo[gl_InstanceIndex].normalImageIndex;
+	fragMetallicRoughnessImageIndex = infoBuffer.meshInfo[gl_InstanceIndex].metallicRoughnessImageIndex;
 
-	fragColor = infoBuffer.meshInfo[gl_DrawID].color;
+	fragColor = infoBuffer.meshInfo[gl_InstanceIndex].color;
 	fragUv = uv;
 
     fragWorldPosAndViewDepth.xyz = transformedPos.xyz / transformedPos.w;
 	fragWorldPosAndViewDepth.w = (frameInfo.view * transformedPos).z;
-    fragNormal = normalize(vec3(infoBuffer.meshInfo[gl_DrawID].normalMatrix * vec4(normal, 0.0)));
+    fragNormal = normalize(vec3(infoBuffer.meshInfo[gl_InstanceIndex].normalMatrix * vec4(normal, 0.0)));
 	fragPrevPos = frameInfo.prevViewProj * vec4(fragWorldPosAndViewDepth.xyz, 1.0);
 
 	fragWorldPosAndViewDepth.xyz += frameInfo.viewPos.xyz;

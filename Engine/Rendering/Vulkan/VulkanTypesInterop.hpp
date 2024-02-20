@@ -112,7 +112,7 @@ namespace Engine::Rendering::Vulkan
 		}
 	}
 
-	constexpr inline const char* GetProgramTypeName(vk::ShaderStageFlagBits type)
+	constexpr inline std::string_view GetProgramTypeName(vk::ShaderStageFlagBits type)
 	{
 		switch (type)
 		{

@@ -13,7 +13,7 @@ namespace Engine::Rendering::Vulkan
 		~Buffer();
 		virtual bool Initialise(uint64_t size, BufferUsageFlags bufferUsage,
 			MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode) override;
-		virtual bool UpdateContents(const void* data, size_t size) override;
+		virtual bool UpdateContents(const void* data, size_t offset, size_t size) override;
 		virtual uint64_t GetDeviceAddress(const IDevice& device) override;
 		virtual void Copy(const ICommandBuffer& commandBuffer, const IBuffer& destination, size_t size) const override;
 		virtual void CopyToImage(uint32_t mipLevel, const ICommandBuffer& commandBuffer, const IRenderImage& destination) const override;

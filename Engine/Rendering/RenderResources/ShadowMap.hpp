@@ -30,7 +30,7 @@ namespace Engine::Rendering
 	public:
 		ShadowMap();
 
-		virtual bool Build(const Renderer& renderer) override;
+		virtual bool BuildResources(const Renderer& renderer) override;
 
 		ShadowCascadeData UpdateCascades(const Camera& camera, const glm::vec3& lightDir);
 

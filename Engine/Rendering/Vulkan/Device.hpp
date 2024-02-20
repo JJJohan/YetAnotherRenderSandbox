@@ -23,13 +23,13 @@ namespace Engine::Rendering::Vulkan
 		bool Initialise(const IPhysicalDevice& physicalDevice);
 
 #ifndef NDEBUG
-		inline void SetResourceName(ResourceType type, const void* handle, const char* name) const
+		inline void SetResourceName(ResourceType type, const void* handle, std::string_view name) const
 		{
-			vk::DebugUtilsObjectNameInfoEXT debugUtilsObjectNameInfo(GetObjectType(type), reinterpret_cast<uint64_t>(handle), name);
+			vk::DebugUtilsObjectNameInfoEXT debugUtilsObjectNameInfo(GetObjectType(type), reinterpret_cast<uint64_t>(handle), name.data());
 			m_device->setDebugUtilsObjectNameEXT(debugUtilsObjectNameInfo);
 		}
 #else
-		inline void SetResourceName(ResourceType type, const T& handle, const char* name) const {};
+		inline void SetResourceName(ResourceType type, const T& handle, std::string_view name) const {};
 #endif
 
 	private:

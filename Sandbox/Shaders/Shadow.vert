@@ -43,10 +43,10 @@ layout(location = 2) out vec2 fragUv;
 
 void main()
 {
-    gl_Position = lightData.cascadeMatrices[pushConsts.cascadeIndex] * infoBuffer.meshInfo[gl_DrawID].transform * vec4(position, 1.0);
+    gl_Position = lightData.cascadeMatrices[pushConsts.cascadeIndex] * infoBuffer.meshInfo[gl_InstanceIndex].transform * vec4(position, 1.0);
 
-	fragDiffuseImageIndex = infoBuffer.meshInfo[gl_DrawID].diffuseImageIndex;
-	fragColor = infoBuffer.meshInfo[gl_DrawID].color;
+	fragDiffuseImageIndex = infoBuffer.meshInfo[gl_InstanceIndex].diffuseImageIndex;
+	fragColor = infoBuffer.meshInfo[gl_InstanceIndex].color;
 	fragUv = uv;
 
 	gl_Layer = int(pushConsts.cascadeIndex);

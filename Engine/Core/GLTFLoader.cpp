@@ -12,10 +12,8 @@
 #include <stdint.h>
 #include <execution>
 #include <glm/gtc/type_ptr.hpp>
-
-#define FASTGLTF_USE_CUSTOM_SMALLVECTOR 1
-#include <parser.hpp>
-#include <types.hpp>
+#include <fastgltf/core.hpp>
+#include <fastgltf/types.hpp>
 
 using namespace Engine::Logging;
 using namespace Engine::Rendering;
@@ -47,7 +45,7 @@ namespace Engine
 		data.resize(accessor.count);
 
 		int32_t byteStride = fastgltf::getComponentBitSize(accessor.componentType);
-		const fastgltf::sources::Vector* bufferData = std::get_if<fastgltf::sources::Vector>(&buffer.data);
+		const fastgltf::sources::Array* bufferData = std::get_if<fastgltf::sources::Array>(&buffer.data);
 
 		memcpy(data.data(), bufferData->bytes.data() + bufferView.byteOffset + accessor.byteOffset, accessor.count * sizeof(std::decay_t<T>));
 		return VertexData(data);
@@ -151,7 +149,7 @@ namespace Engine
 				const fastgltf::BufferView& indexBufferView = asset.bufferViews[indexAccessor.bufferViewIndex.value()];
 				const fastgltf::Buffer& indexBuffer = asset.buffers[indexBufferView.bufferIndex];
 				int32_t indexByteStride = indexAccessor.componentType == fastgltf::ComponentType::UnsignedShort ? 2 : 4;
-				const fastgltf::sources::Vector* indexData = std::get_if<fastgltf::sources::Vector>(&indexBuffer.data);
+				const fastgltf::sources::Array* indexData = std::get_if<fastgltf::sources::Array>(&indexBuffer.data);
 
 				indices.resize(indexAccessor.count);
 				if (indexByteStride == 2) // UINT16_T
@@ -428,7 +426,7 @@ namespace Engine
 						{
 							const fastgltf::BufferView& imageBufferView = asset.bufferViews[bufferViewInfo->bufferViewIndex];
 							const fastgltf::Buffer& imageBuffer = asset.buffers[imageBufferView.bufferIndex];
-							const fastgltf::sources::Vector* imageData = std::get_if<fastgltf::sources::Vector>(&imageBuffer.data);
+							const fastgltf::sources::Array* imageData = std::get_if<fastgltf::sources::Array>(&imageBuffer.data);
 
 							importState.loadedImages[imageIndex] = std::make_shared<Image>();
 

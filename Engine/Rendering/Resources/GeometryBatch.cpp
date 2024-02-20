@@ -193,9 +193,12 @@ namespace Engine::Rendering
 	}
 
 	bool GeometryBatch::UploadIndirectDrawBuffer(const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
-		std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, IBuffer* buffer, const void* data, size_t dataSize)
+		std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, IBuffer* buffer, const void* data, uint32_t drawCount, size_t dataSize)
 	{
-		bool initialised = buffer->Initialise(dataSize,
+		// Draw count is stored in the first 4 bytes.
+		size_t totalSize = sizeof(uint32_t) + dataSize;
+
+		bool initialised = buffer->Initialise(totalSize,
 			BufferUsageFlags::TransferDst | BufferUsageFlags::IndirectBuffer | BufferUsageFlags::StorageBuffer,
 			MemoryUsage::AutoPreferDevice,
 			AllocationCreateFlags::None,
@@ -206,9 +209,24 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, data,
-			dataSize, temporaryBuffers))
+		IBuffer* stagingBuffer = temporaryBuffers.emplace_back(std::move(resourceFactory.CreateBuffer())).get();
+		if (!stagingBuffer->Initialise(totalSize,
+			BufferUsageFlags::TransferSrc, MemoryUsage::Auto,
+			AllocationCreateFlags::HostAccessSequentialWrite | AllocationCreateFlags::Mapped,
+			SharingMode::Exclusive))
+		{
 			return false;
+		}
+
+		// Upload draw count.
+		if (!stagingBuffer->UpdateContents(&drawCount, 0, sizeof(uint32_t)))
+			return false;
+
+		// Upload actual indirect commands.
+		if (!stagingBuffer->UpdateContents(data, sizeof(uint32_t), dataSize))
+			return false;
+
+		stagingBuffer->Copy(commandBuffer, *buffer, totalSize);
 
 		commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::MemoryWrite,
 			MaterialStageFlags::DrawIndirect, MaterialAccessFlags::IndirectCommandRead);
@@ -234,11 +252,12 @@ namespace Engine::Rendering
 
 			m_meshCapacity = static_cast<uint32_t>(decompressBuffer.size() / sizeof(IndexedIndirectCommand));
 
-			return UploadIndirectDrawBuffer(commandBuffer, resourceFactory, temporaryBuffers, m_indirectDrawBuffer.get(), decompressBuffer.data(), decompressBuffer.size());
+			return UploadIndirectDrawBuffer(commandBuffer, resourceFactory, temporaryBuffers, m_indirectDrawBuffer.get(), decompressBuffer.data(), m_meshCapacity, decompressBuffer.size());
 		}
 
 		std::vector<IndexedIndirectCommand> indirectBufferData;
 		indirectBufferData.reserve(m_meshCapacity);
+
 		for (size_t i = 0; i < m_meshCapacity; ++i)
 		{
 			if (!m_active[i])
@@ -257,7 +276,7 @@ namespace Engine::Rendering
 
 		size_t totalSize = indirectBufferData.size() * sizeof(IndexedIndirectCommand);
 
-		if (!UploadIndirectDrawBuffer(commandBuffer, resourceFactory, temporaryBuffers, m_indirectDrawBuffer.get(), indirectBufferData.data(), totalSize))
+		if (!UploadIndirectDrawBuffer(commandBuffer, resourceFactory, temporaryBuffers, m_indirectDrawBuffer.get(), indirectBufferData.data(), m_meshCapacity, totalSize))
 			return false;
 
 		if (chunkData)
@@ -579,7 +598,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		if (!stagingBuffer->UpdateContents(data, size))
+		if (!stagingBuffer->UpdateContents(data, 0, size))
 			return false;
 
 		stagingBuffer->Copy(commandBuffer, *destinationBuffer, size);
@@ -600,7 +619,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		if (!stagingBuffer->UpdateContents(data, size))
+		if (!stagingBuffer->UpdateContents(data, 0, size))
 			return false;
 
 		stagingBuffer->CopyToImage(mipLevel, commandBuffer, *destinationImage);

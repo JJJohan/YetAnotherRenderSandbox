@@ -15,6 +15,7 @@ namespace Engine::Rendering
 		, m_built(false)
 		, m_shadowMap(shadowMap)
 		, m_shadowResolution(4096)
+		, m_indirectDrawBuffer(nullptr)
 	{
 		m_imageInputInfos =
 		{
@@ -28,7 +29,7 @@ namespace Engine::Rendering
 
 		m_bufferInputs =
 		{
-			{"IndirectDraw", nullptr}
+			{"ShadowIndirectDraw", nullptr}
 		};
 	}
 
@@ -39,8 +40,10 @@ namespace Engine::Rendering
 	}
 
 	bool SceneShadowPass::Build(const Renderer& renderer,
-		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
+		const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+		const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
+		const std::unordered_map<std::string, IBuffer*>& bufferInputs,
+		const std::unordered_map<std::string, IBuffer*>& bufferOutputs)
 	{
 		m_built = false;
 
@@ -53,6 +56,8 @@ namespace Engine::Rendering
 		IRenderImage* shadowImage = imageInputs.at("Shadows");
 		m_shadowResolution = shadowImage->GetDimensions();
 		m_depthAttachment = AttachmentInfo(shadowImage, ImageLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
+
+		m_indirectDrawBuffer = bufferInputs.at("ShadowIndirectDraw");
 
 		// If scene manager has not been built or is empty, mark the pass as done so drawing is skipped for this pass.
 		if (!m_sceneGeometryBatch.IsBuilt() || m_sceneGeometryBatch.GetVertexBuffers().empty())
@@ -102,7 +107,7 @@ namespace Engine::Rendering
 			m_depthAttachment->loadOp = AttachmentLoadOp::Clear;
 		}
 
-		uint32_t drawCount = m_sceneGeometryBatch.GetMeshCapacity(); // TODO: Compute counted, after culling, etc.
-		commandBuffer.DrawIndexedIndirect(m_sceneGeometryBatch.GetIndirectDrawBuffer(), 0, drawCount, sizeof(IndexedIndirectCommand));
+		uint32_t maxDrawCount = m_sceneGeometryBatch.GetMeshCapacity();
+		commandBuffer.DrawIndexedIndirectCount(*m_indirectDrawBuffer, sizeof(uint32_t), *m_indirectDrawBuffer, 0, maxDrawCount, sizeof(IndexedIndirectCommand));
 	}
 }

@@ -2,10 +2,11 @@
 #include "OS/Files.hpp"
 #include "Core/Logging/Logger.hpp"
 #include "Core/Utilities.hpp"
-#include <rapidjson/document.h>
+#include <simdjson.h>
 
 using namespace Engine::OS;
 using namespace Engine::Logging;
+using namespace simdjson;
 
 namespace Engine::Rendering
 {
@@ -18,51 +19,66 @@ namespace Engine::Rendering
 	{
 	}
 
-	inline bool TryGetMember(std::string_view name, rapidjson::Value& node, const char* elementName, rapidjson::Value& member)
+	inline bool TryGetMember(std::string_view name, ondemand::object node, std::string_view elementName, ondemand::value& result)
 	{
-		if (!node.HasMember(elementName))
+		if (node[elementName].get(result) != simdjson::SUCCESS)
 		{
 			Logger::Error("Material '{}' is missing required element '{}'.", name, elementName);
 			return false;
 		}
 
-		member = node[elementName];
 		return true;
 	}
 
-	inline bool TryGetBool(std::string_view name, rapidjson::Value& node, const char* elementName, bool& value)
+	inline bool TryGetArray(std::string_view name, ondemand::object node, std::string_view elementName, ondemand::array& value)
 	{
-		rapidjson::Value member;
+		ondemand::value member;
 		if (!TryGetMember(name, node, elementName, member))
 			return false;
 
-		if (!member.IsBool())
+		if (member.type() != ondemand::json_type::array)
+		{
+			Logger::Error("Material '{}' element '{}' is not an array.", name, elementName);
+			return false;
+		}
+
+		value = member.get_array();
+		return true;
+	}
+
+	inline bool TryGetBool(std::string_view name, ondemand::object node, std::string_view elementName, bool& value)
+	{
+		ondemand::value member;
+		if (!TryGetMember(name, node, elementName, member))
+			return false;
+
+		if (member.type() != ondemand::json_type::boolean)
 		{
 			Logger::Error("Material '{}' element '{}' is not a boolean type.", name, elementName);
 			return false;
 		}
 
-		value = member.GetBool();
+		value = member.get_bool();
 		return true;
 	}
 
-	inline bool TryGetStringValue(std::string_view name, rapidjson::Value& node, const char* elementName, std::string& value)
+	inline bool TryGetStringValue(std::string_view name, ondemand::object node, std::string_view elementName, std::string& value)
 	{
-		rapidjson::Value member;
+		ondemand::value member;
 		if (!TryGetMember(name, node, elementName, member))
 			return false;
 
-		if (!member.IsString())
+		if (member.type() != ondemand::json_type::string)
 		{
 			Logger::Error("Material '{}' element '{}' is not a string type.", name, elementName);
 			return false;
 		}
 
-		value = std::string(member.GetString());
+		value = std::string(member.get_string().value());
 		return true;
 	}
 
-	inline void LogInvalidProgram(std::string_view name, rapidjson::Document& document, const char* elementName)
+	inline void LogInvalidProgram(std::string_view name, ondemand::object node, std::string_view elementName)
 	{
 		Logger::Error("Material '{}' has invalid data type for element: {}", name, elementName);
 	}
@@ -129,41 +145,43 @@ namespace Engine::Rendering
 		return false;
 	}
 
+	inline bool CheckError(std::string_view name, error_code errorCode)
+	{
+		if (errorCode)
+		{
+			Logger::Error("Error occurred parsing material '{}'. Error code: {}", name, static_cast<uint32_t>(errorCode));
+			return false;
+		}
+
+		return true;
+	}
+
 	bool Material::Parse(const std::filesystem::path& path)
 	{
 		m_name = path.stem().string();
 
-		std::vector<char> json;
-		if (!Files::TryReadTextFile(path.string(), json))
-		{
-			Logger::Error("Failed to read material file: {}", path.string().c_str());
+		ondemand::parser parser;
+		padded_string json;
+		if (!CheckError(m_name, padded_string::load(path.string()).get(json)))
 			return false;
-		}
 
-		rapidjson::Document document;
-		document.Parse(json.data());
-		if (document.HasParseError())
-		{
-			rapidjson::ParseErrorCode errorCode = document.GetParseError();
-			Logger::Error("Error occurred parsing material '{}'. Error code: {}", m_name, static_cast<uint32_t>(errorCode));
+		ondemand::document documentNode;
+		if (!CheckError(m_name, parser.iterate(json).get(documentNode)))
 			return false;
-		}
 
-		rapidjson::Value programs;
-		if (!TryGetMember(m_name, document, "Programs", programs))
-		{
-			return false;
-		}
+		auto document = documentNode.get_object().value();
 
-		if (!programs.IsArray())
+		ondemand::array programs;
+		if (!TryGetArray(m_name, document, "Programs", programs))
 		{
-			Logger::Error("Material '{}' has invalid data type for element 'Program'.", m_name);
 			return false;
 		}
 
 		bool isCompute = false;
-		for (auto& program : programs.GetArray())
+		for (auto programNode : programs)
 		{
+			auto program = programNode.get_object().value();
+
 			std::string typeString;
 			if (!TryGetStringValue(m_name, program, "Type", typeString))
 				return false;
@@ -207,27 +225,21 @@ namespace Engine::Rendering
 				return false;
 			}
 
-			rapidjson::Value attachments;
-			if (!TryGetMember(m_name, document, "Attachments", attachments))
+			ondemand::array attachments;
+			if (!TryGetArray(m_name, document, "Attachments", attachments))
 			{
 				return false;
 			}
 
-			if (!attachments.IsArray())
+			for (auto attachment : attachments)
 			{
-				Logger::Error("Material '{}' has invalid data type for element 'Attachments'.", m_name);
-				return false;
-			}
-
-			for (auto& attachment : attachments.GetArray())
-			{
-				if (!attachment.IsString())
+				if (attachment.type() != ondemand::json_type::string)
 				{
 					Logger::Error("Material '{}' has invalid data type for element 'Attachments'.", m_name);
 					return false;
 				}
 
-				std::string attachmentString = std::string(attachment.GetString());
+				std::string attachmentString = std::string(attachment.get_string().value());
 				Format attachmentFormat;
 				if (!TryParseAttachmentFormat(m_name, attachmentString, attachmentFormat))
 					return false;

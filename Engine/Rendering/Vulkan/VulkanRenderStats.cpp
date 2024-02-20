@@ -83,7 +83,7 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	void VulkanRenderStats::Begin(const ICommandBuffer& commandBuffer, const char* passName, bool isCompute)
+	void VulkanRenderStats::Begin(const ICommandBuffer& commandBuffer, std::string_view passName, bool isCompute)
 	{
 		const vk::CommandBuffer& vkCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer).Get();
 
@@ -129,7 +129,7 @@ namespace Engine::Rendering::Vulkan
 
 		for (const auto& renderResource : renderResources)
 		{
-			const char* name = renderResource->GetName();
+			std::string_view name = renderResource->GetName();
 			size_t size = renderResource->GetMemoryUsage();
 			m_memoryStats.ResourceMemoryUsage.emplace(name, size);
 		}

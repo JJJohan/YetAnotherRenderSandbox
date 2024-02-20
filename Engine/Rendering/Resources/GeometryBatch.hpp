@@ -66,7 +66,7 @@ namespace Engine::Rendering
 		bool SetupIndirectDrawBuffer(const ICommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory);
 		bool UploadIndirectDrawBuffer(const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
-			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, IBuffer* buffer, const void* data, size_t dataSize);
+			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, IBuffer* buffer, const void* data, uint32_t drawCount, size_t dataSize);
 
 		bool SetupBoundsBuffer(const ICommandBuffer& commandBuffer, ChunkData* chunkData,
 			std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory);

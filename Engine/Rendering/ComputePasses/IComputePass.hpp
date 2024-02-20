@@ -22,7 +22,7 @@ namespace Engine::Rendering
 
 		inline bool Initialise(const IMaterialManager& materialManager)
 		{
-			if (m_materialName != nullptr && !materialManager.TryGetMaterial(m_materialName, &m_material))
+			if (m_materialName != "" && !materialManager.TryGetMaterial(m_materialName, &m_material))
 			{
 				Engine::Logging::Logger::Error("Failed to find material '{}' for compute pass '{}'.", m_materialName, GetName());
 				return false;
@@ -32,8 +32,10 @@ namespace Engine::Rendering
 		}
 
 		virtual bool Build(const Renderer& renderer,
-			const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-			const std::unordered_map<const char*, IRenderImage*>& imageOutputs) = 0;
+			const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+			const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
+			const std::unordered_map<std::string, IBuffer*>& bufferInputs,
+			const std::unordered_map<std::string, IBuffer*>& bufferOutputs) = 0;
 
 		virtual void Dispatch(const Renderer& renderer, const ICommandBuffer& commandBuffer, 
 			uint32_t frameIndex) = 0;
@@ -43,7 +45,7 @@ namespace Engine::Rendering
 		inline Material* GetMaterial() const { return m_material; }
 
 	protected:
-		IComputePass(const char* name, const char* materialName)
+		IComputePass(std::string_view name, std::string_view materialName)
 			: IRenderNode(name, RenderNodeType::Compute)
 			, m_material(nullptr)
 			, m_materialName(materialName)
@@ -53,6 +55,6 @@ namespace Engine::Rendering
 		Material* m_material;
 
 	private:
-		const char* m_materialName;
+		std::string m_materialName;
 	};
 }

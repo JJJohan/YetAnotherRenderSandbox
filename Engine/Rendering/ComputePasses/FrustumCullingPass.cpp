@@ -1,6 +1,7 @@
 #include "FrustumCullingPass.hpp"
 #include "DepthReductionPass.hpp"
 #include "../Resources/IBuffer.hpp"
+#include "../RenderResources/ShadowMap.hpp"
 #include "../IResourceFactory.hpp"
 #include "../IDevice.hpp"
 #include "../Resources/ICommandBuffer.hpp"
@@ -19,10 +20,13 @@ namespace Engine::Rendering
 		, m_mode(CullingMode::FrustumAndOcclusion)
 		, m_drawCullData()
 		, m_occlusionImage(nullptr)
+		, m_indirectBuffer(nullptr)
+		, m_shadowIndirectBuffer(nullptr)
 	{
 		m_bufferOutputs =
 		{
-			{"IndirectDraw", nullptr}
+			{ "IndirectDraw", nullptr },
+			{ "ShadowIndirectDraw", nullptr }
 		};
 	}
 
@@ -37,13 +41,23 @@ namespace Engine::Rendering
 	}
 
 	bool FrustumCullingPass::Build(const Renderer& renderer,
-		const std::unordered_map<const char*, IRenderImage*>& imageInputs,
-		const std::unordered_map<const char*, IRenderImage*>& imageOutputs)
+		const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+		const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
+		const std::unordered_map<std::string, IBuffer*>& bufferInputs,
+		const std::unordered_map<std::string, IBuffer*>& bufferOutputs)
 	{
 		m_built = false;
-		ClearResources();
-
 		return true;
+	}
+
+	void FrustumCullingPass::ClearResources()
+	{
+		ClearResources();
+		m_indirectBuffer.reset();
+		m_shadowIndirectBuffer.reset();
+		m_bufferOutputs["IndirectDraw"] = nullptr;
+		m_bufferOutputs["ShadowIndirectDraw"] = nullptr;
+		IComputePass::ClearResources();
 	}
 
 	bool FrustumCullingPass::FrustumPassBuild(const Renderer& renderer, IRenderImage* occlusionImage)
@@ -58,23 +72,70 @@ namespace Engine::Rendering
 
 		const Camera& camera = renderer.GetCameraReadOnly();
 
-		m_drawCullData.meshCount = m_sceneGeometryBatch.GetMeshCapacity();
+		uint32_t meshCount = m_sceneGeometryBatch.GetMeshCapacity();
 		m_drawCullData.znear = camera.GetNearFar().x;
 		m_drawCullData.zfar = camera.GetNearFar().y;
 		m_drawCullData.pyramidWidth = static_cast<float>(m_occlusionImage->GetDimensions().x);
 		m_drawCullData.pyramidHeight = static_cast<float>(m_occlusionImage->GetDimensions().y);
 
-		m_dispatchSize = (m_drawCullData.meshCount / 64) + 1;
+		m_dispatchSize = (meshCount / 64) + 1;
 
 		const std::vector<std::unique_ptr<IBuffer>>& frameInfoBuffers = renderer.GetFrameInfoBuffers();
 
 		if (!m_material->BindUniformBuffers(0, frameInfoBuffers) ||
 			!m_material->BindStorageBuffer(1, boundsBuffer) ||
 			!m_material->BindStorageBuffer(2, indirectDrawBuffer) ||
-			!m_material->BindCombinedImageSampler(3, renderer.GetReductionSampler(), occlusionImage->GetView(), ImageLayout::ShaderReadOnly))
+			!m_material->BindStorageBuffer(3, m_indirectBuffer) ||
+			!m_material->BindStorageBuffer(4, m_shadowIndirectBuffer) ||
+			!m_material->BindCombinedImageSampler(5, renderer.GetReductionSampler(), occlusionImage->GetView(), ImageLayout::ShaderReadOnly))
 			return false;
 
 		m_built = true;
+		return true;
+	}
+
+	bool FrustumCullingPass::BuildResources(const Renderer& renderer)
+	{
+		if (!BuildBuffers(renderer, m_sceneGeometryBatch.GetMeshCapacity()))
+		{
+			return false;
+		}
+
+		m_bufferOutputs["IndirectDraw"] = m_indirectBuffer.get();
+		m_bufferOutputs["ShadowIndirectDraw"] = m_shadowIndirectBuffer.get();
+		return true;
+	}
+
+	bool FrustumCullingPass::CreateIndirectBuffer(const IResourceFactory& resourceFactory, uint32_t meshCount, std::unique_ptr<IBuffer>& outBuffer)
+	{
+		outBuffer = resourceFactory.CreateBuffer();
+
+		if (!outBuffer->Initialise(sizeof(uint32_t) + meshCount * sizeof(IndexedIndirectCommand), BufferUsageFlags::IndirectBuffer | BufferUsageFlags::StorageBuffer,
+			MemoryUsage::GPUOnly, AllocationCreateFlags::None, SharingMode::Exclusive))
+		{
+			Logger::Error("Failed to initialise indirect buffer.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool FrustumCullingPass::BuildBuffers(const Renderer& renderer, uint32_t meshCount)
+	{
+		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();
+
+		if (!CreateIndirectBuffer(resourceFactory, meshCount, m_indirectBuffer))
+		{
+			return false;
+		}
+
+		// Create one single buffer with the capacity to hold each cascade.
+		uint32_t cascadeCount = renderer.GetShadowMap().GetCascadeCount();
+		if (!CreateIndirectBuffer(resourceFactory, meshCount * cascadeCount, m_shadowIndirectBuffer))
+		{
+			return false;
+		}
+
 		return true;
 	}
 
@@ -101,10 +162,6 @@ namespace Engine::Rendering
 			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly,
 			MaterialAccessFlags::ShaderRead);
 
-		// Handle case of geometry batch buffers being updated.
-		commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::TransferWrite,
-						MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderRead);
-
 		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
 
 		const Camera& camera = renderer.GetCameraReadOnly();
@@ -120,8 +177,17 @@ namespace Engine::Rendering
 		m_drawCullData.frustum.z = frustumY.y;
 		m_drawCullData.frustum.w = frustumY.z;
 		m_drawCullData.enableOcclusion = firstDraw ? 0 : 1;
-		commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(DrawCullData), reinterpret_cast<uint32_t*>(&m_drawCullData));
 
+		// First we dispatch a single thread to reset the atomic counters used for the visible indirect draw command count.
+		// If more counters begin to be used, a uniform buffer with counters reset once at the start of the frame might be a better solution.
+		m_drawCullData.resetCounter = 1;
+		commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(DrawCullData), reinterpret_cast<uint32_t*>(&m_drawCullData));
+		commandBuffer.Dispatch(1, 1, 1);
+
+		commandBuffer.MemoryBarrier(MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderWrite, MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderRead);
+
+		m_drawCullData.resetCounter = 0;
+		commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(DrawCullData), reinterpret_cast<uint32_t*>(&m_drawCullData));
 		commandBuffer.Dispatch(m_dispatchSize, 1, 1);
 	}
 }
