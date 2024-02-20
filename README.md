@@ -7,11 +7,12 @@ The project uses CMake as the build system - Currently only Windows is supported
 The current focus is on building up a fairly solid foundation, with graphical fidelity not being the immediate goal which will result in some sub-par output. Currently a hard-coded directional light spins around an arbitrary GLTF file (with the assumption it contains PBR data.)
 
 ## Current features:
-* Render graph system that manages render dependencies between render passes as well as sharing buffer and texture resources.
-* Integration with [ImGui}(https://github.com/ocornut/imgui) UI system.
+* Render graph system that manages dependencies between render passes and management of shared buffer and texture resources.
+* Integration with [ImGui](https://github.com/ocornut/imgui) UI system.
 * Asset import pipeline to convert GLTF data to BC5 & BC7 textures & optimised mesh data.
 * Temporal anti-aliasing with minimal ghosting.
-* Asset cache system to store imported assets in ready-to-consume GPU buffer data, currently LZ4 compressed on disk.
+* Cache system for rapid asset loading after initial processing, currently LZ4 compressed on disk.
+* Fairly simple cascaded shadow mapping - Uses depth clamp to avoid noticeable artifacts, though there's currently no cascade blending.
 * HDR display output support.
 * GPU-based frustum culling.
 * Hi-Z GPU-based occlusion culling.
