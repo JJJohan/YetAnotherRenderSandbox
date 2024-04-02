@@ -125,7 +125,7 @@ bool is_not_occluded(in vec3 center, float radius)
 void main()
 {
 	// Is this inefficient?
-	if (cullData.resetCounter == 1)
+	if (cullData.resetCounter == 1 && cullingMode != 0)
 	{
 		outIndirectBuffer.count = 0;
 		shadowIndirectBuffer.count = 0;

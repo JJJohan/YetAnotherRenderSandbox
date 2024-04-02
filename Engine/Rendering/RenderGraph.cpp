@@ -215,23 +215,9 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	struct ImageInfo
-	{
-		bool Read;
-		bool Write;
-		IRenderImage& Image;
-
-		ImageInfo(IRenderImage& image)
-			: Image(image)
-			, Read(false)
-			, Write(false)
-		{
-		}
-	};
-
-	inline bool TryGetOrAddImage(const Renderer& renderer, std::unordered_map<Format, std::vector<ImageInfo>>& formatRenderTextureLookup,
+	inline bool RenderGraph::TryGetOrAddImage(const Renderer& renderer, std::unordered_map<Format, std::vector<ImageInfo>>& formatRenderTextureLookup,
 		std::vector<std::unique_ptr<IRenderImage>>& renderTextures, std::unordered_map<IRenderImage*, uint32_t>& imageInfoLookup,
-		Format format, bool read, bool write, const glm::uvec3& dimensions, IRenderImage** result)
+		Format format, bool read, bool write, const glm::uvec3& dimensions, IRenderImage** result) const
 	{
 		if (format == Format::PlaceholderDepth || format == Format::PlaceholderSwapchain)
 		{
@@ -310,62 +296,10 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool RenderGraph::Build(const Renderer& renderer)
+	bool RenderGraph::DetermineRequiredResources(std::vector<IRenderNode*>& renderNodeStack,
+		std::unordered_map<std::string, RenderGraphNode*>& availableImageSources,
+		std::unordered_map<std::string, RenderGraphNode*>& availableBufferSources)
 	{
-		const IDevice& device = renderer.GetDevice();
-		uint32_t concurrentFrameCount = renderer.GetConcurrentFrameCount();
-
-		std::unordered_map<std::string, RenderGraphNode&> renderGraphNodeLookup;
-		std::unordered_map<Format, std::vector<ImageInfo>> formatRenderTextureLookup;
-		std::unordered_map<IRenderImage*, uint32_t> imageInfoLookup;
-		m_renderTextures.clear();
-		m_renderGraph.clear();
-		m_renderCommandBuffers.clear();
-		m_computeCommandBuffers.clear();
-		m_renderTextures.clear();
-
-		std::unordered_map<std::string, RenderGraphNode*> availableBufferSources{};
-		std::unordered_map<std::string, RenderGraphNode*> availableImageSources{};
-
-		const IPhysicalDevice& physicalDevice = renderer.GetPhysicalDevice();
-		Format depthFormat = physicalDevice.GetDepthFormat();
-		const ISwapChain& swapchain = renderer.GetSwapChain();
-		glm::uvec3 defaultExtents = glm::uvec3(swapchain.GetExtent(), 1);
-		Format swapchainFormat = swapchain.GetFormat();
-
-		auto nodeLookupKeys = std::views::keys(m_renderNodeLookup);
-		std::vector<std::string_view> passNames{ nodeLookupKeys.begin(), nodeLookupKeys.end() };
-
-		std::vector<IRenderNode*> renderNodeStack;
-		for (auto& renderResource : m_renderResources)
-		{
-			renderResource->UpdateConnections(renderer, passNames);
-			renderNodeStack.push_back(renderResource);
-		}
-
-		uint32_t enabledPasses = 0;
-		renderNodeStack.reserve(m_renderPasses.size() + m_computePasses.size());
-		for (const auto& pass : m_computePasses)
-		{
-			if (pass->GetEnabled())
-			{
-				pass->UpdateConnections(renderer, passNames);
-				renderNodeStack.emplace_back(pass);
-				++enabledPasses;
-			}
-		}
-		for (const auto& pass : m_renderPasses)
-		{
-			if (pass->GetEnabled())
-			{
-				pass->UpdateConnections(renderer, passNames);
-				pass->UpdatePlaceholderFormats(swapchainFormat, depthFormat);
-
-				renderNodeStack.emplace_back(pass);
-				++enabledPasses;
-			}
-		}
-
 		while (!renderNodeStack.empty())
 		{
 			std::vector<RenderGraphNode>& stage = m_renderGraph.emplace_back(std::vector<RenderGraphNode>());
@@ -464,6 +398,13 @@ namespace Engine::Rendering
 			return false;
 		}
 
+		return true;
+	}
+
+	bool RenderGraph::ReserveRenderTexturesForPasses(const Renderer& renderer, const glm::uvec3& defaultExtents,
+		std::unordered_map<Format, std::vector<ImageInfo>>& formatRenderTextureLookup,
+		std::unordered_map<IRenderImage*, uint32_t>& imageInfoLookup)
+	{
 		// Reserve render textures for the passes.
 		for (auto& stage : m_renderGraph)
 		{
@@ -580,6 +521,13 @@ namespace Engine::Rendering
 			}
 		}
 
+		return true;
+	}
+
+	bool RenderGraph::BuildPasses(const Renderer& renderer, const IDevice& device)
+	{
+		uint32_t concurrentFrameCount = renderer.GetConcurrentFrameCount();
+
 		// Build the actual passes.
 		for (const auto& stage : m_renderGraph)
 		{
@@ -622,6 +570,11 @@ namespace Engine::Rendering
 			}
 		}
 
+		return true;
+	}
+
+	bool RenderGraph::FindFinalNode()
+	{
 		// Find the last usage of the 'Output' image and mark it as the final render pass.
 		m_finalNode = nullptr;
 		for (auto it = m_renderGraph.rbegin(); it != m_renderGraph.rend(); ++it)
@@ -651,13 +604,212 @@ namespace Engine::Rendering
 			return false;
 		}
 
+		return true;
+	}
+
+	bool RenderGraph::Build(const Renderer& renderer)
+	{
+		const IDevice& device = renderer.GetDevice();
+
+		std::unordered_map<std::string, RenderGraphNode&> renderGraphNodeLookup;
+		std::unordered_map<Format, std::vector<ImageInfo>> formatRenderTextureLookup;
+		std::unordered_map<IRenderImage*, uint32_t> imageInfoLookup;
+		m_renderTextures.clear();
+		m_renderGraph.clear();
+		m_renderCommandBuffers.clear();
+		m_computeCommandBuffers.clear();
+		m_renderTextures.clear();
+
+		std::unordered_map<std::string, RenderGraphNode*> availableBufferSources{};
+		std::unordered_map<std::string, RenderGraphNode*> availableImageSources{};
+
+		const IPhysicalDevice& physicalDevice = renderer.GetPhysicalDevice();
+		Format depthFormat = physicalDevice.GetDepthFormat();
+		const ISwapChain& swapchain = renderer.GetSwapChain();
+		glm::uvec3 defaultExtents = glm::uvec3(swapchain.GetExtent(), 1);
+		Format swapchainFormat = swapchain.GetFormat();
+
+		auto nodeLookupKeys = std::views::keys(m_renderNodeLookup);
+		std::vector<std::string_view> passNames{ nodeLookupKeys.begin(), nodeLookupKeys.end() };
+
+		std::vector<IRenderNode*> renderNodeStack;
+		for (auto& renderResource : m_renderResources)
+		{
+			renderResource->UpdateConnections(renderer, passNames);
+			renderNodeStack.push_back(renderResource);
+		}
+
+		uint32_t enabledPasses = 0;
+		renderNodeStack.reserve(m_renderPasses.size() + m_computePasses.size());
+		for (const auto& pass : m_computePasses)
+		{
+			if (pass->GetEnabled())
+			{
+				pass->UpdateConnections(renderer, passNames);
+				renderNodeStack.emplace_back(pass);
+				++enabledPasses;
+			}
+		}
+		for (const auto& pass : m_renderPasses)
+		{
+			if (pass->GetEnabled())
+			{
+				pass->UpdateConnections(renderer, passNames);
+				pass->UpdatePlaceholderFormats(swapchainFormat, depthFormat);
+
+				renderNodeStack.emplace_back(pass);
+				++enabledPasses;
+			}
+		}
+
+		if (!DetermineRequiredResources(renderNodeStack, availableImageSources, availableBufferSources))
+			return false;
+
+		if (!ReserveRenderTexturesForPasses(renderer, defaultExtents, formatRenderTextureLookup, imageInfoLookup))
+			return false;
+
+		if (!BuildPasses(renderer, device))
+			return false;
+
+		if (!FindFinalNode())
+			return false;
+
 		if (!m_renderStats.Initialise(renderer.GetPhysicalDevice(), device, enabledPasses))
+			return false;
+
+		m_dirty = false;
+		return true;
+	}
+
+	bool RenderGraph::DrawRenderPass(const IDevice& device, const RenderGraphNode& node, uint32_t frameIndex,
+		const glm::uvec2& size, SubmitInfo& renderSubmitInfo, bool& stageHasRenderPasses) const
+	{
+		IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
+		const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_renderCommandBuffers.at(pass);
+
+		const ICommandBuffer& commandBuffer = *passCommandBuffers[frameIndex];
+		commandBuffer.Reset();
+
+		if (!commandBuffer.Begin())
 		{
 			return false;
 		}
 
-		m_dirty = false;
+		m_renderStats.Begin(commandBuffer, pass->GetName(), false);
+
+		for (const auto& imageInput : node.InputImages)
+		{
+			imageInput.second->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
+		}
+
+		const std::vector<AttachmentInfo>& colourAttachments = pass->GetColourAttachments();
+		for (const auto& colourAttachment : colourAttachments)
+		{
+			colourAttachment.renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::ColorAttachment);
+		}
+
+		const std::optional<AttachmentInfo>& depthAttachment = pass->GetDepthAttachment();
+
+		if (depthAttachment.has_value())
+		{
+			depthAttachment->renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::DepthStencilAttachment);
+		}
+
+		glm::uvec2 passSize = size;
+		pass->GetCustomSize(passSize);
+
+		pass->PreDraw(device, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
+
+		uint32_t layerCount = pass->GetLayerCount();
+		for (uint32_t layerIndex = 0; layerIndex < layerCount; ++layerIndex)
+		{
+			commandBuffer.BeginRendering(colourAttachments, depthAttachment, passSize, layerCount);
+
+			pass->Draw(device, commandBuffer, passSize, frameIndex, layerIndex);
+
+			commandBuffer.EndRendering();
+		}
+
+		pass->PostDraw(device, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
+
+		m_renderStats.End(commandBuffer, false);
+		stageHasRenderPasses = true;
+
+		commandBuffer.End();
+
+		renderSubmitInfo.CommandBuffers.emplace_back(&commandBuffer);
+
 		return true;
+	}
+
+	bool RenderGraph::DispatchComputePass(Renderer& renderer, const RenderGraphNode& node, uint32_t frameIndex,
+		SubmitInfo& computeSubmitInfo, bool& stageHasComputePasses) const
+	{
+		IComputePass* pass = static_cast<IComputePass*>(node.Node);
+		const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_computeCommandBuffers.at(pass);
+
+		const ICommandBuffer& commandBuffer = *passCommandBuffers[frameIndex];
+		commandBuffer.Reset();
+
+		if (!commandBuffer.Begin())
+		{
+			return false;
+		}
+
+		m_renderStats.Begin(commandBuffer, pass->GetName(), true);
+
+		pass->Dispatch(renderer, commandBuffer, frameIndex);
+
+		m_renderStats.End(commandBuffer, true);
+		stageHasComputePasses = true;
+
+		commandBuffer.End();
+
+		computeSubmitInfo.CommandBuffers.emplace_back(&commandBuffer);
+
+		return true;
+	}
+
+	bool RenderGraph::BlitToSwapchain(Renderer& renderer, const IDevice& device, uint32_t frameIndex,
+		std::vector<SubmitInfo>& renderSubmitInfos, std::vector<SubmitInfo>& computeSubmitInfos) const
+	{
+		m_blitCommandBuffers[frameIndex]->Reset();
+		if (!m_blitCommandBuffers[frameIndex]->Begin())
+		{
+			return false;
+		}
+
+		IRenderImage* finalImage = m_finalNode->OutputImages.at("Output");
+
+		const glm::uvec3& extents = finalImage->GetDimensions();
+		const glm::uvec3 offset(extents.x, extents.y, extents.z);
+
+		ImageBlit blit;
+		blit.srcSubresource = ImageSubresourceLayers(ImageAspectFlags::Color, 0, 0, 1);
+		blit.srcOffsets = std::array<glm::uvec3, 2> { glm::uvec3(), offset };
+		blit.dstSubresource = ImageSubresourceLayers(ImageAspectFlags::Color, 0, 0, 1);
+		blit.dstOffsets = std::array<glm::uvec3, 2> { glm::uvec3(), offset };
+
+		IRenderImage& presentImage = renderer.GetPresentImage();
+		finalImage->TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::TransferSrc);
+		presentImage.TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::TransferDst);
+		m_blitCommandBuffers[frameIndex]->BlitImage(*finalImage, presentImage, { blit }, Filter::Linear);
+		presentImage.TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::PresentSrc);
+
+		m_blitCommandBuffers[frameIndex]->End();
+
+		++m_renderSemaphore->Value;
+		SubmitInfo& blitSubmitInfo = renderSubmitInfos.emplace_back();
+		blitSubmitInfo.CommandBuffers.emplace_back(m_blitCommandBuffers[frameIndex].get());
+		blitSubmitInfo.WaitSemaphores.emplace_back(m_renderSemaphore.get());
+		blitSubmitInfo.WaitValues.emplace_back(m_renderSemaphore->Value - 1);
+		blitSubmitInfo.Stages.emplace_back(MaterialStageFlags::Transfer);
+		blitSubmitInfo.SignalSemaphores.emplace_back(m_renderSemaphore.get());
+		blitSubmitInfo.SignalValues.emplace_back(m_renderSemaphore->Value);
+
+		m_renderStats.FinaliseResults(renderer.GetPhysicalDevice(), device, m_renderResources);
+
+		return renderer.Present(renderSubmitInfos, computeSubmitInfos);
 	}
 
 	bool RenderGraph::Draw(Renderer& renderer, uint32_t frameIndex) const
@@ -680,84 +832,13 @@ namespace Engine::Rendering
 			{
 				if (node.Type == RenderNodeType::Pass)
 				{
-					IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
-					const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_renderCommandBuffers.at(pass);
-
-					const ICommandBuffer& commandBuffer = *passCommandBuffers[frameIndex];
-					commandBuffer.Reset();
-
-					if (!commandBuffer.Begin())
-					{
+					if (!DrawRenderPass(device, node, frameIndex, size, renderSubmitInfo, stageHasRenderPasses))
 						return false;
-					}
-
-					m_renderStats.Begin(commandBuffer, pass->GetName(), false);
-
-					for (const auto& imageInput : node.InputImages)
-					{
-						imageInput.second->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
-					}
-
-					const std::vector<AttachmentInfo>& colourAttachments = pass->GetColourAttachments();
-					for (const auto& colourAttachment : colourAttachments)
-					{
-						colourAttachment.renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::ColorAttachment);
-					}
-
-					const std::optional<AttachmentInfo>& depthAttachment = pass->GetDepthAttachment();
-
-					if (depthAttachment.has_value())
-					{
-						depthAttachment->renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::DepthStencilAttachment);
-					}
-
-					glm::uvec2 passSize = size;
-					pass->GetCustomSize(passSize);
-
-					pass->PreDraw(device, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
-
-					uint32_t layerCount = pass->GetLayerCount();
-					for (uint32_t layerIndex = 0; layerIndex < layerCount; ++layerIndex)
-					{
-						commandBuffer.BeginRendering(colourAttachments, depthAttachment, passSize, layerCount);
-
-						pass->Draw(device, commandBuffer, passSize, frameIndex, layerIndex);
-
-						commandBuffer.EndRendering();
-					}
-
-					pass->PostDraw(device, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
-
-					m_renderStats.End(commandBuffer, false);
-					stageHasRenderPasses = true;
-
-					commandBuffer.End();
-
-					renderSubmitInfo.CommandBuffers.emplace_back(&commandBuffer);
 				}
 				else if (node.Type == RenderNodeType::Compute)
 				{
-					IComputePass* pass = static_cast<IComputePass*>(node.Node);
-					const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_computeCommandBuffers.at(pass);
-
-					const ICommandBuffer& commandBuffer = *passCommandBuffers[frameIndex];
-					commandBuffer.Reset();
-
-					if (!commandBuffer.Begin())
-					{
+					if (!DispatchComputePass(renderer, node, frameIndex, computeSubmitInfo, stageHasComputePasses))
 						return false;
-					}
-
-					m_renderStats.Begin(commandBuffer, pass->GetName(), true);
-
-					pass->Dispatch(renderer, commandBuffer, frameIndex);
-
-					m_renderStats.End(commandBuffer, true);
-					stageHasComputePasses = true;
-
-					commandBuffer.End();
-
-					computeSubmitInfo.CommandBuffers.emplace_back(&commandBuffer);
 				}
 			}
 
@@ -804,44 +885,6 @@ namespace Engine::Rendering
 			}
 		}
 
-		// Blit to swapchain image.
-
-		m_blitCommandBuffers[frameIndex]->Reset();
-		if (!m_blitCommandBuffers[frameIndex]->Begin())
-		{
-			return false;
-		}
-
-		IRenderImage* finalImage = m_finalNode->OutputImages.at("Output");
-
-		const glm::uvec3& extents = finalImage->GetDimensions();
-		const glm::uvec3 offset(extents.x, extents.y, extents.z);
-
-		ImageBlit blit;
-		blit.srcSubresource = ImageSubresourceLayers(ImageAspectFlags::Color, 0, 0, 1);
-		blit.srcOffsets = std::array<glm::uvec3, 2> { glm::uvec3(), offset };
-		blit.dstSubresource = ImageSubresourceLayers(ImageAspectFlags::Color, 0, 0, 1);
-		blit.dstOffsets = std::array<glm::uvec3, 2> { glm::uvec3(), offset };
-
-		IRenderImage& presentImage = renderer.GetPresentImage();
-		finalImage->TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::TransferSrc);
-		presentImage.TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::TransferDst);
-		m_blitCommandBuffers[frameIndex]->BlitImage(*finalImage, presentImage, { blit }, Filter::Linear);
-		presentImage.TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::PresentSrc);
-
-		m_blitCommandBuffers[frameIndex]->End();
-
-		++m_renderSemaphore->Value;
-		SubmitInfo& blitSubmitInfo = renderSubmitInfos.emplace_back();
-		blitSubmitInfo.CommandBuffers.emplace_back(m_blitCommandBuffers[frameIndex].get());
-		blitSubmitInfo.WaitSemaphores.emplace_back(m_renderSemaphore.get());
-		blitSubmitInfo.WaitValues.emplace_back(m_renderSemaphore->Value - 1);
-		blitSubmitInfo.Stages.emplace_back(MaterialStageFlags::Transfer);
-		blitSubmitInfo.SignalSemaphores.emplace_back(m_renderSemaphore.get());
-		blitSubmitInfo.SignalValues.emplace_back(m_renderSemaphore->Value);
-
-		m_renderStats.FinaliseResults(renderer.GetPhysicalDevice(), device, m_renderResources);
-
-		return renderer.Present(renderSubmitInfos, computeSubmitInfos);
+		return BlitToSwapchain(renderer, device, frameIndex, renderSubmitInfos, computeSubmitInfos);
 	}
 }

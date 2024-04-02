@@ -7,6 +7,7 @@
 #include "RenderPasses/IRenderPass.hpp"
 #include "ComputePasses/IComputePass.hpp"
 #include "RenderResources/IRenderResource.hpp"
+#include "Resources/SubmitInfo.hpp"
 
 namespace Engine::Rendering
 {
@@ -86,6 +87,46 @@ namespace Engine::Rendering
 		}
 
 	private:
+		struct ImageInfo
+		{
+			bool Read;
+			bool Write;
+			IRenderImage& Image;
+
+			ImageInfo(IRenderImage& image)
+				: Image(image)
+				, Read(false)
+				, Write(false)
+			{
+			}
+		};
+
+		inline bool TryGetOrAddImage(const Renderer& renderer, std::unordered_map<Format, std::vector<ImageInfo>>& formatRenderTextureLookup,
+			std::vector<std::unique_ptr<IRenderImage>>& renderTextures, std::unordered_map<IRenderImage*, uint32_t>& imageInfoLookup,
+			Format format, bool read, bool write, const glm::uvec3& dimensions, IRenderImage** result) const;
+
+		bool DetermineRequiredResources(std::vector<IRenderNode*>& renderNodeStack,
+			std::unordered_map<std::string, RenderGraphNode*>& availableImageSources,
+			std::unordered_map<std::string, RenderGraphNode*>& availableBufferSources);
+
+		bool ReserveRenderTexturesForPasses(const Renderer& renderer, const glm::uvec3& defaultExtents,
+			std::unordered_map<Format, std::vector<ImageInfo>>& formatRenderTextureLookup,
+			std::unordered_map<IRenderImage*, uint32_t>& imageInfoLookup);
+
+		bool BuildPasses(const Renderer& renderer, const IDevice& device);
+
+		bool FindFinalNode();
+
+		bool DrawRenderPass(const IDevice& device, const RenderGraphNode& node,
+			uint32_t frameIndex, const glm::uvec2& size,
+			SubmitInfo& renderSubmitInfo, bool& stageHasRenderPasses) const;
+
+		bool DispatchComputePass(Renderer& renderer, const RenderGraphNode& node, uint32_t frameIndex,
+			SubmitInfo& computeSubmitInfo, bool& stageHasComputePasses) const;
+
+		bool BlitToSwapchain(Renderer& renderer, const IDevice& device, uint32_t frameIndex,
+			std::vector<SubmitInfo>& renderSubmitInfos, std::vector<SubmitInfo>& computeSubmitInfos) const;
+
 		bool m_dirty;
 		const RenderGraphNode* m_finalNode;
 		RenderStats& m_renderStats;
