@@ -141,7 +141,11 @@ namespace Engine::Rendering
 		m_drawCullData.frustum.w = frustumY.z;
 
 		commandBuffer.FillBuffer(*m_shadowIndirectBuffer, 0, sizeof(uint32_t), 0);
+		commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::TransferWrite,
+			MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderRead | MaterialAccessFlags::ShaderWrite);
 		commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(DrawCullData), reinterpret_cast<uint32_t*>(&m_drawCullData));
 		commandBuffer.Dispatch(m_dispatchSize, 1, 1);
+		commandBuffer.MemoryBarrier(MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderWrite,
+			MaterialStageFlags::DrawIndirect, MaterialAccessFlags::IndirectCommandRead);
 	}
 }

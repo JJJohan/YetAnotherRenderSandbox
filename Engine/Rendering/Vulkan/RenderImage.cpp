@@ -204,7 +204,7 @@ namespace Engine::Rendering::Vulkan
 		return HasStencilComponent(format) || format == Format::D32Sfloat;
 	}
 
-	inline bool SetFlags(const ImageLayout& imageLayout, vk::AccessFlags2& accessMask, vk::PipelineStageFlags2& stage)
+	inline bool SetFlags(const ImageLayout& imageLayout, vk::AccessFlags2& accessMask, vk::PipelineStageFlags2& stage, bool input)
 	{
 		switch (imageLayout)
 		{
@@ -225,7 +225,7 @@ namespace Engine::Rendering::Vulkan
 			stage = vk::PipelineStageFlagBits2::eFragmentShader;
 			return true;
 		case ImageLayout::ColorAttachment:
-			accessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
+			accessMask = input ? vk::AccessFlagBits2::eColorAttachmentWrite : vk::AccessFlagBits2::eColorAttachmentRead | vk::AccessFlagBits2::eColorAttachmentWrite;
 			stage = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
 			return true;
 		case ImageLayout::DepthStencilAttachment:
@@ -286,13 +286,13 @@ namespace Engine::Rendering::Vulkan
 		vk::PipelineStageFlags2 srcStage;
 		vk::PipelineStageFlags2 dstStage;
 
-		if (!SetFlags(m_layout, srcAccessMask, srcStage))
+		if (!SetFlags(m_layout, srcAccessMask, srcStage, true))
 		{
 			Logger::Error("Source image layout not handled.");
 			return;
 		}
 
-		if (!SetFlags(newLayout, dstAccessMask, dstStage))
+		if (!SetFlags(newLayout, dstAccessMask, dstStage, false))
 		{
 			Logger::Error("Destination image layout not handled.");
 			return;
@@ -327,7 +327,7 @@ namespace Engine::Rendering::Vulkan
 	}
 
 	void RenderImage::TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
-		MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags, 
+		MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
 		uint32_t baseMipLevel, uint32_t mipLevelCount)
 	{
 		if (!LayoutSupported(m_usageFlags, newLayout))
@@ -341,7 +341,7 @@ namespace Engine::Rendering::Vulkan
 		vk::PipelineStageFlags2 srcStage;
 		vk::PipelineStageFlags2 dstStage = static_cast<vk::PipelineStageFlagBits2>(newStageFlags);
 
-		if (!SetFlags(m_layout, srcAccessMask, srcStage))
+		if (!SetFlags(m_layout, srcAccessMask, srcStage, true))
 		{
 			Logger::Error("Source image layout not handled.");
 			return;
