@@ -11,7 +11,7 @@ namespace Engine::Rendering::Vulkan
 	public:
 		Buffer(VmaAllocator allocator);
 		~Buffer();
-		virtual bool Initialise(uint64_t size, BufferUsageFlags bufferUsage,
+		virtual bool Initialise(std::string_view name, const IDevice& device, uint64_t size, BufferUsageFlags bufferUsage,
 			MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode) override;
 		virtual bool UpdateContents(const void* data, size_t offset, size_t size) override;
 		virtual uint64_t GetDeviceAddress(const IDevice& device) override;

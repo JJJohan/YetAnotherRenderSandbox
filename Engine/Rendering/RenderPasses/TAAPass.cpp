@@ -26,8 +26,8 @@ namespace Engine::Rendering
 		{
 			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain)}
 		};
-	}	
-	
+	}
+
 	void TAAPass::UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
 	{
 		m_imageInputInfos.at("Output").Format = swapchainFormat;

@@ -28,6 +28,7 @@
 
 #include "ComputePasses/IComputePass.hpp"
 #include "ComputePasses/FrustumCullingPass.hpp"
+#include "ComputePasses/ShadowCullingPass.hpp"
 #include "ComputePasses/DepthReductionPass.hpp"
 
 using namespace Engine::OS;
@@ -116,7 +117,7 @@ namespace Engine::Rendering
 			m_frameInfoBuffers[i] = std::move(m_resourceFactory->CreateBuffer());
 			IBuffer& buffer = *m_frameInfoBuffers[i];
 
-			if (!buffer.Initialise(bufferSize, BufferUsageFlags::UniformBuffer, MemoryUsage::Auto,
+			if (!buffer.Initialise("frameInfoBuffer", GetDevice(), bufferSize, BufferUsageFlags::UniformBuffer, MemoryUsage::Auto,
 				AllocationCreateFlags::HostAccessSequentialWrite | AllocationCreateFlags::Mapped,
 				SharingMode::Exclusive))
 			{
@@ -150,7 +151,7 @@ namespace Engine::Rendering
 			m_lightBuffers[i] = std::move(m_resourceFactory->CreateBuffer());
 			IBuffer& buffer = *m_lightBuffers[i];
 
-			if (!buffer.Initialise(bufferSize, BufferUsageFlags::UniformBuffer, MemoryUsage::Auto,
+			if (!buffer.Initialise("LightData", GetDevice(), bufferSize, BufferUsageFlags::UniformBuffer, MemoryUsage::Auto,
 				AllocationCreateFlags::HostAccessSequentialWrite | AllocationCreateFlags::Mapped,
 				SharingMode::Exclusive))
 			{
@@ -241,6 +242,7 @@ namespace Engine::Rendering
 		m_renderPasses["Combine"] = std::make_unique<CombinePass>(*m_shadowMap);
 
 		m_computePasses["FrustumCulling"] = std::make_unique<FrustumCullingPass>(*m_sceneGeometryBatch);
+		m_computePasses["ShadowCulling"] = std::make_unique<ShadowCullingPass>(*m_sceneGeometryBatch);
 		FrustumCullingPass& frustumCullingPass = reinterpret_cast<FrustumCullingPass&>(*m_computePasses["FrustumCulling"].get());
 		m_computePasses["DepthReduction"] = std::make_unique<DepthReductionPass>(frustumCullingPass);
 
@@ -311,7 +313,9 @@ namespace Engine::Rendering
 	void Renderer::SetCullingMode(CullingMode mode)
 	{
 		const std::unique_ptr<FrustumCullingPass>& frustumCullingPass = reinterpret_cast<const std::unique_ptr<FrustumCullingPass>&>(m_computePasses.at("FrustumCulling"));
+		const std::unique_ptr<ShadowCullingPass>& shadowCullingPass = reinterpret_cast<const std::unique_ptr<ShadowCullingPass>&>(m_computePasses.at("ShadowCulling"));
 		frustumCullingPass->SetCullingMode(mode);
+		shadowCullingPass->SetCullingMode(mode);
 	}
 
 	void Renderer::SetHDRState(bool enable)

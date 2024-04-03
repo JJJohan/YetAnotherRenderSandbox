@@ -73,7 +73,7 @@ namespace Engine::Rendering::Vulkan
 		m_commandBuffer->dispatch(groupCountX, groupCountY, groupCountZ);
 	}
 
-	void CommandBuffer::BlitImage(const IRenderImage& srcImage,	const IRenderImage& dstImage, 
+	void CommandBuffer::BlitImage(const IRenderImage& srcImage, const IRenderImage& dstImage,
 		const std::vector<ImageBlit>& regions, Filter filter) const
 	{
 		const RenderImage& vkSrcImage = static_cast<const RenderImage&>(srcImage);
@@ -151,5 +151,10 @@ namespace Engine::Rendering::Vulkan
 		vk::MemoryBarrier2 barrier(vkSrcStage, vkSrcMask, vkDstStage, vkDstMask);
 		vk::DependencyInfo dependencyInfo(vk::DependencyFlagBits::eByRegion, 1, &barrier);
 		m_commandBuffer->pipelineBarrier2(dependencyInfo);
+	}
+
+	void CommandBuffer::FillBuffer(const IBuffer& buffer, size_t offset, size_t size, uint32_t data) const
+	{
+		m_commandBuffer->fillBuffer(static_cast<const Buffer&>(buffer).Get(), offset, size, data);
 	}
 }

@@ -3,7 +3,7 @@
 
 layout(local_size_x = 256) in;
 
-layout (constant_id = 0) const uint cullingMode = 3; // 0 = paused, 1 = reset, 2 = frustum, 3 = frustum + occlusion
+layout (constant_id = 0) const uint cullingMode = 2; // 0 = paused, 1 = reset, 2 = frustum
 
 layout(binding = 0) uniform FrameInfo
 {
@@ -41,20 +41,17 @@ layout(std430, binding = 2) readonly buffer InIndirectBuffer
 	VkDrawIndexedIndirectCommand commands[];
 } inIndirectBuffer;
 
-layout(std430, binding = 3) writeonly buffer OutIndirectBuffer
+layout(std430, binding = 3) writeonly buffer ShadowIndirectBuffer
 {
 	uint count;
 	VkDrawIndexedIndirectCommand commands[];
-} outIndirectBuffer;
-
-layout(binding = 4) uniform sampler2D occlusionImage;
+} shadowIndirectBuffer;
 
 struct DrawCullData
 {
 	float P00, P11, znear, zfar; // symmetric projection parameters
 	float frustum[4]; // data for left/right/top/bottom frustum planes
 	float pyramidWidth, pyramidHeight; // depth pyramid size in texels
-	uint enableOcclusion; // Skipped for first frame as we need last frame's depth output.
 };
 
 layout(push_constant) uniform constants
@@ -90,31 +87,6 @@ bool is_in_frustum(in vec3 center, float radius)
 	return visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
 }
 
-bool is_not_occluded(in vec3 center, float radius)
-{
-	//flip Y because we access depth texture that way
-	center.y *= -1;
-
-	//project the cull sphere into screenspace coordinates
-	vec4 aabb;
-	if (projectSphere(center, radius, cullData.znear, cullData.P00, cullData.P11, aabb))
-	{
-		float width = (aabb.z - aabb.x) * cullData.pyramidWidth;
-		float height = (aabb.w - aabb.y) * cullData.pyramidHeight;
-		float level = floor(log2(max(width, height)));
-		
-		// Convert depth sample to eye depth for comparing against nearest view-space sphere distance.
-		float depth = textureLod(occlusionImage, (aabb.xy + aabb.zw) * 0.5, level).x;
-		float ndcDepth = 2.0 * depth - 1.0;
-		float eyeDepth = 2.0 * cullData.znear * cullData.zfar / (cullData.zfar + cullData.znear - ndcDepth * (cullData.zfar - cullData.znear));
-
-		float depthSphere = center.z - radius;
-		return depthSphere < eyeDepth;
-	}
-
-	return false;
-}
-
 void main()
 {
 	uint id = gl_GlobalInvocationID.x;
@@ -132,16 +104,12 @@ void main()
 		float radius = boundsBuffer.bounds[id].radius;
 
 		visible = is_in_frustum(centerVS, radius);
-		if (cullingMode == 3 && visible && cullData.enableOcclusion != 0)
-		{
-			visible = is_not_occluded(centerVS, radius);
-		}
 	}
 
 	if (visible)
 	{
-		uint idx = atomicAdd(outIndirectBuffer.count, 1);
-		outIndirectBuffer.commands[idx] = inIndirectBuffer.commands[id];
-		outIndirectBuffer.commands[idx].firstInstance = id;
+		uint idx = atomicAdd(shadowIndirectBuffer.count, 1);
+		shadowIndirectBuffer.commands[idx] = inIndirectBuffer.commands[id];
+		shadowIndirectBuffer.commands[idx].firstInstance = id;
 	}
 }

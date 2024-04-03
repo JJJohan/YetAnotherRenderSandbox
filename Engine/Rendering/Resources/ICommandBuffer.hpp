@@ -40,7 +40,7 @@ namespace Engine::Rendering
 
 		inline virtual void End() const = 0;
 
-		virtual void BeginRendering(const std::vector<AttachmentInfo>& attachments, 
+		virtual void BeginRendering(const std::vector<AttachmentInfo>& attachments,
 			const std::optional<AttachmentInfo>& depthAttachment, const glm::uvec2& size,
 			uint32_t layerCount) const = 0;
 
@@ -63,5 +63,7 @@ namespace Engine::Rendering
 		virtual void DrawIndexedIndirectCount(const IBuffer& buffer, size_t offset, const IBuffer& countBuffer, size_t countOffset, uint32_t maxDrawCount, uint32_t stride) const = 0;
 
 		virtual void MemoryBarrier(MaterialStageFlags srcStage, MaterialAccessFlags srcMask, MaterialStageFlags dstStage, MaterialAccessFlags dstMask) const = 0;
+
+		virtual void FillBuffer(const IBuffer& buffer, size_t offset, size_t size, uint32_t data) const = 0;
 	};
 }

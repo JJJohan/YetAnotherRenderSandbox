@@ -192,13 +192,13 @@ namespace Engine::Rendering
 		return MeshOptimiser::Optimise(indices, vertexDataArray);
 	}
 
-	bool GeometryBatch::UploadIndirectDrawBuffer(const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
+	bool GeometryBatch::UploadIndirectDrawBuffer(const IDevice& device, const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
 		std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, IBuffer* buffer, const void* data, uint32_t drawCount, size_t dataSize)
 	{
 		// Draw count is stored in the first 4 bytes.
 		size_t totalSize = sizeof(uint32_t) + dataSize;
 
-		bool initialised = buffer->Initialise(totalSize,
+		bool initialised = buffer->Initialise("indirectBuffer", device, totalSize,
 			BufferUsageFlags::TransferDst | BufferUsageFlags::IndirectBuffer | BufferUsageFlags::StorageBuffer,
 			MemoryUsage::AutoPreferDevice,
 			AllocationCreateFlags::None,
@@ -210,7 +210,7 @@ namespace Engine::Rendering
 		}
 
 		IBuffer* stagingBuffer = temporaryBuffers.emplace_back(std::move(resourceFactory.CreateBuffer())).get();
-		if (!stagingBuffer->Initialise(totalSize,
+		if (!stagingBuffer->Initialise("indirectStagingBuffer", device, totalSize,
 			BufferUsageFlags::TransferSrc, MemoryUsage::Auto,
 			AllocationCreateFlags::HostAccessSequentialWrite | AllocationCreateFlags::Mapped,
 			SharingMode::Exclusive))
@@ -234,7 +234,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GeometryBatch::SetupIndirectDrawBuffer(const ICommandBuffer& commandBuffer,
+	bool GeometryBatch::SetupIndirectDrawBuffer(const IDevice& device, const ICommandBuffer& commandBuffer,
 		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
@@ -252,7 +252,8 @@ namespace Engine::Rendering
 
 			m_meshCapacity = static_cast<uint32_t>(decompressBuffer.size() / sizeof(IndexedIndirectCommand));
 
-			return UploadIndirectDrawBuffer(commandBuffer, resourceFactory, temporaryBuffers, m_indirectDrawBuffer.get(), decompressBuffer.data(), m_meshCapacity, decompressBuffer.size());
+			return UploadIndirectDrawBuffer(device, commandBuffer, resourceFactory, temporaryBuffers, m_indirectDrawBuffer.get(),
+				decompressBuffer.data(), m_meshCapacity, decompressBuffer.size());
 		}
 
 		std::vector<IndexedIndirectCommand> indirectBufferData;
@@ -276,7 +277,8 @@ namespace Engine::Rendering
 
 		size_t totalSize = indirectBufferData.size() * sizeof(IndexedIndirectCommand);
 
-		if (!UploadIndirectDrawBuffer(commandBuffer, resourceFactory, temporaryBuffers, m_indirectDrawBuffer.get(), indirectBufferData.data(), m_meshCapacity, totalSize))
+		if (!UploadIndirectDrawBuffer(device, commandBuffer, resourceFactory, temporaryBuffers, m_indirectDrawBuffer.get(),
+			indirectBufferData.data(), m_meshCapacity, totalSize))
 			return false;
 
 		if (chunkData)
@@ -288,7 +290,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GeometryBatch::SetupVertexBuffers(const ICommandBuffer& commandBuffer,
+	bool GeometryBatch::SetupVertexBuffers(const IDevice& device, const ICommandBuffer& commandBuffer,
 		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
@@ -311,7 +313,7 @@ namespace Engine::Rendering
 				chunkData->Decompress(cacheEntries[i], decompressBuffer);
 				const std::span<const uint8_t> span(decompressBuffer.begin(), cacheEntries[i].UncompressedSize);
 
-				bool initialised = buffer->Initialise(span.size(),
+				bool initialised = buffer->Initialise("vertexBuffer", device, span.size(),
 					BufferUsageFlags::TransferDst | BufferUsageFlags::VertexBuffer,
 					MemoryUsage::AutoPreferDevice,
 					AllocationCreateFlags::None,
@@ -322,7 +324,7 @@ namespace Engine::Rendering
 					return false;
 				}
 
-				if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, span.data(),
+				if (!CreateStagingBuffer(device, resourceFactory, commandBuffer, buffer, span.data(),
 					span.size(), temporaryBuffers))
 					return false;
 			}
@@ -386,7 +388,7 @@ namespace Engine::Rendering
 			m_vertexBuffers[vertexBit] = std::move(resourceFactory.CreateBuffer());
 			IBuffer* buffer = m_vertexBuffers[vertexBit].get();
 
-			bool initialised = buffer->Initialise(totalSize,
+			bool initialised = buffer->Initialise("vertexBuffer", device, totalSize,
 				BufferUsageFlags::TransferDst | BufferUsageFlags::VertexBuffer,
 				MemoryUsage::AutoPreferDevice,
 				AllocationCreateFlags::None,
@@ -397,7 +399,7 @@ namespace Engine::Rendering
 				return false;
 			}
 
-			if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, vertexBufferData.data(),
+			if (!CreateStagingBuffer(device, resourceFactory, commandBuffer, buffer, vertexBufferData.data(),
 				totalSize, temporaryBuffers))
 				return false;
 		}
@@ -408,10 +410,10 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GeometryBatch::UploadBoundsBuffer(const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
+	bool GeometryBatch::UploadBoundsBuffer(const IDevice& device, const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
 		std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, IBuffer* buffer, const void* data, size_t dataSize)
 	{
-		bool initialised = buffer->Initialise(dataSize,
+		bool initialised = buffer->Initialise("boundsBuffer", device, dataSize,
 			BufferUsageFlags::TransferDst | BufferUsageFlags::StorageBuffer,
 			MemoryUsage::AutoPreferDevice,
 			AllocationCreateFlags::None,
@@ -422,7 +424,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, data,
+		if (!CreateStagingBuffer(device, resourceFactory, commandBuffer, buffer, data,
 			dataSize, temporaryBuffers))
 			return false;
 
@@ -432,7 +434,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GeometryBatch::SetupBoundsBuffer(const ICommandBuffer& commandBuffer,
+	bool GeometryBatch::SetupBoundsBuffer(const IDevice& device, const ICommandBuffer& commandBuffer,
 		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
@@ -448,7 +450,8 @@ namespace Engine::Rendering
 
 			m_boundsBuffer = std::move(resourceFactory.CreateBuffer());
 
-			return UploadBoundsBuffer(commandBuffer, resourceFactory, temporaryBuffers, m_boundsBuffer.get(), decompressBuffer.data(), decompressBuffer.size());
+			return UploadBoundsBuffer(device, commandBuffer, resourceFactory, temporaryBuffers,
+				m_boundsBuffer.get(), decompressBuffer.data(), decompressBuffer.size());
 		}
 
 		std::vector<glm::vec4> boundsData;
@@ -486,7 +489,8 @@ namespace Engine::Rendering
 		m_boundsBuffer = std::move(resourceFactory.CreateBuffer());
 		size_t totalSize = boundsData.size() * sizeof(glm::vec4);
 
-		if (!UploadBoundsBuffer(commandBuffer, resourceFactory, temporaryBuffers, m_boundsBuffer.get(), boundsData.data(), totalSize))
+		if (!UploadBoundsBuffer(device, commandBuffer, resourceFactory, temporaryBuffers,
+			m_boundsBuffer.get(), boundsData.data(), totalSize))
 			return false;
 
 		if (chunkData)
@@ -498,10 +502,10 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GeometryBatch::UploadIndexBuffer(const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
+	bool GeometryBatch::UploadIndexBuffer(const IDevice& device, const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
 		std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, IBuffer* buffer, const void* data, size_t dataSize)
 	{
-		bool initialised = buffer->Initialise(dataSize,
+		bool initialised = buffer->Initialise("indexBuffer", device, dataSize,
 			BufferUsageFlags::TransferDst | BufferUsageFlags::IndexBuffer,
 			MemoryUsage::AutoPreferDevice,
 			AllocationCreateFlags::None,
@@ -512,7 +516,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, data,
+		if (!CreateStagingBuffer(device, resourceFactory, commandBuffer, buffer, data,
 			dataSize, temporaryBuffers))
 			return false;
 
@@ -522,7 +526,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GeometryBatch::SetupIndexBuffer(const ICommandBuffer& commandBuffer,
+	bool GeometryBatch::SetupIndexBuffer(const IDevice& device, const ICommandBuffer& commandBuffer,
 		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
@@ -538,7 +542,8 @@ namespace Engine::Rendering
 
 			m_indexBuffer = std::move(resourceFactory.CreateBuffer());
 
-			return UploadIndexBuffer(commandBuffer, resourceFactory, temporaryBuffers, m_indexBuffer.get(), decompressBuffer.data(), decompressBuffer.size());
+			return UploadIndexBuffer(device, commandBuffer, resourceFactory, temporaryBuffers,
+				m_indexBuffer.get(), decompressBuffer.data(), decompressBuffer.size());
 		}
 
 		m_indexOffsets.resize(m_indexArrays.size());
@@ -576,7 +581,8 @@ namespace Engine::Rendering
 
 		m_indexBuffer = std::move(resourceFactory.CreateBuffer());
 
-		if (!UploadIndexBuffer(commandBuffer, resourceFactory, temporaryBuffers, m_indexBuffer.get(), indexBufferData.data(), totalSize))
+		if (!UploadIndexBuffer(device, commandBuffer, resourceFactory, temporaryBuffers,
+			m_indexBuffer.get(), indexBufferData.data(), totalSize))
 			return false;
 
 		if (chunkData)
@@ -585,12 +591,12 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GeometryBatch::CreateStagingBuffer(const IResourceFactory& resourceFactory,
+	bool GeometryBatch::CreateStagingBuffer(const IDevice& device, const IResourceFactory& resourceFactory,
 		const ICommandBuffer& commandBuffer, const IBuffer* destinationBuffer, const void* data, uint64_t size,
 		std::vector<std::unique_ptr<IBuffer>>& copyBufferCollection)
 	{
 		IBuffer* stagingBuffer = copyBufferCollection.emplace_back(std::move(resourceFactory.CreateBuffer())).get();
-		if (!stagingBuffer->Initialise(size,
+		if (!stagingBuffer->Initialise("stagingBuffer", device, size,
 			BufferUsageFlags::TransferSrc, MemoryUsage::Auto,
 			AllocationCreateFlags::HostAccessSequentialWrite | AllocationCreateFlags::Mapped,
 			SharingMode::Exclusive))
@@ -606,12 +612,12 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GeometryBatch::CreateImageStagingBuffer(const IResourceFactory& resourceFactory,
+	bool GeometryBatch::CreateImageStagingBuffer(const IDevice& device, const IResourceFactory& resourceFactory,
 		const ICommandBuffer& commandBuffer, const IRenderImage* destinationImage, uint32_t mipLevel, const void* data, uint64_t size,
 		std::vector<std::unique_ptr<IBuffer>>& copyBufferCollection)
 	{
 		IBuffer* stagingBuffer = copyBufferCollection.emplace_back(std::move(resourceFactory.CreateBuffer())).get();
-		if (!stagingBuffer->Initialise(size,
+		if (!stagingBuffer->Initialise("imageStagingBuffer", device, size,
 			BufferUsageFlags::TransferSrc, MemoryUsage::Auto,
 			AllocationCreateFlags::HostAccessSequentialWrite | AllocationCreateFlags::Mapped,
 			SharingMode::Exclusive))
@@ -678,7 +684,7 @@ namespace Engine::Rendering
 
 				for (uint32_t i = 0; i < imageData.Header.MipLevels; ++i)
 				{
-					if (!CreateImageStagingBuffer(resourceFactory, commandBuffer, renderImage.get(), i, spans[i].data(),
+					if (!CreateImageStagingBuffer(device, resourceFactory, commandBuffer, renderImage.get(), i, spans[i].data(),
 						spans[i].size(), temporaryBuffers))
 						return false;
 				}
@@ -796,7 +802,7 @@ namespace Engine::Rendering
 
 			for (size_t i = 0; i < pixels.size(); ++i)
 			{
-				if (!CreateImageStagingBuffer(resourceFactory, commandBuffer, renderImage.get(), static_cast<uint32_t>(i),
+				if (!CreateImageStagingBuffer(device, resourceFactory, commandBuffer, renderImage.get(), static_cast<uint32_t>(i),
 					pixels[i].data(), pixels[i].size(), temporaryBuffers))
 					return false;
 			}
@@ -823,10 +829,10 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GeometryBatch::UploadMeshInfoBuffer(const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
+	bool GeometryBatch::UploadMeshInfoBuffer(const IDevice& device, const ICommandBuffer& commandBuffer, const IResourceFactory& resourceFactory,
 		std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, IBuffer* buffer, const void* data, size_t dataSize)
 	{
-		bool initialised = buffer->Initialise(dataSize,
+		bool initialised = buffer->Initialise("meshInfoBuffer", device, dataSize,
 			BufferUsageFlags::TransferDst | BufferUsageFlags::StorageBuffer,
 			MemoryUsage::AutoPreferDevice,
 			AllocationCreateFlags::None,
@@ -837,7 +843,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		if (!CreateStagingBuffer(resourceFactory, commandBuffer, buffer, data,
+		if (!CreateStagingBuffer(device, resourceFactory, commandBuffer, buffer, data,
 			dataSize, temporaryBuffers))
 			return false;
 
@@ -847,7 +853,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool GeometryBatch::SetupMeshInfoBuffer(const ICommandBuffer& commandBuffer,
+	bool GeometryBatch::SetupMeshInfoBuffer(const IDevice& device, const ICommandBuffer& commandBuffer,
 		ChunkData* chunkData, std::vector<std::unique_ptr<IBuffer>>& temporaryBuffers, const IResourceFactory& resourceFactory)
 	{
 		if (chunkData != nullptr && chunkData->LoadedFromDisk())
@@ -863,7 +869,8 @@ namespace Engine::Rendering
 
 			m_meshInfoBuffer = std::move(resourceFactory.CreateBuffer());
 
-			return UploadMeshInfoBuffer(commandBuffer, resourceFactory, temporaryBuffers, m_meshInfoBuffer.get(), decompressBuffer.data(), decompressBuffer.size());
+			return UploadMeshInfoBuffer(device, commandBuffer, resourceFactory, temporaryBuffers,
+				m_meshInfoBuffer.get(), decompressBuffer.data(), decompressBuffer.size());
 		}
 
 		uint64_t totalSize = 0;
@@ -901,7 +908,8 @@ namespace Engine::Rendering
 
 		m_meshInfoBuffer = std::move(resourceFactory.CreateBuffer());
 
-		return UploadMeshInfoBuffer(commandBuffer, resourceFactory, temporaryBuffers, m_meshInfoBuffer.get(), uniformBufferData.data(), uniformBufferData.size());
+		return UploadMeshInfoBuffer(device, commandBuffer, resourceFactory, temporaryBuffers,
+			m_meshInfoBuffer.get(), uniformBufferData.data(), uniformBufferData.size());
 	}
 
 	bool GeometryBatch::Build(ChunkData* chunkData, AsyncData& asyncData)
@@ -922,14 +930,14 @@ namespace Engine::Rendering
 				const IResourceFactory& resourceFactory = m_renderer.GetResourceFactory();
 
 				uint32_t imageCount;
-				if (!SetupVertexBuffers(commandBuffer, chunkData, temporaryBuffers, resourceFactory))
+				if (!SetupVertexBuffers(device, commandBuffer, chunkData, temporaryBuffers, resourceFactory))
 				{
 					return false;
 				}
 
 				asyncData.AddSubProgress(50.0f);
 
-				if (!SetupIndexBuffer(commandBuffer, chunkData, temporaryBuffers, resourceFactory))
+				if (!SetupIndexBuffer(device, commandBuffer, chunkData, temporaryBuffers, resourceFactory))
 				{
 					return false;
 				}
@@ -937,9 +945,9 @@ namespace Engine::Rendering
 				asyncData.AddSubProgress(50.0f);
 
 				if (!SetupRenderImage(&asyncData, device, physicalDevice, commandBuffer, chunkData, temporaryBuffers, resourceFactory, physicalDevice.GetMaxAnisotropy(), imageCount)
-					|| !SetupMeshInfoBuffer(commandBuffer, chunkData, temporaryBuffers, resourceFactory)
-					|| !SetupIndirectDrawBuffer(commandBuffer, chunkData, temporaryBuffers, resourceFactory)
-					|| !SetupBoundsBuffer(commandBuffer, chunkData, temporaryBuffers, resourceFactory))
+					|| !SetupMeshInfoBuffer(device, commandBuffer, chunkData, temporaryBuffers, resourceFactory)
+					|| !SetupIndirectDrawBuffer(device, commandBuffer, chunkData, temporaryBuffers, resourceFactory)
+					|| !SetupBoundsBuffer(device, commandBuffer, chunkData, temporaryBuffers, resourceFactory))
 				{
 					if (asyncData.State != AsyncState::Cancelled)
 						asyncData.State = AsyncState::Failed;

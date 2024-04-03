@@ -72,10 +72,10 @@ namespace Engine::Rendering::Vulkan
 
 		const RenderImage& vulkanDestination = static_cast<const RenderImage&>(destination);
 		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);
-		vulkanCommandBuffer.Get().copyBufferToImage(m_buffer, vulkanDestination.Get(), vk::ImageLayout::eTransferDstOptimal, {region});
+		vulkanCommandBuffer.Get().copyBufferToImage(m_buffer, vulkanDestination.Get(), vk::ImageLayout::eTransferDstOptimal, { region });
 	}
 
-	bool Buffer::Initialise(uint64_t size, BufferUsageFlags bufferUsage,
+	bool Buffer::Initialise(std::string_view name, const IDevice& device, uint64_t size, BufferUsageFlags bufferUsage,
 		MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode)
 	{
 		m_size = size;
@@ -92,6 +92,9 @@ namespace Engine::Rendering::Vulkan
 			Logger::Error("Failed to create buffer.");
 			return false;
 		}
+
+		const Device& deviceImp = static_cast<const Device&>(device);
+		deviceImp.SetResourceName(ResourceType::Buffer, m_buffer, name);
 
 		m_mappedDataPtr = m_bufferAllocInfo.pMappedData;
 		return true;

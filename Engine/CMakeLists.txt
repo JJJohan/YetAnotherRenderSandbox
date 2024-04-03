@@ -56,6 +56,8 @@ set(SOURCE_LIST
 	"Rendering/RenderSettings.hpp"
 	"Rendering/ComputePasses/FrustumCullingPass.cpp"
 	"Rendering/ComputePasses/FrustumCullingPass.hpp"
+	"Rendering/ComputePasses/ShadowCullingPass.cpp"
+	"Rendering/ComputePasses/ShadowCullingPass.hpp"
 	"Rendering/ComputePasses/IComputePass.hpp"
 	"Rendering/ComputePasses/DepthReductionPass.cpp"
 	"Rendering/ComputePasses/DepthReductionPass.hpp"
@@ -181,6 +183,8 @@ target_link_libraries(Engine PRIVATE
 set_compile_flags(Engine)
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})
+
+target_compile_options(Engine PRIVATE "/MP")
 
 target_compile_definitions(Engine PRIVATE ENGINE_EXPORTS)
 	

@@ -57,6 +57,7 @@ namespace Engine::UI::Vulkan
 
 		uint32_t queueFamily = physicalDevice.GetQueueFamilyIndices().GraphicsFamily.value();
 		const vk::Queue& queue = device.GetGraphicsQueue();
+		vk::Format format = GetVulkanFormat(renderer.GetSwapChain().GetFormat());
 
 		// Setup Platform/Renderer backends
 		ImGui_ImplVulkan_InitInfo initInfo = {};
@@ -74,8 +75,9 @@ namespace Engine::UI::Vulkan
 		initInfo.Allocator = nullptr;
 		initInfo.CheckVkResultFn = check_vk_result;
 		initInfo.UseDynamicRendering = true;
-		initInfo.ColorAttachmentFormat = static_cast<VkFormat>(GetVulkanFormat(renderer.GetSwapChain().GetFormat()));
-		if (!ImGui_ImplVulkan_Init(&initInfo, nullptr))
+		initInfo.PipelineRenderingCreateInfo = vk::PipelineRenderingCreateInfo(0U, 1U, &format);
+
+		if (!ImGui_ImplVulkan_Init(&initInfo))
 		{
 			return false;
 		}
