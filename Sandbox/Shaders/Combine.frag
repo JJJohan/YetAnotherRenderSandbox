@@ -79,7 +79,7 @@ float filterPCF(vec4 sc, uint cascadeIndex)
 	return shadowFactor / count;
 }
 
-float ShadowCalculation(vec3 fragPos, float viewDepth)
+float ShadowCalculation(vec3 worldPos, float viewDepth)
 {
 	// Get cascade index for the current fragment's view position
 	uint cascadeIndex = 0;
@@ -92,7 +92,7 @@ float ShadowCalculation(vec3 fragPos, float viewDepth)
 	}
 
 	// Depth compare for shadowing
-	vec4 shadowCoord = (biasMat * lightData.cascadeMatrices[cascadeIndex]) * vec4(fragPos, 1.0);
+	vec4 shadowCoord = (biasMat * lightData.cascadeMatrices[cascadeIndex]) * vec4(worldPos, 1.0);
 
 	return filterPCF(shadowCoord / shadowCoord.w, cascadeIndex);
 }

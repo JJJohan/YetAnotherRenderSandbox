@@ -15,13 +15,23 @@ layout(binding = 0) uniform FrameInfo
 	vec2 jitter;
 } frameInfo;
 
+layout(binding = 1) uniform LightData
+{
+	vec4 cascadeSplits;
+    mat4 cascadeMatrices[4];
+	vec3 sunLightColor;
+	float sunLightIntensity;
+	vec3 sunLightDir;
+	float padding;
+} lightData;
+
 struct Bounds
 {
-	vec3 center;
-	float radius;
+    vec3 center;
+    float radius;
 };
 
-layout(std140, binding = 1) readonly buffer BoundsBuffer
+layout(std140, binding = 2) readonly buffer BoundsBuffer
 {
 	Bounds bounds[];
 } boundsBuffer;
@@ -35,56 +45,29 @@ struct VkDrawIndexedIndirectCommand
 	uint firstInstance;
 };
 
-layout(std430, binding = 2) readonly buffer InIndirectBuffer
+layout(std430, binding = 3) readonly buffer InIndirectBuffer
 {
 	uint count;
 	VkDrawIndexedIndirectCommand commands[];
 } inIndirectBuffer;
 
-layout(std430, binding = 3) writeonly buffer ShadowIndirectBuffer
+layout(std430, binding = 4) writeonly buffer ShadowIndirectBuffer
 {
-	uint count;
+	uint counts[4];
 	VkDrawIndexedIndirectCommand commands[];
 } shadowIndirectBuffer;
 
-struct DrawCullData
+/*bool is_in_frustum(in vec3 center, float radius, int cascadeIndex)
 {
-	float P00, P11, znear, zfar; // symmetric projection parameters
-	float frustum[4]; // data for left/right/top/bottom frustum planes
-	float pyramidWidth, pyramidHeight; // depth pyramid size in texels
-};
+	bool visible = center.z * cullData.frustum[cascadeIndex][1] - abs(center.x) * cullData.frustum[cascadeIndex][0] > -radius;
+	return visible && center.z * cullData.frustum[cascadeIndex][3] - abs(center.y) * cullData.frustum[cascadeIndex][2] > -radius;
+}*/
 
-layout(push_constant) uniform constants
+void addDrawCommand(uint id, int cascadeIndex)
 {
-   DrawCullData cullData;
-};
-
-// 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
-bool projectSphere(in vec3 C, float r, float znear, float P00, float P11, out vec4 aabb)
-{
-	if (C.z + r < znear)
-		return false;
-
-	vec2 cx = -C.xz;
-	vec2 vx = vec2(sqrt(dot(cx, cx) - r * r), r);
-	vec2 minx = mat2(vx.x, vx.y, -vx.y, vx.x) * cx;
-	vec2 maxx = mat2(vx.x, -vx.y, vx.y, vx.x) * cx;
-
-	vec2 cy = -C.yz;
-	vec2 vy = vec2(sqrt(dot(cy, cy) - r * r), r);
-	vec2 miny = mat2(vy.x, vy.y, -vy.y, vy.x) * cy;
-	vec2 maxy = mat2(vy.x, -vy.y, vy.y, vy.x) * cy;
-
-	aabb = vec4(minx.x / minx.y * P00, miny.x / miny.y * P11, maxx.x / maxx.y * P00, maxy.x / maxy.y * P11);
-	aabb = aabb.xwzy * vec4(0.5f, -0.5f, 0.5f, -0.5f) + vec4(0.5f); // clip space -> uv space
-
-	return true;
-}
-
-bool is_in_frustum(in vec3 center, float radius)
-{
-	bool visible = center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius;
-	return visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
+	uint idx = cascadeIndex * inIndirectBuffer.count + atomicAdd(shadowIndirectBuffer.counts[cascadeIndex], 1);
+	shadowIndirectBuffer.commands[idx] = inIndirectBuffer.commands[id];
+	shadowIndirectBuffer.commands[idx].firstInstance = id;
 }
 
 void main()
@@ -95,21 +78,25 @@ void main()
 		return;
 	}
 
-	bool visible = true;
 	if (cullingMode > 1)
 	{
 		vec3 center = boundsBuffer.bounds[id].center;
-
-		vec3 centerVS = (frameInfo.view * vec4(center, 1.0f)).xyz;
 		float radius = boundsBuffer.bounds[id].radius;
+		vec3 min = center - vec3(radius);
+		vec3 max = center - vec3(radius);
 
-		visible = is_in_frustum(centerVS, radius);
+		for (int i = 0; i < 4; ++i)
+		{
+			{
+				addDrawCommand(id, i);
+			}
+		}
 	}
-
-	if (visible)
+	else
 	{
-		uint idx = atomicAdd(shadowIndirectBuffer.count, 1);
-		shadowIndirectBuffer.commands[idx] = inIndirectBuffer.commands[id];
-		shadowIndirectBuffer.commands[idx].firstInstance = id;
+		for (int i = 0; i < 4; ++i)
+		{
+			addDrawCommand(id, i);
+		}
 	}
 }

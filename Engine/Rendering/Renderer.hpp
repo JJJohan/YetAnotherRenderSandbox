@@ -88,6 +88,8 @@ namespace Engine::Rendering
 		inline void SetSunLightColour(const Colour& colour) { m_sunColour = colour; }
 		inline void SetSunLightIntensity(float intensity) { m_sunIntensity = intensity; }
 
+		EXPORT void SetShadowResolution(uint32_t resolution);
+
 		inline const ShadowMap& GetShadowMap() const { return *m_shadowMap; }
 
 		inline void SetCamera(const Camera& camera) { m_camera = camera; }

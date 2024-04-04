@@ -22,7 +22,7 @@ namespace Engine::Rendering
 			{"Shadows", RenderPassImageInfo(Format::PlaceholderDepth, false, shadowMap.GetExtent())}
 		};
 
-		m_imageOutputInfos = 
+		m_imageOutputInfos =
 		{
 			{"Shadows", RenderPassImageInfo(Format::PlaceholderDepth, false, shadowMap.GetExtent())}
 		};
@@ -35,8 +35,13 @@ namespace Engine::Rendering
 
 	void SceneShadowPass::UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
 	{
-		m_imageInputInfos.at("Shadows").Format = depthFormat;
-		m_imageOutputInfos.at("Shadows").Format = depthFormat;
+		auto& inputShadowImage = m_imageInputInfos.at("Shadows");
+		inputShadowImage.Format = depthFormat;
+		inputShadowImage.Dimensions = m_shadowMap.GetExtent();
+
+		auto& outputShadowImage = m_imageOutputInfos.at("Shadows");
+		outputShadowImage.Format = depthFormat;
+		outputShadowImage.Dimensions = m_shadowMap.GetExtent();
 	}
 
 	bool SceneShadowPass::Build(const Renderer& renderer,
@@ -108,6 +113,10 @@ namespace Engine::Rendering
 		}
 
 		uint32_t maxDrawCount = m_sceneGeometryBatch.GetMeshCapacity();
-		commandBuffer.DrawIndexedIndirectCount(*m_indirectDrawBuffer, sizeof(uint32_t), *m_indirectDrawBuffer, 0, maxDrawCount, sizeof(IndexedIndirectCommand));
+		commandBuffer.DrawIndexedIndirectCount(*m_indirectDrawBuffer,
+			sizeof(uint32_t) * 4 + layerIndex * maxDrawCount * sizeof(IndexedIndirectCommand),
+			*m_indirectDrawBuffer,
+			sizeof(uint32_t) * layerIndex, maxDrawCount,
+			sizeof(IndexedIndirectCommand));
 	}
 }

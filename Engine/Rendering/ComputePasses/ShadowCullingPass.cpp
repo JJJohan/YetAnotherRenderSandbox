@@ -17,7 +17,6 @@ namespace Engine::Rendering
 		, m_built(false)
 		, m_dispatchSize(0)
 		, m_mode(CullingMode::FrustumAndOcclusion)
-		, m_drawCullData()
 		, m_shadowIndirectBuffer(nullptr)
 	{
 		m_bufferOutputs =
@@ -51,20 +50,18 @@ namespace Engine::Rendering
 		const IBuffer& boundsBuffer = m_sceneGeometryBatch.GetBoundsBuffer();
 		const IBuffer& indirectDrawBuffer = m_sceneGeometryBatch.GetIndirectDrawBuffer();
 
-		const Camera& camera = renderer.GetCameraReadOnly();
-
 		uint32_t meshCount = m_sceneGeometryBatch.GetMeshCapacity();
-		m_drawCullData.znear = camera.GetNearFar().x;
-		m_drawCullData.zfar = camera.GetNearFar().y;
 
 		m_dispatchSize = (meshCount / 64) + 1;
 
 		const std::vector<std::unique_ptr<IBuffer>>& frameInfoBuffers = renderer.GetFrameInfoBuffers();
+		const std::vector<std::unique_ptr<IBuffer>>& lightBuffers = renderer.GetLightBuffers();
 
 		if (!m_material->BindUniformBuffers(0, frameInfoBuffers) ||
-			!m_material->BindStorageBuffer(1, boundsBuffer) ||
-			!m_material->BindStorageBuffer(2, indirectDrawBuffer) ||
-			!m_material->BindStorageBuffer(3, m_shadowIndirectBuffer))
+			!m_material->BindUniformBuffers(1, lightBuffers) ||
+			!m_material->BindStorageBuffer(2, boundsBuffer) ||
+			!m_material->BindStorageBuffer(3, indirectDrawBuffer) ||
+			!m_material->BindStorageBuffer(4, m_shadowIndirectBuffer))
 			return false;
 
 		m_built = true;
@@ -100,7 +97,7 @@ namespace Engine::Rendering
 		m_shadowIndirectBuffer = resourceFactory.CreateBuffer();
 
 		// Create one single buffer with the capacity to hold each cascade.
-		if (!m_shadowIndirectBuffer->Initialise("shadowIndirectBuffer", device, sizeof(uint32_t) + meshCount * cascadeCount * sizeof(IndexedIndirectCommand),
+		if (!m_shadowIndirectBuffer->Initialise("shadowIndirectBuffer", device, cascadeCount * (sizeof(uint32_t) + meshCount * sizeof(IndexedIndirectCommand)),
 			BufferUsageFlags::IndirectBuffer | BufferUsageFlags::StorageBuffer | BufferUsageFlags::TransferDst, MemoryUsage::GPUOnly, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to initialise indirect buffer.");
@@ -125,26 +122,13 @@ namespace Engine::Rendering
 
 		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
 
-		// TODO: Set up shadow frustum planes instead of simply copying the camera frustums.. Currently this is mostly just duplicating the frustum culling pass.
+		commandBuffer.FillBuffer(*m_shadowIndirectBuffer, 0, sizeof(uint32_t) * 4, 0);
 
-		const Camera& camera = renderer.GetCameraReadOnly();
-		const glm::mat4& projection = camera.GetProjection();
-		glm::mat4 projectionT = transpose(projection);
-		glm::vec4 frustumX = normalizePlane(projectionT[3] + projectionT[0]); // x + w < 0
-		glm::vec4 frustumY = normalizePlane(projectionT[3] + projectionT[1]); // y + w < 0
-
-		m_drawCullData.P00 = projection[0][0];
-		m_drawCullData.P11 = projection[1][1];
-		m_drawCullData.frustum.x = frustumX.x;
-		m_drawCullData.frustum.y = frustumX.z;
-		m_drawCullData.frustum.z = frustumY.y;
-		m_drawCullData.frustum.w = frustumY.z;
-
-		commandBuffer.FillBuffer(*m_shadowIndirectBuffer, 0, sizeof(uint32_t), 0);
 		commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::TransferWrite,
 			MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderRead | MaterialAccessFlags::ShaderWrite);
-		commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(DrawCullData), reinterpret_cast<uint32_t*>(&m_drawCullData));
+
 		commandBuffer.Dispatch(m_dispatchSize, 1, 1);
+
 		commandBuffer.MemoryBarrier(MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderWrite,
 			MaterialStageFlags::DrawIndirect, MaterialAccessFlags::IndirectCommandRead);
 	}

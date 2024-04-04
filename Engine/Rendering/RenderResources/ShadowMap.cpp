@@ -19,7 +19,7 @@ namespace Engine::Rendering
 		, m_cascadeMatrices(DefaultCascadeCount)
 		, m_cascadeSplits(DefaultCascadeCount)
 		, m_cascadeCount(DefaultCascadeCount)
-		, m_extent(4096, 4096, 1) // TODO: Make configurable
+		, m_extent(4096, 4096, 1)
 	{
 		m_imageOutputInfos =
 		{
@@ -117,6 +117,12 @@ namespace Engine::Rendering
 		return GetShadowCascadeData();
 	}
 
+
+	void ShadowMap::SetResolution(uint32_t resolution)
+	{
+		m_extent = glm::vec3(resolution, resolution, 1.0f);
+	}
+
 	bool ShadowMap::CreateShadowImages(const IDevice& device, const IResourceFactory& resourceFactory, Format depthFormat)
 	{
 		m_shadowImage = std::move(resourceFactory.CreateRenderImage());
@@ -131,9 +137,14 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool ShadowMap::BuildResources(const Renderer& renderer)
+	void ShadowMap::ClearResources()
 	{
 		m_shadowImage.reset();
+	}
+
+	bool ShadowMap::BuildResources(const Renderer& renderer)
+	{
+		ClearResources();
 
 		const IDevice& device = renderer.GetDevice();
 		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();

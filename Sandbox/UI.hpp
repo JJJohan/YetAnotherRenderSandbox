@@ -35,6 +35,7 @@ namespace Sandbox
 		std::unordered_map<std::string, Engine::UI::ScrollingGraphBuffer> m_statGraphBuffers;
 		std::vector<const char*> m_debugModes;
 		std::vector<const char*> m_cullingModes;
+		std::vector<const char*> m_shadowResolutions;
 		uint32_t m_prevTabIndex;
 		std::chrono::steady_clock::time_point m_prevTime;
 	};

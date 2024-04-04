@@ -24,6 +24,7 @@ namespace Sandbox
 	{
 		m_debugModes = { "None", "Albedo", "Normal", "WorldPos", "MetalRoughness", "Cascade Index" };
 		m_cullingModes = { "Paused", "None", "Frustum", "Frustum + Occlusion" };
+		m_shadowResolutions = { "1024", "2048", "4096" };
 	}
 
 	void UI::Draw(const Drawer& drawer)
@@ -62,6 +63,8 @@ namespace Sandbox
 		}
 	}
 
+	uint32_t shadowResolutionValues[3] = { 1024, 2048, 4096 };
+
 	void UI::DrawOptions(const Drawer& drawer)
 	{
 		int32_t debugMode = static_cast<int32_t>(m_renderer->GetDebugMode());
@@ -80,6 +83,11 @@ namespace Sandbox
 		{
 			m_options.CullingMode = static_cast<CullingMode>(cullingMode);
 			m_renderer->SetCullingMode(m_options.CullingMode);
+		}
+
+		if (drawer.ComboBox("Shadow Resolution", m_shadowResolutions, &m_options.ShadowResolution))
+		{
+			m_renderer->SetShadowResolution(shadowResolutionValues[m_options.ShadowResolution]);
 		}
 
 		bool hdrSupported = m_renderer->IsHDRSupported();

@@ -31,12 +31,15 @@ namespace Engine::Rendering
 		ShadowMap();
 
 		virtual bool BuildResources(const Renderer& renderer) override;
+		virtual void ClearResources() override;
 
 		ShadowCascadeData UpdateCascades(const Camera& camera, const glm::vec3& lightDir);
 
 		inline ShadowCascadeData GetShadowCascadeData() const { return ShadowCascadeData(m_cascadeSplits, m_cascadeMatrices); }
 		inline uint32_t GetCascadeCount() const { return m_cascadeCount; }
 		inline const glm::uvec3& GetExtent() const { return m_extent; }
+
+		void SetResolution(uint32_t resolution);
 
 		inline virtual size_t GetMemoryUsage() const override
 		{

@@ -25,7 +25,7 @@ namespace Engine::Rendering
 			{"Shadows", RenderPassImageInfo(Format::PlaceholderDepth, true, shadowMap.GetExtent())}
 		};
 
-		m_imageOutputInfos = 
+		m_imageOutputInfos =
 		{
 			{"Output", RenderPassImageInfo(Format::R16G16B16A16Sfloat)}
 		};
@@ -33,7 +33,9 @@ namespace Engine::Rendering
 
 	void CombinePass::UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
 	{
-		m_imageInputInfos.at("Shadows").Format = depthFormat;
+		auto& inputShadowImage = m_imageInputInfos.at("Shadows");
+		inputShadowImage.Format = depthFormat;
+		inputShadowImage.Dimensions = m_shadowMap.GetExtent();
 	}
 
 	bool CombinePass::Build(const Renderer& renderer,

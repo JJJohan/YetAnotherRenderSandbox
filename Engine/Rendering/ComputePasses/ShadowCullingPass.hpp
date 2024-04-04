@@ -28,20 +28,12 @@ namespace Engine::Rendering
 		void SetCullingMode(CullingMode mode);
 
 	private:
-		struct DrawCullData
-		{
-			float P00, P11, znear, zfar; // symmetric projection parameters
-			glm::vec4 frustum; // data for left/right/top/bottom frustum planes
-			float pyramidWidth, pyramidHeight; // depth pyramid size in texels
-		};
-
 		bool CreateIndirectBuffer(const Renderer& renderer, uint32_t meshCount);
 
 		const GeometryBatch& m_sceneGeometryBatch;
 		CullingMode m_mode;
 		bool m_built;
 		uint32_t m_dispatchSize;
-		DrawCullData m_drawCullData;
 		std::unique_ptr<IBuffer> m_shadowIndirectBuffer;
 	};
 }

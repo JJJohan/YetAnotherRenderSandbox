@@ -329,6 +329,12 @@ namespace Engine::Rendering
 		}
 	}
 
+	void Renderer::SetShadowResolution(uint32_t resolution)
+	{
+		m_shadowMap->SetResolution(resolution);
+		m_renderGraph->MarkDirty();
+	}
+
 	bool Renderer::Render()
 	{
 		const glm::uvec2& windowSize = m_swapChain->GetExtent();

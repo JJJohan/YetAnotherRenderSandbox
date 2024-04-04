@@ -14,6 +14,7 @@ namespace Sandbox
 			, UseTAA(true)
 			, UseHDR(false)
 			, CullingMode(Engine::Rendering::CullingMode::FrustumAndOcclusion)
+			, ShadowResolution(2)
 		{
 		}
 
@@ -23,5 +24,6 @@ namespace Sandbox
 		bool UseTAA;
 		bool UseHDR;
 		Engine::Rendering::CullingMode CullingMode;
+		int32_t ShadowResolution;
 	};
 }
