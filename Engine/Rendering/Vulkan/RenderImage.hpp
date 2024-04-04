@@ -26,10 +26,6 @@ namespace Engine::Rendering::Vulkan
 		virtual void TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
 			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
 			uint32_t baseMipLevel, uint32_t mipLevelCount) override;
-		virtual void TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
-			MaterialStageFlags oldStageFlags, ImageLayout oldLayout, MaterialAccessFlags oldAccessFlags,
-			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
-			uint32_t baseMipLevel, uint32_t mipLevelCount) override;
 		virtual void GenerateMipmaps(const IDevice& device, const ICommandBuffer& commandBuffer) override;
 		virtual bool CreateView(std::string_view name, const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const override;
 

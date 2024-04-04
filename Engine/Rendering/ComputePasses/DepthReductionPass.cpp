@@ -156,16 +156,12 @@ namespace Engine::Rendering
 		// TODO: Handle queue barriers between graphicsFamily and computeFamily to avoid issues with image layout.
 
 		m_depthImage->TransitionImageLayoutExt(device, commandBuffer,
-			MaterialStageFlags::LateFragmentTests, ImageLayout::DepthStencilAttachment, MaterialAccessFlags::DepthStencilAttachmentWrite,
 			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly, MaterialAccessFlags::ShaderRead);
 
 		bool firstDraw = m_occlusionImage->GetLayout() == ImageLayout::Undefined;
 
 		m_occlusionImage->TransitionImageLayoutExt(device, commandBuffer,
-			firstDraw ? MaterialStageFlags::None : MaterialStageFlags::ComputeShader,
-			m_occlusionImage->GetLayout(),
-			firstDraw ? MaterialAccessFlags::None : MaterialAccessFlags::ShaderRead,
-			MaterialStageFlags::ComputeShader, ImageLayout::General, 
+			MaterialStageFlags::ComputeShader, ImageLayout::General,
 			MaterialAccessFlags::ShaderWrite | MaterialAccessFlags::ShaderRead);
 
 		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
@@ -180,12 +176,10 @@ namespace Engine::Rendering
 			commandBuffer.Dispatch(getGroupCount(levelWidth, 32), getGroupCount(levelHeight, 32), 1);
 
 			m_occlusionImage->TransitionImageLayoutExt(device, commandBuffer,
-				MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderWrite,
 				MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderRead);
 		}
 
 		m_depthImage->TransitionImageLayoutExt(device, commandBuffer,
-			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly, MaterialAccessFlags::ShaderRead,
 			MaterialStageFlags::EarlyFragmentTests, ImageLayout::DepthStencilAttachment, MaterialAccessFlags::DepthStencilAttachmentRead | MaterialAccessFlags::DepthStencilAttachmentWrite);
 	}
 }

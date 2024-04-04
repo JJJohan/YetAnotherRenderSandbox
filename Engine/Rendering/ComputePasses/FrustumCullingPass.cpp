@@ -135,9 +135,6 @@ namespace Engine::Rendering
 
 		// Occlusion image may be used for the first time in this pass, so transition it to a shader read layout.
 		m_occlusionImage->TransitionImageLayoutExt(device, commandBuffer,
-			firstDraw ? MaterialStageFlags::None : MaterialStageFlags::ComputeShader,
-			m_occlusionImage->GetLayout(),
-			firstDraw ? MaterialAccessFlags::None : MaterialAccessFlags::ShaderRead,
 			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly,
 			MaterialAccessFlags::ShaderRead);
 
@@ -158,7 +155,7 @@ namespace Engine::Rendering
 		m_drawCullData.enableOcclusion = firstDraw ? 0 : 1;
 
 		commandBuffer.FillBuffer(*m_indirectBuffer, 0, sizeof(uint32_t), 0);
-		commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::TransferWrite, 
+		commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::TransferWrite,
 			MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderRead | MaterialAccessFlags::ShaderWrite);
 		commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(DrawCullData), reinterpret_cast<uint32_t*>(&m_drawCullData));
 		commandBuffer.Dispatch(m_dispatchSize, 1, 1);

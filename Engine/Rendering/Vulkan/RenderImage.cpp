@@ -194,17 +194,17 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	inline bool HasStencilComponent(Format format)
+	static inline bool HasStencilComponent(Format format)
 	{
 		return format == Format::D32SfloatS8Uint || format == Format::D24UnormS8Uint;
 	}
 
-	inline bool IsDepthFormat(Format format)
+	static inline bool IsDepthFormat(Format format)
 	{
 		return HasStencilComponent(format) || format == Format::D32Sfloat;
 	}
 
-	inline bool SetFlags(const ImageLayout& imageLayout, vk::AccessFlags2& accessMask, vk::PipelineStageFlags2& stage, bool input)
+	static inline bool SetFlags(const ImageLayout& imageLayout, vk::AccessFlags2& accessMask, vk::PipelineStageFlags2& stage, bool input)
 	{
 		switch (imageLayout)
 		{
@@ -245,7 +245,7 @@ namespace Engine::Rendering::Vulkan
 		}
 	}
 
-	inline bool LayoutSupported(ImageUsageFlags flags, ImageLayout layout)
+	static inline bool LayoutSupported(ImageUsageFlags flags, ImageLayout layout)
 	{
 		switch (layout)
 		{
@@ -268,6 +268,26 @@ namespace Engine::Rendering::Vulkan
 		default: // Unexpected layout, return false.
 			return false;
 		}
+	}
+
+	static inline vk::ImageAspectFlags GetAspectFlags(Format format)
+	{
+		vk::ImageAspectFlags aspectFlags;
+		if (IsDepthFormat(format))
+		{
+			aspectFlags = vk::ImageAspectFlagBits::eDepth;
+
+			if (HasStencilComponent(format))
+			{
+				aspectFlags |= vk::ImageAspectFlagBits::eStencil;
+			}
+		}
+		else
+		{
+			aspectFlags = vk::ImageAspectFlagBits::eColor;
+		}
+
+		return aspectFlags;
 	}
 
 	void RenderImage::TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout)
@@ -298,20 +318,7 @@ namespace Engine::Rendering::Vulkan
 			return;
 		}
 
-		vk::ImageAspectFlags aspectFlags;
-		if (IsDepthFormat(m_format))
-		{
-			aspectFlags = vk::ImageAspectFlagBits::eDepth;
-
-			if (HasStencilComponent(m_format))
-			{
-				aspectFlags |= vk::ImageAspectFlagBits::eStencil;
-			}
-		}
-		else
-		{
-			aspectFlags = vk::ImageAspectFlagBits::eColor;
-		}
+		vk::ImageAspectFlags aspectFlags = GetAspectFlags(m_format);
 
 		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, m_layerCount);
 
@@ -347,68 +354,11 @@ namespace Engine::Rendering::Vulkan
 			return;
 		}
 
-		vk::ImageAspectFlags aspectFlags;
-		if (IsDepthFormat(m_format))
-		{
-			aspectFlags = vk::ImageAspectFlagBits::eDepth;
-
-			if (HasStencilComponent(m_format))
-			{
-				aspectFlags |= vk::ImageAspectFlagBits::eStencil;
-			}
-		}
-		else
-		{
-			aspectFlags = vk::ImageAspectFlagBits::eColor;
-		}
+		vk::ImageAspectFlags aspectFlags = GetAspectFlags(m_format);
 
 		vk::ImageSubresourceRange subResourceRange(aspectFlags, baseMipLevel, mipLevelCount == 0 ? m_mipLevels : mipLevelCount, 0, m_layerCount);
 
 		vk::ImageMemoryBarrier2 barrier(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
-
-			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
-		vk::DependencyInfo dependencyInfo(vk::DependencyFlagBits::eByRegion, 0, nullptr, 0, nullptr, 1, &barrier);
-
-		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);
-		vulkanCommandBuffer.Get().pipelineBarrier2(dependencyInfo);
-
-		m_layout = newLayout;
-	}
-
-	void RenderImage::TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
-		MaterialStageFlags oldStageFlags, ImageLayout oldLayout, MaterialAccessFlags oldAccessFlags,
-		MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
-		uint32_t baseMipLevel, uint32_t mipLevelCount)
-	{
-		if (!LayoutSupported(m_usageFlags, newLayout))
-		{
-			Logger::Error("Image was not created with usage flags that support the requested layout.");
-			return;
-		}
-
-		vk::AccessFlags2 srcAccessMask = static_cast<vk::AccessFlagBits2>(oldAccessFlags);
-		vk::AccessFlags2 dstAccessMask = static_cast<vk::AccessFlagBits2>(newAccessFlags);
-		vk::PipelineStageFlags2 srcStage = static_cast<vk::PipelineStageFlagBits2>(oldStageFlags);
-		vk::PipelineStageFlags2 dstStage = static_cast<vk::PipelineStageFlagBits2>(newStageFlags);
-
-		vk::ImageAspectFlags aspectFlags;
-		if (IsDepthFormat(m_format))
-		{
-			aspectFlags = vk::ImageAspectFlagBits::eDepth;
-
-			if (HasStencilComponent(m_format))
-			{
-				aspectFlags |= vk::ImageAspectFlagBits::eStencil;
-			}
-		}
-		else
-		{
-			aspectFlags = vk::ImageAspectFlagBits::eColor;
-		}
-
-		vk::ImageSubresourceRange subResourceRange(aspectFlags, baseMipLevel, mipLevelCount == 0 ? m_mipLevels : mipLevelCount, 0, m_layerCount);
-
-		vk::ImageMemoryBarrier2 barrier(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(oldLayout), GetImageLayout(newLayout),
 
 			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
 		vk::DependencyInfo dependencyInfo(vk::DependencyFlagBits::eByRegion, 0, nullptr, 0, nullptr, 1, &barrier);

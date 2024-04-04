@@ -39,10 +39,6 @@ namespace Engine::Rendering
 		virtual void TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
 			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
 			uint32_t baseMipLevel = 0, uint32_t mipLevelCount = 0) = 0;
-		virtual void TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer, 
-			MaterialStageFlags oldStageFlags, ImageLayout oldLayout, MaterialAccessFlags oldAccessFlags,
-			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
-			uint32_t baseMipLevel = 0, uint32_t mipLevelCount = 0) = 0;
 		virtual void GenerateMipmaps(const IDevice& device, const ICommandBuffer& commandBuffer) = 0;
 		virtual bool CreateView(std::string_view name, const IDevice& device, uint32_t baseMipLevel, ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const = 0;
 
