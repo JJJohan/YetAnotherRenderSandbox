@@ -324,6 +324,13 @@ namespace Engine::Rendering::Vulkan
 			}
 		}
 
+		if (bindingInfo.BlockSize > 0 && size != bindingInfo.BlockSize)
+		{
+			Logger::Error("Binding at index {} for material '{}' has mismatching block size ({} != {}).",
+				binding, GetName(), bindingInfo.BlockSize, size);
+			return false;
+		}
+
 		return true;
 	}
 

@@ -4,8 +4,7 @@
 
 namespace Engine::Rendering
 {
-	// hard-coded for now
-	struct FrameInfoUniformBuffer
+	struct alignas(16) FrameInfoUniformBuffer
 	{
 		glm::mat4 viewProj;
 		glm::mat4 prevViewProj;

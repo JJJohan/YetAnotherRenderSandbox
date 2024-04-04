@@ -21,7 +21,6 @@ layout(binding = 1) uniform LightData
 	vec3 sunLightColor;
 	float sunLightIntensity;
 	vec3 sunLightDir;
-	float padding;
 } lightData;
 
 layout(push_constant) uniform PushConsts {
