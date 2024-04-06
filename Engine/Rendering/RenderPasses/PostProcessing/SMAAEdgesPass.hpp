@@ -1,15 +1,18 @@
 #pragma once
 
-#include "IRenderPass.hpp"
+#include "../IRenderPass.hpp"
+#include <array>
+#include <glm/glm.hpp>
+#include <memory>
 
 namespace Engine::Rendering
 {
 	class IResourceFactory;
 
-	class TonemapperPass : public IRenderPass
+	class SMAAEdgesPass : public IRenderPass
 	{
 	public:
-		TonemapperPass();
+		SMAAEdgesPass();
 
 		virtual bool Build(const Renderer& renderer,
 			const std::unordered_map<std::string, IRenderImage*>& imageInputs,
@@ -19,12 +22,7 @@ namespace Engine::Rendering
 
 		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat) override;
 
-		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer, 
+		virtual void Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 			const glm::uvec2& size, uint32_t frameIndex, uint32_t passIndex) override;
-
-		inline virtual void ClearResources() override
-		{
-			IRenderPass::ClearResources();
-		}
 	};
 }

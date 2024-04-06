@@ -47,7 +47,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	void UIPass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
+	void UIPass::Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 		const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex)
 	{
 		m_uiManager.Draw(commandBuffer, static_cast<float>(size.x), static_cast<float>(size.y));

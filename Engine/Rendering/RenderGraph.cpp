@@ -681,9 +681,11 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool RenderGraph::DrawRenderPass(const IDevice& device, const RenderGraphNode& node, uint32_t frameIndex,
+	bool RenderGraph::DrawRenderPass(const Renderer& renderer, const RenderGraphNode& node, uint32_t frameIndex,
 		const glm::uvec2& size, SubmitInfo& renderSubmitInfo, bool& stageHasRenderPasses) const
 	{
+		const IDevice& device = renderer.GetDevice();
+
 		IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
 		const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_renderCommandBuffers.at(pass);
 
@@ -718,19 +720,19 @@ namespace Engine::Rendering
 		glm::uvec2 passSize = size;
 		pass->GetCustomSize(passSize);
 
-		pass->PreDraw(device, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
+		pass->PreDraw(renderer, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
 
 		uint32_t layerCount = pass->GetLayerCount();
 		for (uint32_t layerIndex = 0; layerIndex < layerCount; ++layerIndex)
 		{
 			commandBuffer.BeginRendering(colourAttachments, depthAttachment, passSize, layerCount);
 
-			pass->Draw(device, commandBuffer, passSize, frameIndex, layerIndex);
+			pass->Draw(renderer, commandBuffer, passSize, frameIndex, layerIndex);
 
 			commandBuffer.EndRendering();
 		}
 
-		pass->PostDraw(device, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
+		pass->PostDraw(renderer, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
 
 		m_renderStats.End(commandBuffer, false);
 		stageHasRenderPasses = true;
@@ -832,7 +834,7 @@ namespace Engine::Rendering
 			{
 				if (node.Type == RenderNodeType::Pass)
 				{
-					if (!DrawRenderPass(device, node, frameIndex, size, renderSubmitInfo, stageHasRenderPasses))
+					if (!DrawRenderPass(renderer, node, frameIndex, size, renderSubmitInfo, stageHasRenderPasses))
 						return false;
 				}
 				else if (node.Type == RenderNodeType::Compute)

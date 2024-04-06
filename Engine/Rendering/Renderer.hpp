@@ -15,6 +15,7 @@
 #include "Resources/SubmitInfo.hpp"
 #include <functional>
 #include "CullingMode.hpp"
+#include "AntiAliasingMode.hpp"
 
 namespace Engine
 {
@@ -64,13 +65,13 @@ namespace Engine::Rendering
 		inline virtual bool Render();
 		inline const std::unordered_map<std::string, FrameStats>& GetRenderStats() const { return m_renderStats->GetFrameStats(); }
 		inline const MemoryStats& GetMemoryStats() const { return m_renderStats->GetMemoryStats(); }
-		inline const RenderGraph& GetRenderGraph() const { return *m_renderGraph; }
+		inline RenderGraph& GetRenderGraph() const { return *m_renderGraph; }
 
 		inline void SetClearColour(const Colour& clearColour) { m_clearColour = clearColour.GetVec4(); }
 		inline const Colour GetClearColor() const { return Colour(m_clearColour); }
 
-		EXPORT void SetTemporalAAState(bool enabled);
-		inline bool GetTemporalAAState(bool enabled) const { return m_renderSettings.m_temporalAA; }
+		EXPORT void SetAntiAliasingMode(AntiAliasingMode mode);
+		inline AntiAliasingMode GetTemporalAAState(bool enabled) const { return m_renderSettings.m_aaMode; }
 
 		EXPORT void SetDebugMode(uint32_t mode);
 		inline uint32_t GetDebugMode() const { return m_debugMode; }

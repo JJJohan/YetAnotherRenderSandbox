@@ -36,6 +36,7 @@ namespace Sandbox
 		std::vector<const char*> m_debugModes;
 		std::vector<const char*> m_cullingModes;
 		std::vector<const char*> m_shadowResolutions;
+		std::vector<const char*> m_aaModes;
 		uint32_t m_prevTabIndex;
 		std::chrono::steady_clock::time_point m_prevTime;
 	};

@@ -1,0 +1,15 @@
+{
+	"Programs":
+	[
+		{ "Type": "Vertex", "Path": "Shaders/SMAA_weights_vert.spv" },
+		{ "Type": "Fragment", "Path": "Shaders/SMAA_weights_frag.spv" }
+	],
+
+	"DepthWrite": false,
+	"DepthTest": false,
+
+	"Attachments":
+	[
+		"R8G8B8A8Unorm"
+	]
+}

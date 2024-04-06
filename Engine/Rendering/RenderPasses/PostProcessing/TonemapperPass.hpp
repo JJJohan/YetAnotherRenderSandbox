@@ -1,20 +1,15 @@
 #pragma once
 
-#include "IRenderPass.hpp"
-#include <glm/glm.hpp>
-#include "../Resources/IImageView.hpp"
-#include "../Resources/IRenderImage.hpp"
-#include "../Types.hpp"
+#include "../IRenderPass.hpp"
 
 namespace Engine::Rendering
 {
-	class ShadowMap;
 	class IResourceFactory;
 
-	class CombinePass : public IRenderPass
+	class TonemapperPass : public IRenderPass
 	{
 	public:
-		CombinePass(const ShadowMap& shadowMap);
+		TonemapperPass();
 
 		virtual bool Build(const Renderer& renderer,
 			const std::unordered_map<std::string, IRenderImage*>& imageInputs,
@@ -25,9 +20,11 @@ namespace Engine::Rendering
 		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat) override;
 
 		virtual void Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
-			const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex) override;
+			const glm::uvec2& size, uint32_t frameIndex, uint32_t passIndex) override;
 
-	private:
-		const ShadowMap& m_shadowMap;
+		inline virtual void ClearResources() override
+		{
+			IRenderPass::ClearResources();
+		}
 	};
 }

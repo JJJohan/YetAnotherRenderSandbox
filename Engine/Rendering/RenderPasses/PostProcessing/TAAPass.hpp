@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IRenderPass.hpp"
+#include "../IRenderPass.hpp"
 #include <array>
 #include <glm/glm.hpp>
 #include <memory>
@@ -22,14 +22,14 @@ namespace Engine::Rendering
 
 		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat) override;
 
-		virtual void Draw(const IDevice& device, const ICommandBuffer& commandBuffer, 
+		virtual void Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 			const glm::uvec2& size, uint32_t frameIndex, uint32_t passIndex) override;
 
-		virtual void PreDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
+		virtual void PreDraw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,
 			const std::unordered_map<std::string, IRenderImage*>& imageOutputs) override;
 
-		virtual void PostDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
+		virtual void PostDraw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,
 			const std::unordered_map<std::string, IRenderImage*>& imageOutputs) override;
 

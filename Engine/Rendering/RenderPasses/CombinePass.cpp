@@ -74,7 +74,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	void CombinePass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
+	void CombinePass::Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 		const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex)
 	{
 		m_material->BindMaterial(commandBuffer, BindPoint::Graphics, frameIndex);

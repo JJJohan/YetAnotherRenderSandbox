@@ -86,7 +86,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	void SceneShadowPass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
+	void SceneShadowPass::Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 		const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex)
 	{
 		if (!m_built)

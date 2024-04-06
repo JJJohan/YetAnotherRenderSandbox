@@ -10,7 +10,7 @@ The current focus is on building up a fairly solid foundation, with graphical fi
 * Render graph system that manages dependencies between render passes and management of shared buffer and texture resources.
 * Integration with [ImGui](https://github.com/ocornut/imgui) UI system.
 * Asset import pipeline to convert GLTF data to BC5 & BC7 textures & optimised mesh data.
-* Temporal anti-aliasing with minimal ghosting.
+* FXAA, SMAA and TAA anti-aliasing options.
 * Cache system for rapid asset loading after initial processing, currently LZ4 compressed on disk.
 * Fairly simple cascaded shadow mapping - Uses depth clamp to avoid noticeable artifacts, though there's currently no cascade blending.
 * HDR display output support.
@@ -28,14 +28,14 @@ The current focus is on building up a fairly solid foundation, with graphical fi
 ![render_graph](ReadmeAssets/render_graph.png)
 
 ## Some short-term goals I'll be looking at:
-* Apply separate frustum culling to shadow pass to avoid re-rendering geometry from previous cascades if it doesn't intersect the current one.
-* Add additional post-process AA variants (FXAA, SMAA & eventually DLAA).
+* Add a sky - some sort of atmosphere shader would be cool!
+* Implement image-based lighting
+* Revisit shadow culling - experiencing some issue where per-cascade frustum culling is too aggressive and surprisingly not really helping performance.
 * Considering adding some upscalers (DLSS, FSR & XeSS).
 * Give synchronisation and render graph a once-over.
-	* Currently there's no syncronisation validation errors, but would like to avoid creating messy, error-prone architecture.
+	* Verify multiple-frames-in-flight is consistent and not being blocked by any singular buffer usages.
+	* Currently there's no synchronisation validation errors, but would like to avoid creating messy, error-prone architecture.
 	* Some simple sanity checks that applies even without Vulkan validation would be good.
-	* Investigate if there's a nicer way to pass through "last frame" textures and buffers through the render graph (used for TAA and Hi-Z occlusion culling).
-	* Add simple push buffer size check.
 
 ## Wishlist:
 * Experimenting with basic animation.
@@ -46,4 +46,4 @@ The current focus is on building up a fairly solid foundation, with graphical fi
 	* Render UI to a regular SDR sRGB texture - currently it looks too bright and wrong.
 * Handle asset streaming - currently everything is loaded into a few big buffers with no cheap way to load new data in.
 * Possibly investigate replacing LZ4 compression with 'DirectStorage-like' GPU decompression during loading
-* Look at raytracing!
+* Look at raytracing and/or mesh shaders - the latter is probably more practical at this stage

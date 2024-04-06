@@ -1,0 +1,15 @@
+{
+	"Programs":
+	[
+		{ "Type": "Vertex", "Path": "Shaders/SMAA_blend_vert.spv" },
+		{ "Type": "Fragment", "Path": "Shaders/SMAA_blend_frag.spv" }
+	],
+
+	"DepthWrite": false,
+	"DepthTest": false,
+
+	"Attachments":
+	[
+		"Swapchain"
+	]
+}

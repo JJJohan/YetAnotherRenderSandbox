@@ -27,6 +27,7 @@ FetchContent_MakeAvailable(LevelAsset)
 # Copy local assets
 file(COPY Fonts DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 file(COPY Materials DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+file(COPY Textures DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # Compile shaders
 if(UNIX)

@@ -2,6 +2,7 @@
 
 #include <Core/Colour.hpp>
 #include <Rendering/CullingMode.hpp>
+#include <Rendering/AntiAliasingMode.hpp>
 
 namespace Sandbox
 {
@@ -11,19 +12,19 @@ namespace Sandbox
 			: ClearColour(0, 0, 0)
 			, SunColour(1, 1, 0.9f)
 			, SunIntensity(5.0f)
-			, UseTAA(true)
+			, AntiAliasingMode(Engine::Rendering::AntiAliasingMode::TAA)
 			, UseHDR(false)
 			, CullingMode(Engine::Rendering::CullingMode::FrustumAndOcclusion)
-			, ShadowResolution(2)
+			, ShadowResolutionIndex(2)
 		{
 		}
 
 		Engine::Colour ClearColour;
 		Engine::Colour SunColour;
 		float SunIntensity;
-		bool UseTAA;
+		Engine::Rendering::AntiAliasingMode AntiAliasingMode;
 		bool UseHDR;
 		Engine::Rendering::CullingMode CullingMode;
-		int32_t ShadowResolution;
+		int32_t ShadowResolutionIndex;
 	};
 }

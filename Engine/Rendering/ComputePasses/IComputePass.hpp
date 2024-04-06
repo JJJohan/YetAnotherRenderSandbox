@@ -37,7 +37,7 @@ namespace Engine::Rendering
 			const std::unordered_map<std::string, IBuffer*>& bufferInputs,
 			const std::unordered_map<std::string, IBuffer*>& bufferOutputs) = 0;
 
-		virtual void Dispatch(const Renderer& renderer, const ICommandBuffer& commandBuffer, 
+		virtual void Dispatch(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 			uint32_t frameIndex) = 0;
 
 		virtual inline bool GetCustomSize(glm::uvec2& outSize) const { return false; }

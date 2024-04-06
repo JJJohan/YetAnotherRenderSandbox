@@ -12,6 +12,7 @@ namespace Engine
 
 	enum class ImageFlags
 	{
+		None = 0,
 		SRGB = 1 << 0,
 		NormalMap = 1 << 1,
 		MetallicRoughnessMap = 1 << 2
@@ -43,9 +44,9 @@ namespace Engine
 	{
 	public:
 		EXPORT Image();
-		EXPORT Image(const glm::uvec2& dimensions, uint32_t components, const std::vector<uint8_t>& pixels, ImageFlags flags = ImageFlags::SRGB);
-		EXPORT bool LoadFromFile(const std::string& filePath, ImageFlags flags = ImageFlags::SRGB);
-		EXPORT bool LoadFromMemory(const uint8_t* memory, size_t size, ImageFlags flags = ImageFlags::SRGB);
+		EXPORT Image(const glm::uvec2& dimensions, uint32_t components, const std::vector<uint8_t>& pixels, ImageFlags flags = ImageFlags::None);
+		EXPORT bool LoadFromFile(const std::string& filePath, ImageFlags flags = ImageFlags::None);
+		EXPORT bool LoadFromMemory(const uint8_t* memory, size_t size, ImageFlags flags = ImageFlags::None);
 
 		EXPORT bool Optimise(bool compress, bool generateMipMaps, const AsyncData* asyncData = nullptr);
 

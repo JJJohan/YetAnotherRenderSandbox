@@ -117,7 +117,7 @@ namespace Engine::Rendering
 
 		bool FindFinalNode();
 
-		bool DrawRenderPass(const IDevice& device, const RenderGraphNode& node,
+		bool DrawRenderPass(const Renderer& renderer, const RenderGraphNode& node,
 			uint32_t frameIndex, const glm::uvec2& size,
 			SubmitInfo& renderSubmitInfo, bool& stageHasRenderPasses) const;
 

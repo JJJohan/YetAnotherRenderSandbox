@@ -25,6 +25,7 @@ namespace Sandbox
 		m_debugModes = { "None", "Albedo", "Normal", "WorldPos", "MetalRoughness", "Cascade Index" };
 		m_cullingModes = { "Paused", "None", "Frustum", "Frustum + Occlusion" };
 		m_shadowResolutions = { "1024", "2048", "4096" };
+		m_aaModes = { "None", "FXAA", "SMAA", "TAA" };
 	}
 
 	void UI::Draw(const Drawer& drawer)
@@ -73,9 +74,11 @@ namespace Sandbox
 			m_renderer->SetDebugMode(debugMode);
 		}
 
-		if (drawer.Checkbox("Use Temporal AA", &m_options.UseTAA))
+		int32_t aaMode = static_cast<int32_t>(m_options.AntiAliasingMode);
+		if (drawer.ComboBox("Anti Aliasing", m_aaModes, &aaMode))
 		{
-			m_renderer->SetTemporalAAState(m_options.UseTAA);
+			m_options.AntiAliasingMode = static_cast<AntiAliasingMode>(aaMode);
+			m_renderer->SetAntiAliasingMode(m_options.AntiAliasingMode);
 		}
 
 		int32_t cullingMode = static_cast<int32_t>(m_options.CullingMode);
@@ -85,9 +88,9 @@ namespace Sandbox
 			m_renderer->SetCullingMode(m_options.CullingMode);
 		}
 
-		if (drawer.ComboBox("Shadow Resolution", m_shadowResolutions, &m_options.ShadowResolution))
+		if (drawer.ComboBox("Shadow Resolution", m_shadowResolutions, &m_options.ShadowResolutionIndex))
 		{
-			m_renderer->SetShadowResolution(shadowResolutionValues[m_options.ShadowResolution]);
+			m_renderer->SetShadowResolution(shadowResolutionValues[m_options.ShadowResolutionIndex]);
 		}
 
 		bool hdrSupported = m_renderer->IsHDRSupported();

@@ -961,6 +961,9 @@ namespace Engine::Rendering
 					auto endTime = std::chrono::high_resolution_clock::now();
 					float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
 					Logger::Verbose("Scene manager build finished in {} seconds.", deltaTime);
+
+					// Rebuild render graph when batch has loaded.
+					m_renderer.GetRenderGraph().MarkDirty();
 				});
 	}
 }

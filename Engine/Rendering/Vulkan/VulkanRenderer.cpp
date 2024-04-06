@@ -508,9 +508,6 @@ namespace Engine::Rendering::Vulkan
 					{
 						resource.postAction.value()();
 					}
-
-					// Rebuild render graph when new resources are built. Might want to revisit..
-					m_renderGraph->MarkDirty();
 				}
 
 				m_inFlightResources.erase(m_inFlightResources.begin() + i);

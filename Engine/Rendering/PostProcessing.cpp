@@ -1,13 +1,21 @@
 #include "PostProcessing.hpp"
-#include "RenderPasses/TAAPass.hpp"
-#include "RenderPasses/TonemapperPass.hpp"
+#include "RenderPasses/PostProcessing/FXAAPass.hpp"
+#include "RenderPasses/PostProcessing/SMAAEdgesPass.hpp"
+#include "RenderPasses/PostProcessing/SMAAWeightsPass.hpp"
+#include "RenderPasses/PostProcessing/SMAABlendPass.hpp"
+#include "RenderPasses/PostProcessing/TAAPass.hpp"
+#include "RenderPasses/PostProcessing/TonemapperPass.hpp"
 
 using namespace Engine::Logging;
 
 namespace Engine::Rendering
 {
 	PostProcessing::PostProcessing()
-		: m_taaPass(nullptr)
+		: m_fxaaPass(nullptr)
+		, m_smaaEdgesPass(nullptr)
+		, m_smaaWeightsPass(nullptr)
+		, m_smaaBlendPass(nullptr)
+		, m_taaPass(nullptr)
 		, m_tonemapperPass(nullptr)
 		, m_taaFrameIndex(0)
 		, m_taaJitterOffsets()
@@ -16,6 +24,10 @@ namespace Engine::Rendering
 
 	bool PostProcessing::Initialise()
 	{
+		m_fxaaPass = std::make_unique<FXAAPass>();
+		m_smaaEdgesPass = std::make_unique<SMAAEdgesPass>();
+		m_smaaWeightsPass = std::make_unique<SMAAWeightsPass>();
+		m_smaaBlendPass = std::make_unique<SMAABlendPass>();
 		m_taaPass = std::make_unique<TAAPass>();
 		m_tonemapperPass = std::make_unique<TonemapperPass>();
 		return true;

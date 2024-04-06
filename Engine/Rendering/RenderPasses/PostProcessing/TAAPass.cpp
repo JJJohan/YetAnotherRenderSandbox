@@ -1,11 +1,11 @@
 #include "TAAPass.hpp"
-#include "../Resources/IBuffer.hpp"
-#include "../Resources/IRenderImage.hpp"
-#include "../IDevice.hpp"
-#include "../Resources/ICommandBuffer.hpp"
-#include "../IResourceFactory.hpp"
-#include "../ISwapChain.hpp"
-#include "../Renderer.hpp"
+#include "../../Resources/IBuffer.hpp"
+#include "../../Resources/IRenderImage.hpp"
+#include "../../IDevice.hpp"
+#include "../../Resources/ICommandBuffer.hpp"
+#include "../../IResourceFactory.hpp"
+#include "../../ISwapChain.hpp"
+#include "../../Renderer.hpp"
 
 using namespace Engine::Logging;
 
@@ -42,7 +42,7 @@ namespace Engine::Rendering
 		m_taaHistoryImage = std::move(resourceFactory.CreateRenderImage());
 		glm::uvec3 extent(size.x, size.y, 1);
 		if (!m_taaHistoryImage->Initialise("TAAHistoryImage", device, ImageType::e2D, format, extent, 1, 1,
-			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice,
+			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::GPUOnly,
 			AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to create TAA history image.");
@@ -89,24 +89,26 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	void TAAPass::PreDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
+	void TAAPass::PreDraw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 		const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,
 		const std::unordered_map<std::string, IRenderImage*>& imageOutputs)
 	{
+		const IDevice& device = renderer.GetDevice();
 		m_taaHistoryImage->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
 	}
 
-	void TAAPass::Draw(const IDevice& device, const ICommandBuffer& commandBuffer,
+	void TAAPass::Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 		const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex)
 	{
 		m_material->BindMaterial(commandBuffer, BindPoint::Graphics, frameIndex);
 		commandBuffer.Draw(3, 1, 0, 0);
 	}
 
-	void TAAPass::PostDraw(const IDevice& device, const ICommandBuffer& commandBuffer,
+	void TAAPass::PostDraw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 		const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,
 		const std::unordered_map<std::string, IRenderImage*>& imageOutputs)
 	{
+		const IDevice& device = renderer.GetDevice();
 		IRenderImage* outputImage = imageOutputs.at("Output");
 
 		m_taaHistoryImage->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferDst);

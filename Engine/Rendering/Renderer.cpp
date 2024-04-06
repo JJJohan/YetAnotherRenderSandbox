@@ -23,7 +23,6 @@
 #include "RenderPasses/SceneOpaquePass.hpp"
 #include "RenderPasses/SceneShadowPass.hpp"
 #include "RenderPasses/CombinePass.hpp"
-#include "RenderPasses/TonemapperPass.hpp"
 #include "RenderPasses/UIPass.hpp"
 
 #include "ComputePasses/IComputePass.hpp"
@@ -133,10 +132,17 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	void Renderer::SetTemporalAAState(bool enabled)
+	void Renderer::SetAntiAliasingMode(AntiAliasingMode mode)
 	{
-		m_renderSettings.m_temporalAA = enabled;
-		m_renderGraph->SetPassEnabled("TAA", enabled);
+		m_renderSettings.m_aaMode = mode;
+
+		m_renderGraph->SetPassEnabled("FXAA", mode == AntiAliasingMode::FXAA);
+
+		m_renderGraph->SetPassEnabled("SMAAEdges", mode == AntiAliasingMode::SMAA);
+		m_renderGraph->SetPassEnabled("SMAAWeights", mode == AntiAliasingMode::SMAA);
+		m_renderGraph->SetPassEnabled("SMAABlend", mode == AntiAliasingMode::SMAA);
+
+		m_renderGraph->SetPassEnabled("TAA", mode == AntiAliasingMode::TAA);
 	}
 
 	bool Renderer::CreateLightUniformBuffer()
@@ -177,7 +183,7 @@ namespace Engine::Rendering
 		frameInfo->prevViewProj = frameInfo->viewProj;
 		frameInfo->viewSize = size;
 		frameInfo->viewProj = m_camera.GetViewProjection();
-		frameInfo->jitter = m_renderSettings.m_temporalAA ? m_postProcessing->GetTAAJitter() : glm::vec2();
+		frameInfo->jitter = m_renderSettings.m_aaMode == AntiAliasingMode::TAA ? m_postProcessing->GetTAAJitter() : glm::vec2();
 	}
 
 	bool Renderer::Initialise()
@@ -273,6 +279,9 @@ namespace Engine::Rendering
 				return false;
 			}
 		}
+
+		// Disable anti-aliasing passes that aren't active.
+		SetAntiAliasingMode(m_renderSettings.m_aaMode);
 
 		// Add UI pass after post processing.
 		m_renderPasses["UI"] = std::make_unique<UIPass>(*m_uiManager);
