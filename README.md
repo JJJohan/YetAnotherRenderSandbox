@@ -30,12 +30,7 @@ The current focus is on building up a fairly solid foundation, with graphical fi
 ## Some short-term goals I'll be looking at:
 * Add a sky - some sort of atmosphere shader would be cool!
 * Implement image-based lighting
-* Revisit shadow culling - experiencing some issue where per-cascade frustum culling is too aggressive and surprisingly not really helping performance.
 * Considering adding some upscalers (DLSS, FSR & XeSS).
-* Give synchronisation and render graph a once-over.
-	* Verify multiple-frames-in-flight is consistent and not being blocked by any singular buffer usages.
-	* Currently there's no synchronisation validation errors, but would like to avoid creating messy, error-prone architecture.
-	* Some simple sanity checks that applies even without Vulkan validation would be good.
 
 ## Wishlist:
 * Experimenting with basic animation.
