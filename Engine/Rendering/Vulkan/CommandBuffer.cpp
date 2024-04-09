@@ -108,7 +108,7 @@ namespace Engine::Rendering::Vulkan
 		m_commandBuffer->blitImage(vkSrcImage.Get(), vk::ImageLayout::eTransferSrcOptimal, vkDstImage.Get(), vk::ImageLayout::eTransferDstOptimal, vkRegions, GetFilter(filter));
 	}
 
-	void CommandBuffer::PushConstants(const Material* material, ShaderStageFlags stageFlags, uint32_t offset, uint32_t size, uint32_t* value) const
+	void CommandBuffer::PushConstants(const Material* material, ShaderStageFlags stageFlags, uint32_t offset, uint32_t size, const uint32_t* value) const
 	{
 		const PipelineLayout* pipelineLayout = static_cast<const PipelineLayout*>(material);
 		m_commandBuffer->pushConstants(pipelineLayout->Get(), static_cast<vk::ShaderStageFlagBits>(stageFlags), offset, size, value);

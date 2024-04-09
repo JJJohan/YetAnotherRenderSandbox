@@ -138,7 +138,7 @@ namespace Engine::Rendering
 		if (!CreateLookupTextures(device, resourceFactory))
 			return false;
 
-		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, imageOutputs.at("BlendedWeights")));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, imageOutputs.at("BlendedWeights"), AttachmentLoadOp::Clear));
 
 		const std::vector<std::unique_ptr<IBuffer>>& frameInfoBuffers = renderer.GetFrameInfoBuffers();
 

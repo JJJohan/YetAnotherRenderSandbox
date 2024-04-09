@@ -14,9 +14,15 @@ namespace Engine::Rendering
 		, m_yaw(0.0f)
 		, m_viewDirty(true)
 		, m_projDirty(true)
+		, m_projFrustum()
 	{
 		UpdateView();
 		UpdateProjection();
+	}
+
+	inline static glm::vec4 normalizePlane(const glm::vec4& p)
+	{
+		return p / glm::length(glm::vec3(p));
 	}
 
 	void Camera::UpdateProjection()
@@ -26,6 +32,15 @@ namespace Engine::Rendering
 			m_proj = glm::perspective(m_fov, static_cast<float>(m_dimensions.x) / static_cast<float>(m_dimensions.y), m_nearFar.x, m_nearFar.y);
 			m_proj[1][1] *= -1.0f;
 			m_viewProj = m_proj * m_view;
+
+			glm::mat4 projectionT = transpose(m_proj);
+			glm::vec4 frustumX = normalizePlane(projectionT[3] + projectionT[0]); // x + w < 0
+			glm::vec4 frustumY = normalizePlane(projectionT[3] + projectionT[1]); // y + w < 0
+			m_projFrustum.x = frustumX.x;
+			m_projFrustum.y = frustumX.z;
+			m_projFrustum.z = frustumY.y;
+			m_projFrustum.w = frustumY.z;
+
 			m_projDirty = false;
 		}
 	}

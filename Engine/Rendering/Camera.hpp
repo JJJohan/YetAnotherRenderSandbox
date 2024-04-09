@@ -63,6 +63,7 @@ namespace Engine::Rendering
 
 		inline const glm::mat4& GetProjection() const { return m_proj; }
 		inline const glm::mat4& GetViewProjection() const { return m_viewProj; }
+		inline const glm::vec4& GetProjectionFrustum() const { return m_projFrustum; }
 
 		void Update(const glm::uvec2& dimensions);
 
@@ -74,6 +75,7 @@ namespace Engine::Rendering
 		glm::mat4 m_view;
 		glm::vec3 m_position;
 		glm::quat m_rotation;
+		glm::vec4 m_projFrustum; // Used for frustum culling, excludes near & far planes
 
 		glm::mat4 m_proj;
 		glm::uvec2 m_dimensions;

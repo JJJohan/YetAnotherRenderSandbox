@@ -56,17 +56,29 @@ layout(std430, binding = 4) writeonly buffer ShadowIndirectBuffer
 	VkDrawIndexedIndirectCommand commands[];
 } shadowIndirectBuffer;
 
-/*bool is_in_frustum(in vec3 center, float radius, int cascadeIndex)
+struct DrawCullData
 {
-	bool visible = center.z * cullData.frustum[cascadeIndex][1] - abs(center.x) * cullData.frustum[cascadeIndex][0] > -radius;
-	return visible && center.z * cullData.frustum[cascadeIndex][3] - abs(center.y) * cullData.frustum[cascadeIndex][2] > -radius;
-}*/
+	float frustum[4]; // data for left/right/top/bottom frustum planes
+};
+
+layout(push_constant) uniform constants
+{
+   DrawCullData cullData;
+};
 
 void addDrawCommand(uint id, int cascadeIndex)
 {
 	uint idx = cascadeIndex * inIndirectBuffer.count + atomicAdd(shadowIndirectBuffer.counts[cascadeIndex], 1);
 	shadowIndirectBuffer.commands[idx] = inIndirectBuffer.commands[id];
 	shadowIndirectBuffer.commands[idx].firstInstance = id;
+}
+
+// Use same frustum culling as regular scene - main difference is no occlusion culling, 
+// and explicitly don't test the near plane as this may be behind the camera and casting shadows into the view.
+bool is_in_frustum(in vec3 center, float radius)
+{
+	bool visible = center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius;
+	return visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
 }
 
 void main()
@@ -81,13 +93,16 @@ void main()
 	{
 		vec3 center = boundsBuffer.bounds[id].center;
 		float radius = boundsBuffer.bounds[id].radius;
-		vec3 min = center - vec3(radius);
-		vec3 max = center - vec3(radius);
 
-		for (int i = 0; i < 4; ++i)
+		if (is_in_frustum(center, radius))
 		{
+			float viewDepth = (frameInfo.view * vec4(center, 1.0f)).z;
+			for (int i = 0; i < 4; ++i)
 			{
-				addDrawCommand(id, i);
+				if (viewDepth - radius < -lightData.cascadeSplits[i])
+				{
+					addDrawCommand(id, i);
+				}
 			}
 		}
 	}

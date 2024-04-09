@@ -643,7 +643,7 @@ void SMAAMovc(bool4 cond, inout float4 variable, float4 value) {
  * Edge Detection Vertex Shader
  */
 void SMAAEdgeDetectionVS(float2 texcoord,
-                         out float4 offset[3]) {
+                         inout float4 offset[3]) {
     offset[0] = mad(SMAA_RT_METRICS.xyxy, float4(-1.0, 0.0, 0.0, -1.0), texcoord.xyxy);
     offset[1] = mad(SMAA_RT_METRICS.xyxy, float4( 1.0, 0.0, 0.0,  1.0), texcoord.xyxy);
     offset[2] = mad(SMAA_RT_METRICS.xyxy, float4(-2.0, 0.0, 0.0, -2.0), texcoord.xyxy);
@@ -654,7 +654,7 @@ void SMAAEdgeDetectionVS(float2 texcoord,
  */
 void SMAABlendingWeightCalculationVS(float2 texcoord,
                                      out float2 pixcoord,
-                                     out float4 offset[3]) {
+                                     inout float4 offset[3]) {
     pixcoord = texcoord * SMAA_RT_METRICS.zw;
 
     // We will use these offsets for the searches later on (see @PSEUDO_GATHER4):
@@ -792,11 +792,11 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
 
     // Calculate left-left and top-top deltas:
     float3 Cleftleft  = SMAASamplePoint(colorTex, offset[2].xy).rgb;
-    t = abs(C - Cleftleft);
+    t = abs(Cleft - Cleftleft);
     delta.z = max(max(t.r, t.g), t.b);
 
     float3 Ctoptop = SMAASamplePoint(colorTex, offset[2].zw).rgb;
-    t = abs(C - Ctoptop);
+    t = abs(Ctop - Ctoptop);
     delta.w = max(max(t.r, t.g), t.b);
 
     // Calculate the final maximum delta:

@@ -118,6 +118,9 @@ namespace Engine::Rendering
 		if (!m_built || m_mode == CullingMode::Paused)
 			return;
 
+		const Camera& camera = renderer.GetCameraReadOnly();
+		const glm::vec4& frustum = camera.GetProjectionFrustum();
+
 		const IDevice& device = renderer.GetDevice();
 
 		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
@@ -127,6 +130,7 @@ namespace Engine::Rendering
 		commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::TransferWrite,
 			MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderRead | MaterialAccessFlags::ShaderWrite);
 
+		commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(glm::vec4), reinterpret_cast<const uint32_t*>(&frustum));
 		commandBuffer.Dispatch(m_dispatchSize, 1, 1);
 
 		commandBuffer.MemoryBarrier(MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderWrite,

@@ -118,11 +118,6 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	inline static glm::vec4 normalizePlane(const glm::vec4& p)
-	{
-		return p / glm::length(glm::vec3(p));
-	}
-
 	void FrustumCullingPass::Dispatch(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 		uint32_t frameIndex)
 	{
@@ -142,23 +137,19 @@ namespace Engine::Rendering
 
 		const Camera& camera = renderer.GetCameraReadOnly();
 		const glm::mat4& projection = camera.GetProjection();
-		glm::mat4 projectionT = transpose(projection);
-		glm::vec4 frustumX = normalizePlane(projectionT[3] + projectionT[0]); // x + w < 0
-		glm::vec4 frustumY = normalizePlane(projectionT[3] + projectionT[1]); // y + w < 0
-
+		m_drawCullData.frustum = camera.GetProjectionFrustum();
 		m_drawCullData.P00 = projection[0][0];
 		m_drawCullData.P11 = projection[1][1];
-		m_drawCullData.frustum.x = frustumX.x;
-		m_drawCullData.frustum.y = frustumX.z;
-		m_drawCullData.frustum.z = frustumY.y;
-		m_drawCullData.frustum.w = frustumY.z;
 		m_drawCullData.enableOcclusion = firstDraw ? 0 : 1;
 
 		commandBuffer.FillBuffer(*m_indirectBuffer, 0, sizeof(uint32_t), 0);
+
 		commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::TransferWrite,
 			MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderRead | MaterialAccessFlags::ShaderWrite);
-		commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(DrawCullData), reinterpret_cast<uint32_t*>(&m_drawCullData));
+
+		commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(DrawCullData), reinterpret_cast<const uint32_t*>(&m_drawCullData));
 		commandBuffer.Dispatch(m_dispatchSize, 1, 1);
+
 		commandBuffer.MemoryBarrier(MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderWrite,
 			MaterialStageFlags::DrawIndirect, MaterialAccessFlags::IndirectCommandRead);
 	}

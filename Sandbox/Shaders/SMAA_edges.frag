@@ -25,5 +25,5 @@ layout(location = 0) out vec2 outColor;
 
 void main()
 {
-	outColor = SMAALumaEdgeDetectionPS(fragUv, offsets, inputImage);
+	outColor = SMAAColorEdgeDetectionPS(fragUv, offsets, inputImage);
 }

@@ -36,7 +36,7 @@ namespace Engine::Rendering
 	{
 		ClearResources();
 
-		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, imageOutputs.at("Edges")));
+		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(0, imageOutputs.at("Edges"), AttachmentLoadOp::Clear));
 
 		const std::vector<std::unique_ptr<IBuffer>>& frameInfoBuffers = renderer.GetFrameInfoBuffers();
 

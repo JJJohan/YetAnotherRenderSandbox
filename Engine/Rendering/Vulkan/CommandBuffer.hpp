@@ -38,7 +38,7 @@ namespace Engine::Rendering::Vulkan
 
 		virtual void BlitImage(const IRenderImage& srcImage, const IRenderImage& dstImage, const std::vector<ImageBlit>& regions, Filter filter) const override;
 
-		virtual void PushConstants(const Material* material, ShaderStageFlags stageFlags, uint32_t offset, uint32_t size, uint32_t* value) const override;
+		virtual void PushConstants(const Material* material, ShaderStageFlags stageFlags, uint32_t offset, uint32_t size, const uint32_t* value) const override;
 
 		virtual void BindVertexBuffers(uint32_t firstBinding, const std::vector<IBuffer*>& buffers, const std::vector<size_t>& offsets) const override;
 
