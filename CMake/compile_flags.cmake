@@ -5,6 +5,9 @@ macro(set_compile_flags target)
 
 	if(ENABLE_LTO)
 		set_property(TARGET ${target} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+		if(MSVC)
+			target_compile_options(${target} PRIVATE /Gy)
+		endif()
 	endif()
 
 	if(ENABLE_AVX2)

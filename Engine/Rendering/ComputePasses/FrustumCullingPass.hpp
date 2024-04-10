@@ -30,7 +30,7 @@ namespace Engine::Rendering
 		void SetCullingMode(CullingMode mode);
 
 	private:
-		struct DrawCullData
+		struct alignas(16) DrawCullData
 		{
 			float P00, P11, znear, zfar; // symmetric projection parameters
 			glm::vec4 frustum; // data for left/right/top/bottom frustum planes

@@ -29,7 +29,7 @@ namespace Engine::Rendering::Vulkan
 			m_device->setDebugUtilsObjectNameEXT(debugUtilsObjectNameInfo);
 		}
 #else
-		inline void SetResourceName(ResourceType type, const T& handle, std::string_view name) const {};
+		inline void SetResourceName(ResourceType type, const void* handle, std::string_view name) const {};
 #endif
 
 	private:

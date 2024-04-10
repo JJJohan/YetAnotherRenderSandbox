@@ -22,9 +22,9 @@ namespace Engine::Rendering::Vulkan
 		createInfo.borderColor = vk::BorderColor::eFloatOpaqueWhite;
 		createInfo.maxLod = VK_LOD_CLAMP_NONE;
 
+		vk::SamplerReductionModeCreateInfo createInfoReduction(vk::SamplerReductionMode::eMax);
 		if (flags == SamplerCreationFlags::ReductionSampler)
 		{
-			vk::SamplerReductionModeCreateInfo createInfoReduction(vk::SamplerReductionMode::eMax);
 			createInfo.pNext = &createInfoReduction;
 		}
 
