@@ -27,6 +27,13 @@ namespace Engine::Rendering::Vulkan
 		};
 	}
 
+	static std::vector<const char*> GetOptionalExtensions()
+	{
+		return {
+			VK_NV_LOW_LATENCY_2_EXTENSION_NAME
+		};
+	}
+
 	vk::SampleCountFlagBits PhysicalDevice::GetMaxMultiSampleCount() const
 	{
 		vk::SampleCountFlags counts = m_deviceProperties.limits.framebufferColorSampleCounts & m_deviceProperties.limits.framebufferDepthSampleCounts;
@@ -57,6 +64,19 @@ namespace Engine::Rendering::Vulkan
 
 		Logger::Error("Failed to find supported image format matching requested input.");
 		return Format::Undefined;
+	}
+
+	bool PhysicalDevice::SupportsOptionalExtension(const char* extension) const
+	{
+		for (const auto& supported : m_supportedOptionalExtensions)
+		{
+			if (strcmp(supported, extension) == 0)
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	Format PhysicalDevice::FindDepthFormat()
@@ -114,7 +134,7 @@ namespace Engine::Rendering::Vulkan
 		uint32_t index = 0;
 		for (const auto& queueFamily : queueFamilies)
 		{
-			vk::QueueFlags flags = queueFamily.queueFamilyProperties.queueFlags;	
+			vk::QueueFlags flags = queueFamily.queueFamilyProperties.queueFlags;
 
 			// Attempt to find a compute family with graphics support to simplify memory barrier transitions.
 			if (!indices.ComputeFamily.has_value() && flags & vk::QueueFlagBits::eCompute && flags & vk::QueueFlagBits::eGraphics)
@@ -189,6 +209,7 @@ namespace Engine::Rendering::Vulkan
 		SwapChainSupportDetails SwapChainSupportDetails;
 		vk::PhysicalDeviceProperties Properties;
 		vk::PhysicalDeviceFeatures Features;
+		std::vector<const char*> SupportedOptionalExtensions;
 
 		bool operator>(const DeviceCandidate& other) const
 		{
@@ -196,10 +217,9 @@ namespace Engine::Rendering::Vulkan
 		}
 	};
 
-	bool CheckRequiredDeviceExtensionsSupport(const vk::PhysicalDevice& device, const std::vector<const char*>& requestedExtensions)
+	static bool CheckRequiredDeviceExtensionsSupport(const std::vector<vk::ExtensionProperties>& properties, const std::vector<const char*>& requiredExtensions)
 	{
-		std::vector<vk::ExtensionProperties> properties = device.enumerateDeviceExtensionProperties(nullptr);
-		return std::all_of(requestedExtensions.begin(), requestedExtensions.end(), [properties, requestedExtensions](const auto& extension)
+		return std::all_of(requiredExtensions.begin(), requiredExtensions.end(), [properties, requiredExtensions](const auto& extension)
 			{
 				return std::find_if(properties.begin(), properties.end(), [extension](const auto& prop)
 					{
@@ -208,7 +228,24 @@ namespace Engine::Rendering::Vulkan
 			});
 	}
 
-	std::optional<DeviceCandidate> ScoreDeviceSuitability(const vk::PhysicalDevice& device, const Surface& surface, const std::vector<const char*>& extensionNames)
+	static std::vector<const char*> ExtractSupportedOptionalExtensions(const std::vector<vk::ExtensionProperties>& properties, const std::vector<const char*>& optionalExtensions)
+	{
+		std::vector<const char*> supportedOptionalExtensions;
+
+		for (const auto& prop : properties) {
+			for (const char* extension : optionalExtensions) {
+				if (std::strcmp(extension, prop.extensionName) == 0) {
+					supportedOptionalExtensions.push_back(extension);
+					break;
+				}
+			}
+		}
+
+		return supportedOptionalExtensions;
+	}
+
+	std::optional<DeviceCandidate> ScoreDeviceSuitability(const vk::PhysicalDevice& device, const Surface& surface,
+		const std::vector<const char*>& requiredExtensionNames, const std::vector<const char*>& optionalExtenionNames)
 	{
 		// Require graphics queue support.
 		QueueFamilyIndices indices = FindQueueFamilies(device, surface);
@@ -217,7 +254,9 @@ namespace Engine::Rendering::Vulkan
 			return std::nullopt;
 		}
 
-		if (!CheckRequiredDeviceExtensionsSupport(device, extensionNames))
+		std::vector<vk::ExtensionProperties> properties = device.enumerateDeviceExtensionProperties(nullptr);
+
+		if (!CheckRequiredDeviceExtensionsSupport(properties, requiredExtensionNames))
 		{
 			return std::nullopt;
 		}
@@ -254,7 +293,10 @@ namespace Engine::Rendering::Vulkan
 		// Favour higher texture size limits.
 		score += deviceProperties.limits.maxImageDimension2D;
 
-		return DeviceCandidate{ score, device, indices, swapChainSupport.value(), deviceProperties, deviceFeatures };
+		// Remove unsupported optional extensions.
+		std::vector<const char*> supportedOptionalExtenionNames = ExtractSupportedOptionalExtensions(properties, optionalExtenionNames);
+
+		return DeviceCandidate{ score, device, indices, swapChainSupport.value(), deviceProperties, deviceFeatures, supportedOptionalExtenionNames };
 	}
 
 	bool PhysicalDevice::Initialise(const Instance& instance, const Surface& surface)
@@ -268,12 +310,13 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		std::vector<const char*> extensionNames = GetRequiredExtensions();
+		std::vector<const char*> requiredExtensionNames = GetRequiredExtensions();
+		std::vector<const char*> optionalExtensionNames = GetOptionalExtensions();
 
 		std::vector<DeviceCandidate> candidates;
 		for (const auto& device : devices)
 		{
-			std::optional<DeviceCandidate> candidate = ScoreDeviceSuitability(device, surface, extensionNames);
+			std::optional<DeviceCandidate> candidate = ScoreDeviceSuitability(device, surface, requiredExtensionNames, optionalExtensionNames);
 			if (candidate.has_value())
 			{
 				candidates.emplace_back(candidate.value());
@@ -292,6 +335,7 @@ namespace Engine::Rendering::Vulkan
 		m_queueFamilyIndices = bestCandidate.QueueFamilyIndices;
 		m_deviceProperties = bestCandidate.Properties;
 		m_deviceFeatures = bestCandidate.Features;
+		m_supportedOptionalExtensions = bestCandidate.SupportedOptionalExtensions;
 
 		return true;
 	}

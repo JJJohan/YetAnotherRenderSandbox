@@ -4,6 +4,7 @@
 #include "../QueueFamilyIndices.hpp"
 #include "../IPhysicalDevice.hpp"
 #include "../Types.hpp"
+#include <string_view>
 
 namespace Engine::Rendering::Vulkan
 {
@@ -24,14 +25,17 @@ namespace Engine::Rendering::Vulkan
 		Format FindSupportedFormat(const std::vector<Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
 		virtual Format FindDepthFormat() override;
 		virtual bool FormatSupported(Format format) const override;
+		bool SupportsOptionalExtension(const char* extenion) const;
 		inline virtual float GetMaxAnisotropy() const override { return m_deviceProperties.limits.maxSamplerAnisotropy; }
 		inline virtual bool SupportsBCTextureCompression() const override { return m_deviceFeatures.textureCompressionBC; }
 		inline virtual const QueueFamilyIndices& GetQueueFamilyIndices() const override { return m_queueFamilyIndices; }
+		inline const std::vector<const char*>& GetSupportedOptionalExtensions() const { return m_supportedOptionalExtensions; }
 
 	private:
 		vk::PhysicalDevice m_physicalDevice;
 		QueueFamilyIndices m_queueFamilyIndices;
 		vk::PhysicalDeviceProperties m_deviceProperties;
 		vk::PhysicalDeviceFeatures m_deviceFeatures;
+		std::vector<const char*> m_supportedOptionalExtensions;
 	};
 }

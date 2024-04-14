@@ -16,6 +16,7 @@
 #include <functional>
 #include "CullingMode.hpp"
 #include "AntiAliasingMode.hpp"
+#include "NvidiaReflex.hpp"
 
 namespace Engine
 {
@@ -62,6 +63,7 @@ namespace Engine::Rendering
 		EXPORT virtual ~Renderer();
 
 		inline virtual bool Initialise();
+		EXPORT bool BeginFrame() const;
 		inline virtual bool Render();
 		inline const std::unordered_map<std::string, FrameStats>& GetRenderStats() const { return m_renderStats->GetFrameStats(); }
 		inline const MemoryStats& GetMemoryStats() const { return m_renderStats->GetMemoryStats(); }
@@ -75,6 +77,8 @@ namespace Engine::Rendering
 
 		EXPORT void SetDebugMode(uint32_t mode);
 		inline uint32_t GetDebugMode() const { return m_debugMode; }
+
+		inline NvidiaReflex& NvidiaReflex() const { return *m_nvidiaReflex; }
 
 		EXPORT void SetCullingMode(CullingMode mode);
 
@@ -162,6 +166,7 @@ namespace Engine::Rendering
 		std::unique_ptr<IImageSampler> m_nearestSampler;
 		std::unique_ptr<IImageSampler> m_shadowSampler;
 		std::unique_ptr<IImageSampler> m_reductionSampler;
+		std::unique_ptr<Engine::Rendering::NvidiaReflex> m_nvidiaReflex;
 
 		std::unique_ptr<SceneManager> m_sceneManager;
 		std::unique_ptr<GeometryBatch> m_sceneGeometryBatch;

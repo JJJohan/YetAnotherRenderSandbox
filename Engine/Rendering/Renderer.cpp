@@ -74,6 +74,7 @@ namespace Engine::Rendering
 		, m_shadowSampler(nullptr)
 		, m_reductionSampler(nullptr)
 		, m_sceneGeometryBatch(std::make_unique<GeometryBatch>(*this))
+		, m_nvidiaReflex(nullptr)
 	{
 	}
 
@@ -342,6 +343,14 @@ namespace Engine::Rendering
 	{
 		m_shadowMap->SetResolution(resolution);
 		m_renderGraph->MarkDirty();
+	}
+
+	bool Renderer::BeginFrame() const
+	{
+		//if (m_nvidiaReflex->IsSupported() && !m_nvidiaReflex->Sleep())
+		//	return false;
+
+		return true;
 	}
 
 	bool Renderer::Render()

@@ -26,6 +26,7 @@ namespace Sandbox
 		m_cullingModes = { "Paused", "None", "Frustum", "Frustum + Occlusion" };
 		m_shadowResolutions = { "1024", "2048", "4096" };
 		m_aaModes = { "None", "FXAA", "SMAA", "TAA" };
+		m_nvidiaReflexModes = { "Off", "On", "On + Boost" };
 	}
 
 	void UI::Draw(const Drawer& drawer)
@@ -86,6 +87,16 @@ namespace Sandbox
 		{
 			m_options.CullingMode = static_cast<CullingMode>(cullingMode);
 			m_renderer->SetCullingMode(m_options.CullingMode);
+		}
+
+		if (m_renderer->NvidiaReflex().IsSupported())
+		{
+			int32_t nvidiaReflexMode = static_cast<int32_t>(m_options.NvidiaReflexMode);
+			if (drawer.ComboBox("Nvidia Reflex", m_nvidiaReflexModes, &nvidiaReflexMode))
+			{
+				m_options.NvidiaReflexMode = static_cast<NvidiaReflexMode>(nvidiaReflexMode);
+				m_renderer->NvidiaReflex().SetMode(m_options.NvidiaReflexMode);
+			}
 		}
 
 		if (drawer.ComboBox("Shadow Resolution", m_shadowResolutions, &m_options.ShadowResolutionIndex))

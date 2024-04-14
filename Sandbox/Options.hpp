@@ -3,6 +3,7 @@
 #include <Core/Colour.hpp>
 #include <Rendering/CullingMode.hpp>
 #include <Rendering/AntiAliasingMode.hpp>
+#include <Rendering/NvidiaReflex.hpp>
 
 namespace Sandbox
 {
@@ -16,6 +17,7 @@ namespace Sandbox
 			, UseHDR(false)
 			, CullingMode(Engine::Rendering::CullingMode::FrustumAndOcclusion)
 			, ShadowResolutionIndex(2)
+			, NvidiaReflexMode(Engine::Rendering::NvidiaReflexMode::On)
 		{
 		}
 
@@ -26,5 +28,6 @@ namespace Sandbox
 		bool UseHDR;
 		Engine::Rendering::CullingMode CullingMode;
 		int32_t ShadowResolutionIndex;
+		Engine::Rendering::NvidiaReflexMode NvidiaReflexMode;
 	};
 }

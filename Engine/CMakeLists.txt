@@ -57,6 +57,8 @@ set(SOURCE_LIST
 	"Rendering/RenderGraph.cpp"
 	"Rendering/RenderGraph.hpp"
 	"Rendering/RenderSettings.hpp"
+	"Rendering/NvidiaReflex.cpp"
+	"Rendering/NvidiaReflex.hpp"
 	"Rendering/ComputePasses/FrustumCullingPass.cpp"
 	"Rendering/ComputePasses/FrustumCullingPass.hpp"
 	"Rendering/ComputePasses/ShadowCullingPass.cpp"
@@ -147,6 +149,8 @@ set(SOURCE_LIST
 	"Rendering/Vulkan/SwapChain.hpp"
 	"Rendering/Vulkan/SwapChainSupportDetails.hpp"
 	"Rendering/Vulkan/VulkanRenderer.cpp"
+	"Rendering/Vulkan/VulkanNvidiaReflex.cpp"
+	"Rendering/Vulkan/VulkanNvidiaReflex.hpp"
 	"UI/ScrollingGraphBuffer.hpp"
 	"UI/UIManager.cpp"
 	"UI/UIManager.hpp"
@@ -190,6 +194,10 @@ target_link_libraries(Engine PRIVATE
 	imgui-node-editor
 	implot
 	"vulkan-1")
+
+if(WIN32)
+  target_compile_definitions(Engine PRIVATE WIN32_LEAN_AND_MEAN)
+endif()
 
 set_compile_flags(Engine)
 

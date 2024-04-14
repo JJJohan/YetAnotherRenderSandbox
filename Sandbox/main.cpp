@@ -77,6 +77,11 @@ int main()
 			return 1;
 		}
 
+		if (!renderer->BeginFrame())
+		{
+			return 1;
+		}
+
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevTime).count();
 		prevTime = currentTime;

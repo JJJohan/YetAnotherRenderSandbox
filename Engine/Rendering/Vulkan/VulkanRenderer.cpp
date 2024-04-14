@@ -27,10 +27,13 @@
 #include "ResourceFactory.hpp"
 #include "VulkanTypesInterop.hpp"
 #include "Semaphore.hpp"
+#include "VulkanNvidiaReflex.hpp"
 
 #define DEFAULT_MAX_CONCURRENT_FRAMES 2
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+
+static vk::DynamicLoader _dynamicLoader{};
 
 using namespace Engine::OS;
 using namespace Engine::Logging;
@@ -204,9 +207,7 @@ namespace Engine::Rendering::Vulkan
 
 		auto startTime = std::chrono::high_resolution_clock::now();
 
-		static vk::DynamicLoader dl;
-		auto vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
-		VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
+		VULKAN_HPP_DEFAULT_DISPATCHER.init(_dynamicLoader);
 
 		std::string title = m_window.GetTitle();
 		m_lastWindowSize = m_window.GetSize();
@@ -222,6 +223,7 @@ namespace Engine::Rendering::Vulkan
 		m_renderStats = std::make_unique<VulkanRenderStats>();
 		m_materialManager = std::make_unique<PipelineManager>();
 		m_resourceFactory = std::make_unique<ResourceFactory>(&m_allocator);
+		m_nvidiaReflex = std::make_unique<VulkanNvidiaReflex>(*m_device, *m_swapChain);
 		m_uiManager = std::make_unique<VulkanUIManager>(m_window, *this);
 
 		PhysicalDevice* vkPhysicalDevice = static_cast<PhysicalDevice*>(m_physicalDevice.get());
@@ -242,6 +244,12 @@ namespace Engine::Rendering::Vulkan
 			|| !static_cast<SwapChain*>(m_swapChain.get())->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, m_lastWindowSize, m_renderSettings.m_hdr)
 			|| !m_resourceCommandPool->Initialise("ResourceCommandPool", *m_physicalDevice, *m_device, indices.GraphicsFamily.value(), CommandPoolFlags::Transient)
 			|| !CreateSyncObjects())
+		{
+			return false;
+		}
+
+		VulkanNvidiaReflex& nvidiaReflex = static_cast<VulkanNvidiaReflex&>(*m_nvidiaReflex);
+		if (!nvidiaReflex.Initialise(*m_physicalDevice))
 		{
 			return false;
 		}
@@ -459,7 +467,7 @@ namespace Engine::Rendering::Vulkan
 			auto& lastSubmit = vkSubmitInfos.back();
 
 			const vk::SwapchainKHR& swapchainImp = static_cast<SwapChain*>(m_swapChain.get())->Get();
-			vk::Queue graphicsQueue = vkDevice->GetGraphicsQueue();	
+			vk::Queue graphicsQueue = vkDevice->GetGraphicsQueue();
 			vk::Queue presentQueue = vkDevice->GetPresentQueue();
 
 			graphicsQueue.submit(vkSubmitInfos, m_inFlightRenderFences[m_currentFrame].get());

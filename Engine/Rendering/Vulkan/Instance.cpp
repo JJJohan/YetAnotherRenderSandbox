@@ -3,7 +3,6 @@
 #include "Core/Logging/Logger.hpp"
 
 #if defined (_WIN32)
-#define WIN32_LEAN_AND_MEAN
 #include <vulkan/vulkan_win32.h>
 #elif defined(__linux__)
 #include <vulkan/vulkan_xcb.h>
@@ -58,7 +57,7 @@ namespace Engine::Rendering::Vulkan
 		const std::vector<const char*> validationLayers =
 		{
 			"VK_LAYER_KHRONOS_validation"
-	};
+		};
 
 		vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
 		if (useDebug)
@@ -103,5 +102,5 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		return true;
-}
+	}
 }

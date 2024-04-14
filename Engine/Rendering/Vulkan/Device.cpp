@@ -22,7 +22,7 @@ namespace Engine::Rendering::Vulkan
 		QueueFamilyIndices indices = vkPhysicalDevice.GetQueueFamilyIndices();
 		std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
 		std::set<uint32_t> uniqueQueueFamilies = {
-			indices.GraphicsFamily.value(), indices.PresentFamily.value(), indices.ComputeFamily.value()};
+			indices.GraphicsFamily.value(), indices.PresentFamily.value(), indices.ComputeFamily.value() };
 
 		const vk::PhysicalDeviceFeatures& availableFeatures = vkPhysicalDevice.GetFeatures();
 
@@ -36,9 +36,19 @@ namespace Engine::Rendering::Vulkan
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
+		const std::vector<const char*>& optionalExtensionNames = vkPhysicalDevice.GetSupportedOptionalExtensions();
+
+		// Chain optional extensions.
+		void* nextExtension = nullptr;
+		for (const char* extension : optionalExtensionNames)
+		{
+			// None of the current optional extensions require additional device features.
+		}
+
 		vk::PhysicalDeviceVulkan13Features vulkan13Features;
 		vulkan13Features.dynamicRendering = true;
 		vulkan13Features.synchronization2 = true;
+		vulkan13Features.pNext = nextExtension;
 
 		vk::PhysicalDeviceVulkan12Features vulkan12Features;
 		vulkan12Features.bufferDeviceAddress = true;
@@ -67,6 +77,7 @@ namespace Engine::Rendering::Vulkan
 		deviceFeatures2.pNext = &vulkan11Features;
 
 		std::vector<const char*> extensionNames = vkPhysicalDevice.GetRequiredExtensions();
+		extensionNames.append_range(optionalExtensionNames);
 
 		vk::DeviceCreateInfo createInfo;
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
@@ -84,7 +95,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		m_graphicsQueue = m_device.get().getQueue(indices.GraphicsFamily.value(), 0);
-		m_presentQueue = m_device.get().getQueue(indices.PresentFamily.value(), 0);	
+		m_presentQueue = m_device.get().getQueue(indices.PresentFamily.value(), 0);
 		m_computeQueue = m_device.get().getQueue(indices.ComputeFamily.value(), 0);
 
 		return true;
