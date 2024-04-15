@@ -4,9 +4,9 @@ namespace Engine::OS
 {
 	enum class MouseButton
 	{
-		LEFT,
-		RIGHT,
-		MIDDLE
+		Left,
+		Right,
+		Middle
 	};
 
 	enum class KeyCode

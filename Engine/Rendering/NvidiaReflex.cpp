@@ -7,4 +7,8 @@ namespace Engine::Rendering
 		, m_supported(false)
 	{
 	}
+
+	NvidiaReflex::~NvidiaReflex()
+	{
+	}
 }

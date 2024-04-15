@@ -99,29 +99,29 @@ namespace Engine::OS
 
 						if ((rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN) == RI_MOUSE_LEFT_BUTTON_DOWN)
 						{
-							window->InputState.SetMouseButtonDown(MouseButton::LEFT, true);
+							window->InputState.SetMouseButtonDown(MouseButton::Left, true);
 						}
 						else if ((rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_UP) == RI_MOUSE_LEFT_BUTTON_UP)
 						{
-							window->InputState.SetMouseButtonDown(MouseButton::LEFT, false);
+							window->InputState.SetMouseButtonDown(MouseButton::Left, false);
 						}
 
 						if ((rawMouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN) == RI_MOUSE_MIDDLE_BUTTON_DOWN)
 						{
-							window->InputState.SetMouseButtonDown(MouseButton::MIDDLE, true);
+							window->InputState.SetMouseButtonDown(MouseButton::Middle, true);
 						}
 						else if ((rawMouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_UP) == RI_MOUSE_MIDDLE_BUTTON_UP)
 						{
-							window->InputState.SetMouseButtonDown(MouseButton::MIDDLE, false);
+							window->InputState.SetMouseButtonDown(MouseButton::Middle, false);
 						}
 
 						if ((rawMouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN) == RI_MOUSE_RIGHT_BUTTON_DOWN)
 						{
-							window->InputState.SetMouseButtonDown(MouseButton::RIGHT, true);
+							window->InputState.SetMouseButtonDown(MouseButton::Right, true);
 						}
 						else if ((rawMouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP) == RI_MOUSE_RIGHT_BUTTON_UP)
 						{
-							window->InputState.SetMouseButtonDown(MouseButton::RIGHT, false);
+							window->InputState.SetMouseButtonDown(MouseButton::Right, false);
 						}
 					}
 					else if (raw->header.dwType == RIM_TYPEKEYBOARD)

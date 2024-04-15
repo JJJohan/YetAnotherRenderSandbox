@@ -17,7 +17,7 @@ namespace Engine::OS
 			return m_keysDown[index] && !m_keysDownPrevFrame[index];
 		};
 
-		inline bool KeyPressed(KeyCode keyCode) const
+		inline bool KeyHeld(KeyCode keyCode) const
 		{
 			int index = static_cast<int>(keyCode);
 			return m_keysDown[index];
@@ -35,7 +35,7 @@ namespace Engine::OS
 			return m_mouseButtonsDown[index] && !m_mouseButtonsDownPrevFrame[index];
 		};
 
-		inline bool MouseButtonPressed(MouseButton mouseButton) const
+		inline bool MouseButtonHeld(MouseButton mouseButton) const
 		{
 			int index = static_cast<int>(mouseButton);
 			return m_mouseButtonsDown[index];

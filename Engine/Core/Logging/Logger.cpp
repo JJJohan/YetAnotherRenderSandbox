@@ -10,7 +10,7 @@
 
 namespace Engine::Logging
 {
-	LogLevel Logger::m_logOutputLevel = LogLevel::DEBUG;
+	LogLevel Logger::m_logOutputLevel = LogLevel::Debug;
 	static std::mutex m_logMutex;
 
 	void Logger::LogMessage(LogLevel level, const std::string_view& message)
@@ -18,23 +18,22 @@ namespace Engine::Logging
 		if (level < Logger::m_logOutputLevel)
 			return;
 
-
 		const std::lock_guard<std::mutex> guard(m_logMutex);
 		switch (level)
 		{
-		case LogLevel::VERBOSE:
+		case LogLevel::Verbose:
 			std::cout << "\033[35m" << "[VERBOSE] " << message << "\033[0m" << std::endl;
 			break;
-		case LogLevel::DEBUG:
+		case LogLevel::Debug:
 			std::cout << "\033[36m" << "[DEBUG] " << message << "\033[0m" << std::endl;
 			break;
-		case LogLevel::INFO:
+		case LogLevel::Info:
 			std::cout << "\033[37m" << "[INFO] " << message << "\033[0m" << std::endl;
 			break;
-		case LogLevel::WARNING:
+		case LogLevel::Warning:
 			std::cout << "\033[33m" << "[WARNING] " << message << "\033[0m" << std::endl;
 			break;
-		case LogLevel::FATAL:
+		case LogLevel::Fatal:
 			std::cout << "\033[31m" << "[ERROR] " << message << "\033[0m" << std::endl;
 			DEBUG_BREAK;
 			break;

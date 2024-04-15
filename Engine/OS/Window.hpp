@@ -3,6 +3,7 @@
 #include <string>
 #include <memory>
 #include "Core/Macros.hpp"
+#include "Core/Logging/Logger.hpp"
 #include "InputState.hpp"
 #include <functional>
 
@@ -23,6 +24,71 @@ namespace Engine::OS
 
 	class Window
 	{
+	private:
+		template <typename TReturn>
+		static inline void RegisterCallback(std::vector<std::function<TReturn(void)>>& collection, std::function<TReturn(void)> callback)
+		{
+			const auto& target = callback.target<TReturn(void)>();
+			for (auto it = collection.cbegin(); it != collection.cend(); ++it)
+			{
+				if (it->target<TReturn(void)>() == target)
+				{
+					Engine::Logging::Logger::Error("Callback already registered.");
+					return;
+				}
+			}
+
+			collection.push_back(callback);
+		}
+
+		template <typename TReturn>
+		static inline void UnregisterCallback(std::vector<std::function<TReturn(void)>>& collection, std::function<TReturn(void)> callback)
+		{
+			const auto& target = callback.target<TReturn(void)>();
+			for (auto it = collection.cbegin(); it != collection.cend(); ++it)
+			{
+				if (it->target<TReturn(void)>() == target)
+				{
+					collection.erase(it);
+					return;
+				}
+			}
+
+			Engine::Logging::Logger::Error("Callback was not registered.");
+		}
+
+		template <typename TReturn, class TArg>
+		static inline void RegisterCallback(std::vector<std::function<TReturn(TArg)>>& collection, std::function<TReturn(TArg)> callback)
+		{
+			const auto& target = callback.target<TReturn(TArg)>();
+			for (auto it = collection.cbegin(); it != collection.cend(); ++it)
+			{
+				if (it->target<TReturn(TArg)>() == target)
+				{
+					Engine::Logging::Logger::Error("Callback already registered.");
+					return;
+				}
+			}
+
+			collection.push_back(callback);
+		}
+
+		template <typename TReturn, typename TArg>
+		static inline void UnregisterCallback(std::vector<std::function<TReturn(TArg)>>& collection, std::function<TReturn(TArg)> callback)
+		{
+			const auto& target = callback.target<TReturn(TArg)>();
+			for (auto it = collection.cbegin(); it != collection.cend(); ++it)
+			{
+				if (it->target<TReturn(TArg)>() == target)
+				{
+					collection.erase(it);
+					return;
+				}
+			}
+
+			Engine::Logging::Logger::Error("Callback was not registered.");
+		}
+
 	public:
 		EXPORT static std::unique_ptr<Window> Create(const std::string& title, const glm::uvec2& size, bool fullscreen);
 		EXPORT virtual ~Window();
@@ -43,11 +109,16 @@ namespace Engine::OS
 		EXPORT virtual void Poll();
 		EXPORT virtual bool QueryMonitorInfo(MonitorInfo& info) const;
 
-		EXPORT void RegisterResizeCallback(std::function<void(const glm::uvec2&)> callback);
-		EXPORT void UnregisterResizeCallback(std::function<void(const glm::uvec2&)> callback);
+		inline void RegisterPrePollCallback(std::function<void(void)> callback) { RegisterCallback(m_prePollCallbacks, callback); }
+		inline void RegisterPostPollCallback(std::function<void(void)> callback) { RegisterCallback(m_postPollCallbacks, callback); }
+		inline void UnregisterPrePollCallback(std::function<void(void)> callback) { UnregisterCallback(m_prePollCallbacks, callback); }
+		inline void UnregisterPostPollCallback(std::function<void(void)> callback) { UnregisterCallback(m_postPollCallbacks, callback); }
 
-		EXPORT void RegisterCloseCallback(std::function<void(void)> callback);
-		EXPORT void UnregisterCloseCallback(std::function<void(void)> callback);
+		inline void RegisterResizeCallback(std::function<void(const glm::uvec2&)> callback) { RegisterCallback(m_resizeCallbacks, callback); }
+		inline void UnregisterResizeCallback(std::function<void(const glm::uvec2&)> callback) { UnregisterCallback(m_resizeCallbacks, callback); }
+
+		inline void RegisterCloseCallback(std::function<void(void)> callback) { RegisterCallback(m_closeCallbacks, callback); }
+		inline void UnregisterCloseCallback(std::function<void(void)> callback) { RegisterCallback(m_closeCallbacks, callback); }
 
 		void OnResize(const glm::uvec2& size);
 
@@ -56,6 +127,8 @@ namespace Engine::OS
 	protected:
 		Window(const std::string& name, const glm::uvec2& size, bool fullscreen);
 
+		std::vector<std::function<void(void)>> m_prePollCallbacks;
+		std::vector<std::function<void(void)>> m_postPollCallbacks;
 		std::vector<std::function<void(const glm::uvec2&)>> m_resizeCallbacks;
 		std::vector<std::function<void(void)>> m_closeCallbacks;
 		std::string m_title;

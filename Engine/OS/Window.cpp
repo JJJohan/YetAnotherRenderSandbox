@@ -40,7 +40,17 @@ namespace Engine::OS
 
 	void Window::Poll()
 	{
+		for (const auto& callback : m_prePollCallbacks)
+		{
+			callback();
+		}
+
 		InputState.Update();
+
+		for (const auto& callback : m_postPollCallbacks)
+		{
+			callback();
+		}
 	}
 
 	void Window::Close()
@@ -51,66 +61,6 @@ namespace Engine::OS
 		{
 			callback();
 		}
-	}
-
-	void Window::RegisterResizeCallback(std::function<void(const glm::uvec2&)> callback)
-	{
-		const auto& target = callback.target<void(const glm::uvec2&)>();
-		for (auto it = m_resizeCallbacks.cbegin(); it != m_resizeCallbacks.cend(); ++it)
-		{
-			if (it->target<void(const glm::uvec2&)>() == target)
-			{
-				Logger::Error("Callback already registered.");
-				return;
-			}
-		}
-
-		m_resizeCallbacks.push_back(callback);
-	}
-
-	void Window::UnregisterResizeCallback(std::function<void(const glm::uvec2&)> callback)
-	{
-		const auto& target = callback.target<void(const glm::uvec2&)>();
-		for (auto it = m_resizeCallbacks.cbegin(); it != m_resizeCallbacks.cend(); ++it)
-		{
-			if (it->target<void(const glm::uvec2&)>() == target)
-			{
-				m_resizeCallbacks.erase(it);
-				return;
-			}
-		}
-
-		Logger::Error("Callback was not registered.");
-	}
-
-	void Window::RegisterCloseCallback(std::function<void(void)> callback)
-	{
-		const auto& target = callback.target<void>();
-		for (auto it = m_closeCallbacks.cbegin(); it != m_closeCallbacks.cend(); ++it)
-		{
-			if (it->target<void>() == target)
-			{
-				Logger::Error("Callback already registered.");
-				return;
-			}
-		}
-
-		m_closeCallbacks.push_back(callback);
-	}
-
-	void Window::UnregisterCloseCallback(std::function<void(void)> callback)
-	{
-		const auto& target = callback.target<void>();
-		for (auto it = m_closeCallbacks.cbegin(); it != m_closeCallbacks.cend(); ++it)
-		{
-			if (it->target<void>() == target)
-			{
-				m_closeCallbacks.erase(it);
-				return;
-			}
-		}
-
-		Logger::Error("Callback was not registered.");
 	}
 
 	void Window::OnResize(const glm::uvec2& size)

@@ -37,7 +37,7 @@ using namespace Engine::Rendering::Vulkan;
 
 namespace Engine::Rendering
 {
-	Renderer::Renderer(const Window& window, bool debug)
+	Renderer::Renderer(Window& window, bool debug)
 		: m_debug(debug)
 		, m_window(window)
 		, m_clearColour()
@@ -84,6 +84,9 @@ namespace Engine::Rendering
 
 	void Renderer::DestroyResources()
 	{
+		m_window.UnregisterPrePollCallback(std::bind(&Renderer::OnWindowPrePoll, this));
+		m_window.UnregisterPostPollCallback(std::bind(&Renderer::OnWindowPostPoll, this));
+
 		m_frameInfoBuffers.clear();
 		m_lightBuffers.clear();
 		m_frameInfoBufferData.clear();
@@ -91,6 +94,7 @@ namespace Engine::Rendering
 		m_renderPasses.clear();
 		m_computePasses.clear();
 
+		m_nvidiaReflex.reset();
 		m_renderGraph.reset();
 		m_linearSampler.reset();
 		m_nearestSampler.reset();
@@ -301,16 +305,35 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	std::unique_ptr<Renderer> Renderer::Create(RendererType rendererType, const Window& window, bool debug)
+	void Renderer::OnWindowPrePoll()
 	{
+		m_nvidiaReflex->SetMarker(NvidiaReflexMarker::InputSample);
+	}
+
+	void Renderer::OnWindowPostPoll()
+	{
+		if (m_window.InputState.MouseButtonDown(MouseButton::Left))
+			m_nvidiaReflex->SetMarker(NvidiaReflexMarker::TriggerFlash);
+	}
+
+	std::unique_ptr<Renderer> Renderer::Create(RendererType rendererType, Window& window, bool debug)
+	{
+		std::unique_ptr<Renderer> result;
+
 		switch (rendererType)
 		{
-		case RendererType::VULKAN:
-			return std::make_unique<VulkanRenderer>(window, debug);
+		case RendererType::Vulkan:
+			result = std::make_unique<VulkanRenderer>(window, debug);
+			break;
 		default:
 			Logger::Error("Requested renderer type not supported.");
 			return nullptr;
 		}
+
+		window.RegisterPrePollCallback(std::bind(&Renderer::OnWindowPrePoll, result.get()));
+		window.RegisterPostPollCallback(std::bind(&Renderer::OnWindowPostPoll, result.get()));
+
+		return result;
 	}
 
 	void Renderer::SetDebugMode(uint32_t mode)
@@ -347,14 +370,19 @@ namespace Engine::Rendering
 
 	bool Renderer::BeginFrame() const
 	{
-		//if (m_nvidiaReflex->IsSupported() && !m_nvidiaReflex->Sleep())
+		// Nvidia Reflex hangs on sleep command when VK_LAYER_KHRONOS_validation is enabled.
+		//if (!m_nvidiaReflex->Sleep())
 		//	return false;
+
+		m_nvidiaReflex->SetMarker(NvidiaReflexMarker::SimulationStart);
 
 		return true;
 	}
 
 	bool Renderer::Render()
 	{
+		m_nvidiaReflex->SetMarker(NvidiaReflexMarker::SimulationEnd);
+
 		const glm::uvec2& windowSize = m_swapChain->GetExtent();
 
 		UpdateFrameInfo();

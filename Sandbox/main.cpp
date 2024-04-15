@@ -40,10 +40,10 @@ void DrawLoadProgress(const Drawer& drawer)
 
 int main()
 {
-	Logger::SetLogOutputLevel(LogLevel::VERBOSE);
+	Logger::SetLogOutputLevel(LogLevel::Verbose);
 
 	std::unique_ptr<Window> window = Window::Create("Sandbox", glm::uvec2(1280, 720), false);
-	std::unique_ptr<Renderer> renderer = Renderer::Create(RendererType::VULKAN, *window, debug);
+	std::unique_ptr<Renderer> renderer = Renderer::Create(RendererType::Vulkan, *window, debug);
 	g_renderer = renderer.get();
 	g_window = window.get();
 
@@ -106,24 +106,24 @@ int main()
 		if (!drawUI)
 		{
 			float speed = 10.0f * deltaTime;
-			if (window->InputState.KeyPressed(KeyCode::Shift))
+			if (window->InputState.KeyHeld(KeyCode::Shift))
 			{
 				speed *= 2.0f;
 			}
 
-			if (window->InputState.KeyPressed(KeyCode::W))
+			if (window->InputState.KeyHeld(KeyCode::W))
 			{
 				camera.TranslateLocal(glm::vec3(0.0f, 0.0f, speed));
 			}
-			if (window->InputState.KeyPressed(KeyCode::A))
+			if (window->InputState.KeyHeld(KeyCode::A))
 			{
 				camera.TranslateLocal(glm::vec3(-speed, 0.0f, 0.0f));
 			}
-			if (window->InputState.KeyPressed(KeyCode::S))
+			if (window->InputState.KeyHeld(KeyCode::S))
 			{
 				camera.TranslateLocal(glm::vec3(0.0f, 0.0f, -speed));
 			}
-			if (window->InputState.KeyPressed(KeyCode::D))
+			if (window->InputState.KeyHeld(KeyCode::D))
 			{
 				camera.TranslateLocal(glm::vec3(speed, 0.0f, 0.0f));
 			}

@@ -13,7 +13,9 @@ namespace Engine::Rendering::Vulkan
 	{
 	public:
 		VulkanNvidiaReflex(const IDevice& device, const ISwapChain& swapChain);
+		virtual ~VulkanNvidiaReflex() override;
 		bool Initialise(const IPhysicalDevice& physicalDevice);
+		virtual void SetMarker(NvidiaReflexMarker marker) const override;
 		virtual bool SetMode(NvidiaReflexMode mode) override;
 		virtual bool Sleep() const override;
 

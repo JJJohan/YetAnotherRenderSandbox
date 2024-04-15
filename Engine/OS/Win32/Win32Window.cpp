@@ -107,7 +107,7 @@ namespace Engine::OS
 		HMODULE hInstance = GetModuleHandle(nullptr);
 		if (hInstance == nullptr)
 		{
-			Logger::Log(LogLevel::FATAL, "Failed to get module handle.");
+			Logger::Log(LogLevel::Fatal, "Failed to get module handle.");
 			return nullptr;
 		}
 
@@ -135,7 +135,7 @@ namespace Engine::OS
 
 		if (!RegisterClass(&wc))
 		{
-			Logger::Log(LogLevel::FATAL, "Failed to register window class.");
+			Logger::Log(LogLevel::Fatal, "Failed to register window class.");
 			MessageBox(nullptr, L"Failed to register window class.", L"Error", MB_OK | MB_ICONEXCLAMATION);
 			return nullptr;
 		}
@@ -154,7 +154,7 @@ namespace Engine::OS
 			if (ChangeDisplaySettings(&dmScreenSettings, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL)
 			{
 				// If The Mode Fails, Offer Two Options.  Quit Or Use Windowed Mode.
-				Logger::Log(LogLevel::WARNING, "Fullscreen mode not supported, querying for window mode fallback.");
+				Logger::Log(LogLevel::Warning, "Fullscreen mode not supported, querying for window mode fallback.");
 				if (MessageBox(nullptr, L"The Requested Fullscreen Mode Is Not Supported By\nYour Video Card. Use Windowed Mode Instead?", L"Error", MB_YESNO | MB_ICONEXCLAMATION) == IDYES)
 				{
 					fullscreen = FALSE;
@@ -199,7 +199,7 @@ namespace Engine::OS
 			hInstance,                           // Instance
 			window.get())))                      // Pass reference of this to WM_CREATE
 		{
-			Logger::Log(LogLevel::FATAL, "Failed to create window.");
+			Logger::Log(LogLevel::Fatal, "Failed to create window.");
 			MessageBox(nullptr, L"Failed to create window.", L"Error", MB_OK | MB_ICONEXCLAMATION);
 			return nullptr;
 		}
@@ -223,7 +223,7 @@ namespace Engine::OS
 
 		if (RegisterRawInputDevices(Rid, 2, sizeof(Rid[0])) == FALSE)
 		{
-			Logger::Log(LogLevel::FATAL, "Failed to register raw input for keyboard and mouse.");
+			Logger::Log(LogLevel::Fatal, "Failed to register raw input for keyboard and mouse.");
 			MessageBox(nullptr, L"Failed to register raw input for keyboard and mouse.", L"Error", MB_OK | MB_ICONEXCLAMATION);
 		}
 
@@ -339,7 +339,7 @@ namespace Engine::OS
 			std::wstring title_w = std::wstring(title.begin(), title.end());
 			if (SetWindowText(m_hWnd, title_w.c_str()) == 0)
 			{
-				Logger::Log(LogLevel::WARNING, "Failed to set window title to '{}'.", title);
+				Logger::Log(LogLevel::Warning, "Failed to set window title to '{}'.", title);
 			}
 		}
 
@@ -411,7 +411,7 @@ namespace Engine::OS
 		{
 			if (SetWindowPos(m_hWnd, 0, 0, 0, size.x, size.y, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOMOVE) == 0)
 			{
-				Logger::Log(LogLevel::WARNING, "Failed to resize window to new size of ({0}, {1}).", size.x, size.y);
+				Logger::Log(LogLevel::Warning, "Failed to resize window to new size of ({0}, {1}).", size.x, size.y);
 			}
 		}
 

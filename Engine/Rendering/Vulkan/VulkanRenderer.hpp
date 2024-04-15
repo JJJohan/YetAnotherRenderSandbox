@@ -40,7 +40,7 @@ namespace Engine::Rendering::Vulkan
 	class VulkanRenderer : public Renderer
 	{
 	public:
-		VulkanRenderer(const Engine::OS::Window& window, bool debug);
+		VulkanRenderer(Engine::OS::Window& window, bool debug);
 		virtual ~VulkanRenderer() override;
 
 		virtual bool Initialise() override;

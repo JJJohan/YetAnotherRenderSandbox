@@ -53,13 +53,13 @@ namespace Engine::Rendering
 
 	enum class RendererType
 	{
-		VULKAN
+		Vulkan
 	};
 
 	class Renderer
 	{
 	public:
-		EXPORT static std::unique_ptr<Renderer> Create(RendererType rendererType, const Engine::OS::Window& window, bool debug);
+		EXPORT static std::unique_ptr<Renderer> Create(RendererType rendererType, Engine::OS::Window& window, bool debug);
 		EXPORT virtual ~Renderer();
 
 		inline virtual bool Initialise();
@@ -132,11 +132,14 @@ namespace Engine::Rendering
 		virtual bool Present(const std::vector<SubmitInfo>& renderSubmitInfos, const std::vector<SubmitInfo>& computeSubmitInfos) = 0;
 
 	protected:
-		Renderer(const Engine::OS::Window& window, bool debug);
+		Renderer(Engine::OS::Window& window, bool debug);
 
 		bool CreateFrameInfoUniformBuffer();
 		bool CreateLightUniformBuffer();
 		void UpdateFrameInfo();
+
+		void OnWindowPrePoll();
+		void OnWindowPostPoll();
 
 		virtual void DestroyResources();
 
@@ -148,7 +151,7 @@ namespace Engine::Rendering
 		float m_sunIntensity;
 		uint32_t m_debugMode;
 		uint32_t m_maxMultiSampleCount;
-		const Engine::OS::Window& m_window;
+		Engine::OS::Window& m_window;
 		bool m_debug;
 		Camera m_camera;
 		glm::vec4 m_clearColour;

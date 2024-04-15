@@ -5,6 +5,7 @@ using namespace Engine::Logging;
 
 static PFN_vkSetLatencySleepModeNV _vkSetLatencySleepModeNVAddr = 0;
 static PFN_vkLatencySleepNV _vkLatencySleepNV = 0;
+static PFN_vkSetLatencyMarkerNV _vkSetLatencyMarkerNV = 0;
 
 namespace Engine::Rendering::Vulkan
 {
@@ -12,6 +13,10 @@ namespace Engine::Rendering::Vulkan
 		: m_device(device)
 		, m_swapChain(swapChain)
 		, m_semaphore(nullptr)
+	{
+	}
+
+	VulkanNvidiaReflex::~VulkanNvidiaReflex()
 	{
 	}
 
@@ -24,7 +29,8 @@ namespace Engine::Rendering::Vulkan
 		const vk::Device& deviceImp = static_cast<const Device&>(m_device).Get();
 		_vkSetLatencySleepModeNVAddr = (PFN_vkSetLatencySleepModeNV)deviceImp.getProcAddr("vkSetLatencySleepModeNV");
 		_vkLatencySleepNV = (PFN_vkLatencySleepNV)deviceImp.getProcAddr("vkLatencySleepNV");
-		if (!_vkSetLatencySleepModeNVAddr || !_vkLatencySleepNV)
+		_vkSetLatencyMarkerNV = (PFN_vkSetLatencyMarkerNV)deviceImp.getProcAddr("vkSetLatencyMarkerNV");
+		if (!_vkSetLatencySleepModeNVAddr || !_vkLatencySleepNV || !_vkSetLatencyMarkerNV)
 			return false;
 
 		m_semaphore = std::make_unique<Semaphore>();
@@ -40,8 +46,8 @@ namespace Engine::Rendering::Vulkan
 
 	bool VulkanNvidiaReflex::Sleep() const
 	{
-		if (!m_semaphore)
-			return false;
+		if (!m_supported)
+			return true;
 
 		const vk::Device& deviceImp = static_cast<const Device&>(m_device).Get();
 		const vk::SwapchainKHR& swapChainImp = static_cast<const SwapChain&>(m_swapChain).Get();
@@ -74,6 +80,23 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		return true;
+	}
+
+	void VulkanNvidiaReflex::SetMarker(NvidiaReflexMarker marker) const
+	{
+		if (!m_supported)
+			return;
+
+		const vk::Device& deviceImp = static_cast<const Device&>(m_device).Get();
+		const vk::SwapchainKHR& swapChainImp = static_cast<const SwapChain&>(m_swapChain).Get();
+
+		VkSetLatencyMarkerInfoNV markerInfo =
+		{
+			.sType = VK_STRUCTURE_TYPE_SET_LATENCY_MARKER_INFO_NV,
+			.marker = static_cast<VkLatencyMarkerNV>(marker)
+		};
+
+		_vkSetLatencyMarkerNV(deviceImp, swapChainImp, &markerInfo);
 	}
 
 	bool VulkanNvidiaReflex::SetMode(NvidiaReflexMode mode)

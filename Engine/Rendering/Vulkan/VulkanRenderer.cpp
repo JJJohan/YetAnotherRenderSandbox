@@ -42,7 +42,7 @@ using namespace Engine::UI::Vulkan;
 
 namespace Engine::Rendering::Vulkan
 {
-	VulkanRenderer::VulkanRenderer(const Window& window, bool debug)
+	VulkanRenderer::VulkanRenderer(Window& window, bool debug)
 		: Renderer(window, debug)
 		, m_instance()
 		, m_Debug()
@@ -311,6 +311,8 @@ namespace Engine::Rendering::Vulkan
 
 	bool VulkanRenderer::Present(const std::vector<SubmitInfo>& renderSubmitInfos, const std::vector<SubmitInfo>& computeSubmitInfos)
 	{
+		m_nvidiaReflex->SetMarker(NvidiaReflexMarker::RenderSubmitStart);
+
 		Device* vkDevice = static_cast<Device*>(m_device.get());
 		const vk::Device& deviceImp = vkDevice->Get();
 
@@ -436,6 +438,9 @@ namespace Engine::Rendering::Vulkan
 			++count;
 		}
 
+		m_nvidiaReflex->SetMarker(NvidiaReflexMarker::RenderSubmitEnd);
+		m_nvidiaReflex->SetMarker(NvidiaReflexMarker::PresentStart);
+
 		vk::Result result = vk::Result::eSuccess;
 		if (count > 0)
 		{
@@ -474,7 +479,10 @@ namespace Engine::Rendering::Vulkan
 
 			vk::PresentInfoKHR presentInfo(1, &presentSemaphore, 1, &swapchainImp, &m_presentImageIndex);
 			result = presentQueue.presentKHR(presentInfo);
+
 		}
+
+		m_nvidiaReflex->SetMarker(NvidiaReflexMarker::PresentEnd);
 
 		m_currentFrame = (m_currentFrame + 1) % m_maxConcurrentFrames;
 		return result == vk::Result::eSuccess;

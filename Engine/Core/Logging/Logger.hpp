@@ -7,11 +7,11 @@ namespace Engine::Logging
 {
 	enum class LogLevel
 	{
-		VERBOSE,
-		DEBUG,
-		INFO,
-		WARNING,
-		FATAL
+		Verbose,
+		Debug,
+		Info,
+		Warning,
+		Fatal
 	};
 
 	class Logger
@@ -36,35 +36,35 @@ namespace Engine::Logging
 		static void Verbose(std::string_view rt_fmt_str, Args&&... args)
 		{
 			std::string formatted_string = std::vformat(rt_fmt_str, std::make_format_args(args...));
-			LogMessage(LogLevel::VERBOSE, formatted_string);
+			LogMessage(LogLevel::Verbose, formatted_string);
 		}
 
 		template <typename... Args>
 		static void Debug(std::string_view rt_fmt_str, Args&&... args)
 		{
 			std::string formatted_string = std::vformat(rt_fmt_str, std::make_format_args(args...));
-			LogMessage(LogLevel::DEBUG, formatted_string);
+			LogMessage(LogLevel::Debug, formatted_string);
 		}
 
 		template <typename... Args>
 		static void Info(std::string_view rt_fmt_str, Args&&... args)
 		{
 			std::string formatted_string = std::vformat(rt_fmt_str, std::make_format_args(args...));
-			LogMessage(LogLevel::INFO, formatted_string);
+			LogMessage(LogLevel::Info, formatted_string);
 		}
 
 		template <typename... Args>
 		static void Warning(std::string_view rt_fmt_str, Args&&... args)
 		{
 			std::string formatted_string = std::vformat(rt_fmt_str, std::make_format_args(args...));
-			LogMessage(LogLevel::WARNING, formatted_string);
+			LogMessage(LogLevel::Warning, formatted_string);
 		}
 
 		template <typename... Args>
 		static void Error(std::string_view rt_fmt_str, Args&&... args)
 		{
 			std::string formatted_string = std::vformat(rt_fmt_str, std::make_format_args(args...));
-			LogMessage(LogLevel::FATAL, formatted_string);
+			LogMessage(LogLevel::Fatal, formatted_string);
 		}
 
 		EXPORT static void SetLogOutputLevel(LogLevel level);
