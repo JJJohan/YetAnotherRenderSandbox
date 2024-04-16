@@ -75,6 +75,8 @@ namespace Engine::Rendering
 		, m_reductionSampler(nullptr)
 		, m_sceneGeometryBatch(std::make_unique<GeometryBatch>(*this))
 		, m_nvidiaReflex(nullptr)
+		, m_asyncComputeEnabled(false)
+		, m_asyncComputeSupported(false)
 	{
 	}
 

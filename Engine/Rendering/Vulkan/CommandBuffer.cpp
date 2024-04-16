@@ -9,9 +9,10 @@ using namespace Engine::Logging;
 
 namespace Engine::Rendering::Vulkan
 {
-	CommandBuffer::CommandBuffer(vk::UniqueCommandBuffer commandBuffer)
+	CommandBuffer::CommandBuffer(vk::UniqueCommandBuffer commandBuffer, uint32_t queueFamilyIndex)
 		: m_commandBuffer(std::move(commandBuffer))
 	{
+		m_queueFamilyIndex = queueFamilyIndex;
 	}
 
 	const vk::CommandBuffer& CommandBuffer::Get() const

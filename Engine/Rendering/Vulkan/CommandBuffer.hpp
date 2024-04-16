@@ -8,7 +8,7 @@ namespace Engine::Rendering::Vulkan
 	class CommandBuffer : public ICommandBuffer
 	{
 	public:
-		CommandBuffer(vk::UniqueCommandBuffer commandBuffer);
+		CommandBuffer(vk::UniqueCommandBuffer commandBuffer, uint32_t queueFamilyIndex);
 		const vk::CommandBuffer& Get() const;
 
 		inline virtual void Reset() const override

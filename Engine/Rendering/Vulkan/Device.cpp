@@ -22,7 +22,7 @@ namespace Engine::Rendering::Vulkan
 		QueueFamilyIndices indices = vkPhysicalDevice.GetQueueFamilyIndices();
 		std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
 		std::set<uint32_t> uniqueQueueFamilies = {
-			indices.GraphicsFamily.value(), indices.PresentFamily.value(), indices.ComputeFamily.value() };
+			indices.GraphicsFamily.value(), indices.TransferFamily.value(), indices.PresentFamily.value(), indices.ComputeFamily.value() };
 
 		const vk::PhysicalDeviceFeatures& availableFeatures = vkPhysicalDevice.GetFeatures();
 
@@ -94,9 +94,10 @@ namespace Engine::Rendering::Vulkan
 			return false;
 		}
 
-		m_graphicsQueue = m_device.get().getQueue(indices.GraphicsFamily.value(), 0);
-		m_presentQueue = m_device.get().getQueue(indices.PresentFamily.value(), 0);
-		m_computeQueue = m_device.get().getQueue(indices.ComputeFamily.value(), 0);
+		m_graphicsQueue = m_device->getQueue(indices.GraphicsFamily.value(), 0);
+		m_presentQueue = m_device->getQueue(indices.PresentFamily.value(), 0);
+		m_computeQueue = m_device->getQueue(indices.ComputeFamily.value(), 0);
+		m_transferQueue = m_device->getQueue(indices.TransferFamily.value(), 0);
 
 		return true;
 	}

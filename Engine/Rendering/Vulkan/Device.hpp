@@ -19,7 +19,7 @@ namespace Engine::Rendering::Vulkan
 		inline const vk::Queue& GetGraphicsQueue() const { return m_graphicsQueue; }
 		inline const vk::Queue& GetPresentQueue() const { return m_presentQueue; }
 		inline const vk::Queue& GetComputeQueue() const { return m_computeQueue; }
-		inline bool AsyncCompute() const { return m_graphicsQueue != m_computeQueue; }
+		inline const vk::Queue& GetTransferQueue() const { return m_transferQueue; }
 		bool Initialise(const IPhysicalDevice& physicalDevice);
 
 #ifndef NDEBUG
@@ -37,5 +37,6 @@ namespace Engine::Rendering::Vulkan
 		vk::Queue m_graphicsQueue;
 		vk::Queue m_computeQueue;
 		vk::Queue m_presentQueue;
+		vk::Queue m_transferQueue;
 	};
 }

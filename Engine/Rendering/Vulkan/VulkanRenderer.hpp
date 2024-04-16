@@ -52,6 +52,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		virtual void SetHDRState(bool enable) override;
+		virtual void SetAsyncComputeState(bool enable) override;
 
 		inline VmaAllocator GetAllocator() const { return m_allocator; };
 

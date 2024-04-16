@@ -89,6 +89,10 @@ namespace Engine::Rendering
 		inline bool GetHDRState() const { return m_renderSettings.m_hdr; }
 		bool IsHDRSupported() const { return m_swapChain->IsHDRCapable(); }
 
+		EXPORT virtual void SetAsyncComputeState(bool enable) = 0;
+		inline bool GetAsyncComputeState() const { return m_asyncComputeEnabled; }
+		inline bool IsAsyncComputeSupported() const { return m_asyncComputeSupported; }
+
 		inline void SetSunLightDirection(const glm::vec3& dir) { m_sunDirection = glm::normalize(dir); }
 		inline void SetSunLightColour(const Colour& colour) { m_sunColour = colour; }
 		inline void SetSunLightIntensity(float intensity) { m_sunIntensity = intensity; }
@@ -157,6 +161,8 @@ namespace Engine::Rendering
 		glm::vec4 m_clearColour;
 		Format m_depthFormat;
 		RenderSettings m_renderSettings;
+		bool m_asyncComputeSupported;
+		bool m_asyncComputeEnabled;
 
 		std::vector<std::unique_ptr<IBuffer>> m_frameInfoBuffers;
 		std::vector<std::unique_ptr<IBuffer>> m_lightBuffers;

@@ -18,6 +18,7 @@ namespace Sandbox
 			, CullingMode(Engine::Rendering::CullingMode::FrustumAndOcclusion)
 			, ShadowResolutionIndex(2)
 			, NvidiaReflexMode(Engine::Rendering::NvidiaReflexMode::On)
+			, UseAsyncCompute(true)
 		{
 		}
 
@@ -26,6 +27,7 @@ namespace Sandbox
 		float SunIntensity;
 		Engine::Rendering::AntiAliasingMode AntiAliasingMode;
 		bool UseHDR;
+		bool UseAsyncCompute;
 		Engine::Rendering::CullingMode CullingMode;
 		int32_t ShadowResolutionIndex;
 		Engine::Rendering::NvidiaReflexMode NvidiaReflexMode;

@@ -54,15 +54,14 @@ namespace Engine::Rendering::Vulkan
 		extensionNames.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #endif  
 
+		const std::vector<const char*> validationLayers =
+		{
+			"VK_LAYER_KHRONOS_validation"
+		};
 
 		vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
 		if (useDebug)
 		{
-			const std::vector<const char*> validationLayers =
-			{
-				"VK_LAYER_KHRONOS_validation"
-			};
-
 			extensionNames.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
 			if (debug.CheckValidationLayerSupport(validationLayers))

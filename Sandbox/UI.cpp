@@ -112,6 +112,16 @@ namespace Sandbox
 		}
 		drawer.EndDisabled();
 
+		// TODO: Implement
+		bool asyncComputeSupported = false;// m_renderer->IsAsyncComputeSupported();
+		m_options.UseAsyncCompute = false;
+		drawer.BeginDisabled(!asyncComputeSupported);
+		if (drawer.Checkbox("Async Compute", &m_options.UseAsyncCompute))
+		{
+			m_renderer->SetAsyncComputeState(m_options.UseAsyncCompute);
+		}
+		drawer.EndDisabled();
+
 		if (drawer.Colour3("Clear Colour", m_options.ClearColour))
 		{
 			m_renderer->SetClearColour(m_options.ClearColour);

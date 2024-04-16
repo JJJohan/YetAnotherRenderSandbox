@@ -101,7 +101,7 @@ namespace Engine::Rendering
 			}
 		};
 
-		inline bool TryGetOrAddImage(const Renderer& renderer, std::unordered_map<Format, std::vector<ImageInfo>>& formatRenderTextureLookup,
+		inline bool TryGetOrAddImage(std::string_view name, const Renderer& renderer, std::unordered_map<Format, std::vector<ImageInfo>>& formatRenderTextureLookup,
 			std::vector<std::unique_ptr<IRenderImage>>& renderTextures, std::unordered_map<IRenderImage*, uint32_t>& imageInfoLookup,
 			Format format, bool read, bool write, const glm::uvec3& dimensions, IRenderImage** result) const;
 

@@ -128,30 +128,30 @@ namespace Engine::Rendering::Vulkan
 
 		const vk::SurfaceKHR& surfaceImp = surface.Get();
 
-		bool asyncCompute = true;
-
-		// Attempt to find dedicated queues first.
-		uint32_t index = 0;
-		for (const auto& queueFamily : queueFamilies)
+		// Attempt to satisfy all queue families first regardless of overlap.
+		for (uint32_t i = 0; i < queueFamilies.size(); ++i)
 		{
-			vk::QueueFlags flags = queueFamily.queueFamilyProperties.queueFlags;
+			vk::QueueFlags flags = queueFamilies[i].queueFamilyProperties.queueFlags;
 
-			// Attempt to find a compute family with graphics support to simplify memory barrier transitions.
-			if (!indices.ComputeFamily.has_value() && flags & vk::QueueFlagBits::eCompute && flags & vk::QueueFlagBits::eGraphics)
+			if (!indices.GraphicsFamily.has_value() && flags & vk::QueueFlagBits::eGraphics)
 			{
-				indices.ComputeFamily = index;
+				indices.GraphicsFamily = i;
 			}
 
-			uint32_t computeIndex = indices.GraphicsFamily.value_or(std::numeric_limits<uint32_t>::max());
-			if (!indices.GraphicsFamily.has_value() && flags & vk::QueueFlagBits::eGraphics && index != computeIndex)
+			if (!indices.ComputeFamily.has_value() && flags & vk::QueueFlagBits::eCompute)
 			{
-				indices.GraphicsFamily = index;
+				indices.ComputeFamily = i;
+			}
+
+			if (!indices.TransferFamily.has_value() && flags & vk::QueueFlagBits::eTransfer)
+			{
+				indices.TransferFamily = i;
 			}
 
 			if (!indices.PresentFamily.has_value())
 			{
 				VkBool32 presentSupport = false;
-				if (device.getSurfaceSupportKHR(index, surfaceImp, &presentSupport) != vk::Result::eSuccess)
+				if (device.getSurfaceSupportKHR(i, surfaceImp, &presentSupport) != vk::Result::eSuccess)
 				{
 					Logger::Error("Error while fetching surface support.");
 					return indices;
@@ -159,7 +159,7 @@ namespace Engine::Rendering::Vulkan
 
 				if (presentSupport)
 				{
-					indices.PresentFamily = index;
+					indices.PresentFamily = i;
 				}
 			}
 
@@ -167,34 +167,33 @@ namespace Engine::Rendering::Vulkan
 			{
 				break;
 			}
-
-			++index;
 		}
 
-		// If indices are not complete, attempt to find shared queue with necessary support.
 		if (!indices.IsComplete())
 		{
-			index = 0;
-			for (const auto& queueFamily : queueFamilies)
+			// If indices are still incomplete, exit early.
+			return indices;
+		}
+
+		// Attempt to find dedicated queue families for compute.
+		for (uint32_t i = 0; i < queueFamilies.size(); ++i)
+		{
+			vk::QueueFlags flags = queueFamilies[i].queueFamilyProperties.queueFlags;
+			if (flags & vk::QueueFlagBits::eCompute && indices.GraphicsFamily != i)
 			{
-				vk::QueueFlags flags = queueFamily.queueFamilyProperties.queueFlags;
+				indices.ComputeFamily = i;
+				break;
+			}
+		}
 
-				if (!indices.GraphicsFamily.has_value() && flags & vk::QueueFlagBits::eGraphics)
-				{
-					indices.GraphicsFamily = index;
-				}
-
-				if (!indices.ComputeFamily.has_value() && flags & vk::QueueFlagBits::eCompute)
-				{
-					indices.ComputeFamily = index;
-				}
-
-				if (indices.IsComplete())
-				{
-					break;
-				}
-
-				++index;
+		// Attempt to find dedicated queue families for transfer.
+		for (uint32_t i = 0; i < queueFamilies.size(); ++i)
+		{
+			vk::QueueFlags flags = queueFamilies[i].queueFamilyProperties.queueFlags;
+			if (flags & vk::QueueFlagBits::eTransfer && indices.GraphicsFamily != i && indices.ComputeFamily != i)
+			{
+				indices.TransferFamily = i;
+				break;
 			}
 		}
 

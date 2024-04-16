@@ -72,7 +72,7 @@ namespace Engine::Rendering
 
 		// TODO: Sort out render-compute synchronization.
 		m_computeCommandPool = std::move(resourceFactory.CreateCommandPool());
-		//if (!m_computeCommandPool->Initialise(physicalDevice, device, indices.ComputeFamily.value(), CommandPoolFlags::Reset))
+		//if (!m_computeCommandPool->Initialise("ComputeCommandPool", physicalDevice, device, indices.ComputeFamily.value(), CommandPoolFlags::Reset))
 		if (!m_computeCommandPool->Initialise("ComputeCommandPool", physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
 		{
 			return false;
@@ -215,7 +215,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	inline bool RenderGraph::TryGetOrAddImage(const Renderer& renderer, std::unordered_map<Format, std::vector<ImageInfo>>& formatRenderTextureLookup,
+	inline bool RenderGraph::TryGetOrAddImage(std::string_view name, const Renderer& renderer, std::unordered_map<Format, std::vector<ImageInfo>>& formatRenderTextureLookup,
 		std::vector<std::unique_ptr<IRenderImage>>& renderTextures, std::unordered_map<IRenderImage*, uint32_t>& imageInfoLookup,
 		Format format, bool read, bool write, const glm::uvec3& dimensions, IRenderImage** result) const
 	{
@@ -279,7 +279,7 @@ namespace Engine::Rendering
 			usageFlags = ImageUsageFlags::ColorAttachment | ImageUsageFlags::Sampled | ImageUsageFlags::TransferSrc;
 		}
 
-		if (!image->Initialise("RenderGraphImage", device, ImageType::e2D, format, dimensions, 1, 1, ImageTiling::Optimal,
+		if (!image->Initialise(name, device, ImageType::e2D, format, dimensions, 1, 1, ImageTiling::Optimal,
 			usageFlags, aspectFlags, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			*result = nullptr;
@@ -463,7 +463,7 @@ namespace Engine::Rendering
 							const RenderPassImageInfo& inputInfo = info.second;
 							glm::uvec3 requestedExtents = inputInfo.Dimensions == glm::uvec3() ? defaultExtents : inputInfo.Dimensions;
 							IRenderImage* image = nullptr;
-							if (!TryGetOrAddImage(renderer, formatRenderTextureLookup, m_renderTextures, imageInfoLookup,
+							if (!TryGetOrAddImage(info.first, renderer, formatRenderTextureLookup, m_renderTextures, imageInfoLookup,
 								inputInfo.Format, inputInfo.IsRead, false, requestedExtents, &image))
 								return false;
 
@@ -495,7 +495,7 @@ namespace Engine::Rendering
 							}
 						}
 
-						if (image == nullptr && !TryGetOrAddImage(renderer, formatRenderTextureLookup, m_renderTextures, imageInfoLookup,
+						if (image == nullptr && !TryGetOrAddImage(info.first, renderer, formatRenderTextureLookup, m_renderTextures, imageInfoLookup,
 							outputInfo.Format, false, true, requestedExtents, &image))
 							return false;
 

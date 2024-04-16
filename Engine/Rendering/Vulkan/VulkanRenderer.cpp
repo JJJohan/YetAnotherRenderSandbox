@@ -181,6 +181,12 @@ namespace Engine::Rendering::Vulkan
 
 	void VulkanRenderer::SetHDRState(bool enable)
 	{
+		if (!IsHDRSupported() && enable)
+		{
+			Logger::Error("HDR mode is not supported.");
+			return;
+		}
+
 		bool prevHDRState = m_renderSettings.m_hdr;
 		Renderer::SetHDRState(enable);
 		if (prevHDRState == m_renderSettings.m_hdr)
@@ -199,6 +205,17 @@ namespace Engine::Rendering::Vulkan
 
 				return true;
 			});
+	}
+
+	void VulkanRenderer::SetAsyncComputeState(bool enable)
+	{
+		if (!m_asyncComputeSupported && enable)
+		{
+			Logger::Error("Async compute is not supported.");
+			return;
+		}
+
+		m_asyncComputeEnabled = enable;
 	}
 
 	bool VulkanRenderer::Initialise()
@@ -239,9 +256,11 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		const QueueFamilyIndices& indices = vkPhysicalDevice->GetQueueFamilyIndices();
+		m_asyncComputeEnabled = m_asyncComputeSupported = indices.ComputeFamily != indices.GraphicsFamily;
 
 		if (!CreateAllocator()
 			|| !static_cast<SwapChain*>(m_swapChain.get())->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, m_lastWindowSize, m_renderSettings.m_hdr)
+			//|| !m_resourceCommandPool->Initialise("ResourceCommandPool", *m_physicalDevice, *m_device, indices.TransferFamily.value(), CommandPoolFlags::Transient)
 			|| !m_resourceCommandPool->Initialise("ResourceCommandPool", *m_physicalDevice, *m_device, indices.GraphicsFamily.value(), CommandPoolFlags::Transient)
 			|| !CreateSyncObjects())
 		{
@@ -494,10 +513,6 @@ namespace Engine::Rendering::Vulkan
 		PhysicalDevice* vkPhysicalDevice = static_cast<PhysicalDevice*>(m_physicalDevice.get());
 
 		const vk::Device& deviceImp = vkDevice->Get();
-		vk::Queue graphicsQueue = vkDevice->GetGraphicsQueue();
-		vk::Queue computeQueue = vkDevice->GetComputeQueue();
-		bool asyncCompute = vkDevice->AsyncCompute();
-		const vk::PhysicalDeviceLimits& limits = vkPhysicalDevice->GetLimits();
 
 		// Exhaust action queue between frames.
 		while (!m_actionQueue.empty())
@@ -549,6 +564,9 @@ namespace Engine::Rendering::Vulkan
 
 			vk::UniqueFence fence = deviceImp.createFenceUnique(vk::FenceCreateInfo());
 
+			//vk::Queue transferQueue = vkDevice->GetTransferQueue();
+			//vk::Result submitResult = transferQueue.submit(1, &submitInfo, fence.get());
+			vk::Queue graphicsQueue = vkDevice->GetGraphicsQueue();
 			vk::Result submitResult = graphicsQueue.submit(1, &submitInfo, fence.get());
 			if (submitResult != vk::Result::eSuccess)
 			{

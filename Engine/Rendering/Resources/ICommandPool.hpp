@@ -50,5 +50,9 @@ namespace Engine::Rendering
 		virtual std::vector<std::unique_ptr<ICommandBuffer>> CreateCommandBuffers(std::string_view name, const IDevice& device, uint32_t count) const = 0;
 		virtual std::unique_ptr<ICommandBuffer> BeginResourceCommandBuffer(const IDevice& device) const = 0;
 		virtual void Reset(const IDevice& device) const = 0;
+		inline uint32_t GetQueueFamilyIndex() const { return m_queueFamilyIndex; }
+
+	protected:
+		uint32_t m_queueFamilyIndex;
 	};
 }

@@ -61,7 +61,7 @@ namespace Engine::Rendering::Vulkan
 	{
 		if (m_mipLevels == 1)
 		{
-			TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
+			TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly, 0, 0);
 			return;
 		}
 
@@ -290,7 +290,40 @@ namespace Engine::Rendering::Vulkan
 		return aspectFlags;
 	}
 
-	void RenderImage::TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer, ImageLayout newLayout)
+	bool RenderImage::ProcessQueueFamilyIndices(const ICommandBuffer& commandBuffer, uint32_t& srcQueueFamily,
+		uint32_t& dstQueueFamily, vk::AccessFlags2& srcAccessMask, vk::AccessFlags2& dstAccessMask,
+		vk::PipelineStageFlags2& srcStage, vk::PipelineStageFlags2& dstStage, ImageLayout& newLayout)
+	{
+		if (srcQueueFamily != dstQueueFamily)
+		{
+			uint32_t commandBufferQueueIndex = commandBuffer.GetQueueFamilyIndex();
+			if (commandBufferQueueIndex != srcQueueFamily && commandBufferQueueIndex != dstQueueFamily)
+			{
+				Logger::Error("Command buffer queue family index matches neither requested source or destination index.");
+				return false;
+			}
+
+			if (commandBufferQueueIndex == srcQueueFamily)
+			{
+				newLayout = m_layout;
+			}
+
+			srcStage = vk::PipelineStageFlagBits2::eBottomOfPipe;
+			dstStage = vk::PipelineStageFlagBits2::eTopOfPipe;
+			srcAccessMask = vk::AccessFlagBits2::eNone;
+			dstAccessMask = vk::AccessFlagBits2::eNone;
+		}
+		else
+		{
+			srcQueueFamily = VK_QUEUE_FAMILY_IGNORED;
+			dstQueueFamily = VK_QUEUE_FAMILY_IGNORED;
+		}
+
+		return true;
+	}
+
+	void RenderImage::TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer,
+		ImageLayout newLayout, uint32_t srcQueueFamily, uint32_t dstQueueFamily)
 	{
 		if (m_layout == newLayout)
 			return;
@@ -318,13 +351,17 @@ namespace Engine::Rendering::Vulkan
 			return;
 		}
 
+		if (!ProcessQueueFamilyIndices(commandBuffer, srcQueueFamily, dstQueueFamily,
+			srcAccessMask, dstAccessMask, srcStage, dstStage, newLayout))
+			return;
+
 		vk::ImageAspectFlags aspectFlags = GetAspectFlags(m_format);
 
 		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, m_layerCount);
 
 		vk::ImageMemoryBarrier2 barrier(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
+			srcQueueFamily, dstQueueFamily, m_image, subResourceRange);
 
-			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
 		vk::DependencyInfo dependencyInfo(vk::DependencyFlagBits::eByRegion, 0, nullptr, 0, nullptr, 1, &barrier);
 
 		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);
@@ -335,7 +372,7 @@ namespace Engine::Rendering::Vulkan
 
 	void RenderImage::TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
 		MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
-		uint32_t baseMipLevel, uint32_t mipLevelCount)
+		uint32_t baseMipLevel, uint32_t mipLevelCount, uint32_t srcQueueFamily, uint32_t dstQueueFamily)
 	{
 		if (!LayoutSupported(m_usageFlags, newLayout))
 		{
@@ -354,13 +391,17 @@ namespace Engine::Rendering::Vulkan
 			return;
 		}
 
+		if (!ProcessQueueFamilyIndices(commandBuffer, srcQueueFamily, dstQueueFamily,
+			srcAccessMask, dstAccessMask, srcStage, dstStage, newLayout))
+			return;
+
 		vk::ImageAspectFlags aspectFlags = GetAspectFlags(m_format);
 
 		vk::ImageSubresourceRange subResourceRange(aspectFlags, baseMipLevel, mipLevelCount == 0 ? m_mipLevels : mipLevelCount, 0, m_layerCount);
 
 		vk::ImageMemoryBarrier2 barrier(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
+			srcQueueFamily, dstQueueFamily, m_image, subResourceRange);
 
-			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, m_image, subResourceRange);
 		vk::DependencyInfo dependencyInfo(vk::DependencyFlagBits::eByRegion, 0, nullptr, 0, nullptr, 1, &barrier);
 
 		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);

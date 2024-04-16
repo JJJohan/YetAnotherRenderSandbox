@@ -4,7 +4,9 @@
 #include "../Resources/IImageSampler.hpp"
 #include "../IResourceFactory.hpp"
 #include "../IDevice.hpp"
+#include "../IPhysicalDevice.hpp"
 #include "../Resources/ICommandBuffer.hpp"
+#include "../QueueFamilyIndices.hpp"
 #include "../Renderer.hpp"
 
 using namespace Engine::Logging;
@@ -154,6 +156,9 @@ namespace Engine::Rendering
 		const IDevice& device = renderer.GetDevice();
 
 		// TODO: Handle queue barriers between graphicsFamily and computeFamily to avoid issues with image layout.
+		const QueueFamilyIndices& indices = renderer.GetPhysicalDevice().GetQueueFamilyIndices();
+		uint32_t graphicsQueueIndex = indices.GraphicsFamily.value();
+		uint32_t computeQueueIndex = indices.ComputeFamily.value();
 
 		m_depthImage->TransitionImageLayoutExt(device, commandBuffer,
 			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly, MaterialAccessFlags::ShaderRead);

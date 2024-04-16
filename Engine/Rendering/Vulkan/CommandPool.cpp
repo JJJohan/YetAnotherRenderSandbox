@@ -25,6 +25,7 @@ namespace Engine::Rendering::Vulkan
 
 		vk::CommandPoolCreateInfo poolInfo(static_cast<vk::CommandPoolCreateFlagBits>(flags), queueFamilyIndex);
 		m_commandPool = vkDevice.Get().createCommandPoolUnique(poolInfo);
+		m_queueFamilyIndex = queueFamilyIndex;
 		if (!m_commandPool.get())
 		{
 			Logger::Error("Failed to create command pool.");
@@ -48,7 +49,7 @@ namespace Engine::Rendering::Vulkan
 		{
 			std::string uniqueName = std::format("{}{}", name, index);
 			vkDevice.SetResourceName(ResourceType::CommandBuffer, commandBuffer.get(), uniqueName.c_str());
-			results.emplace_back(std::make_unique<CommandBuffer>(std::move(commandBuffer)));
+			results.emplace_back(std::make_unique<CommandBuffer>(std::move(commandBuffer), m_queueFamilyIndex));
 			++index;
 		}
 
@@ -64,7 +65,7 @@ namespace Engine::Rendering::Vulkan
 
 		vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 		commandBuffer->begin(beginInfo);
-		return std::make_unique<CommandBuffer>(std::move(commandBuffer));
+		return std::make_unique<CommandBuffer>(std::move(commandBuffer), m_queueFamilyIndex);
 	}
 
 	void CommandPool::Reset(const IDevice& device) const
