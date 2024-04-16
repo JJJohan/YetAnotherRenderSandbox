@@ -11,14 +11,12 @@
 #include "Core/Image.hpp"
 #include "../Renderer.hpp"
 #include "../Resources/RenderMeshInfo.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "Core/ChunkData.hpp"
 #include "Core/AsyncData.hpp"
 #include "Core/VertexData.hpp"
 #include "Core/Colour.hpp"
 #include <execution>
-
-using namespace Engine::Logging;
 
 namespace Engine::Rendering
 {

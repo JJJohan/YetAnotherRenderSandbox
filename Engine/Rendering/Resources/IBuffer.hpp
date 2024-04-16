@@ -1,7 +1,7 @@
 #pragma once
 
 #include <stdint.h>
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "../Types.hpp"
 
 namespace Engine::Rendering
@@ -35,7 +35,7 @@ namespace Engine::Rendering
 		{
 			if (m_mappedDataPtr == nullptr)
 			{
-				Engine::Logging::Logger::Error("Memory is not mapped.");
+				Engine::Logger::Error("Memory is not mapped.");
 				return false;
 			}
 

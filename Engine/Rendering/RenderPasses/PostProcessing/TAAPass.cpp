@@ -7,8 +7,6 @@
 #include "../../ISwapChain.hpp"
 #include "../../Renderer.hpp"
 
-using namespace Engine::Logging;
-
 namespace Engine::Rendering
 {
 	TAAPass::TAAPass()

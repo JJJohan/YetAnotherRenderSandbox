@@ -1,11 +1,9 @@
 #include "VulkanRenderStats.hpp"
 #include "Device.hpp"
 #include "PhysicalDevice.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "CommandBuffer.hpp"
 #include "../RenderResources/IRenderResource.hpp"
-
-using namespace Engine::Logging;
 
 namespace Engine::Rendering::Vulkan
 {
@@ -115,7 +113,7 @@ namespace Engine::Rendering::Vulkan
 		++m_renderPassIndex;
 	}
 
-	void VulkanRenderStats::FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device, 
+	void VulkanRenderStats::FinaliseResults(const IPhysicalDevice& physicalDevice, const IDevice& device,
 		const std::vector<IRenderResource*>& renderResources)
 	{
 		const Device& vkDevice = static_cast<const Device&>(device);

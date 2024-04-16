@@ -7,8 +7,6 @@
 #include "../Resources/GeometryBatch.hpp"
 #include "../Renderer.hpp"
 
-using namespace Engine::Logging;
-
 namespace Engine::Rendering
 {
 	ShadowCullingPass::ShadowCullingPass(const GeometryBatch& sceneGeometryBatch)

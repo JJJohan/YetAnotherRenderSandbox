@@ -7,7 +7,7 @@
 #include <mutex>
 #include "VulkanRenderStats.hpp"
 #include "SwapChain.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "UI/Vulkan/VulkanUIManager.hpp"
 
 namespace Engine::Rendering
@@ -48,7 +48,7 @@ namespace Engine::Rendering::Vulkan
 
 		inline virtual void SetMultiSampleCount(uint32_t multiSampleCount) override
 		{
-			Engine::Logging::Logger::Warning("Multisampling not supported in Vulkan backend.");
+			Engine::Logger::Warning("Multisampling not supported in Vulkan backend.");
 		}
 
 		virtual void SetHDRState(bool enable) override;

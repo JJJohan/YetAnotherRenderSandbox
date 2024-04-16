@@ -1,12 +1,10 @@
-#include <Core/Logging/Logger.hpp>
+#include "Core/Logger.hpp"
 #include "Win32Window.hpp"
 #include "WindowProc.hpp"
 #include <dxgi1_6.h>
 #include <strsafe.h>
 
 #pragma comment(lib, "Dxgi")
-
-using namespace Engine::Logging;
 
 namespace Engine::OS
 {

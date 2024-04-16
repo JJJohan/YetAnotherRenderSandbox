@@ -8,7 +8,7 @@
 #define DEBUG_BREAK (void)
 #endif
 
-namespace Engine::Logging
+namespace Engine
 {
 	LogLevel Logger::m_logOutputLevel = LogLevel::Debug;
 	static std::mutex m_logMutex;

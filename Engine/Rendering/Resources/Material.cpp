@@ -1,11 +1,10 @@
 #include "Material.hpp"
 #include "OS/Files.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "Core/Utilities.hpp"
 #include <simdjson.h>
 
 using namespace Engine::OS;
-using namespace Engine::Logging;
 using namespace simdjson;
 
 namespace Engine::Rendering

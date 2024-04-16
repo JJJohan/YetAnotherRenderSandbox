@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <unordered_map>
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "Types.hpp"
 
 namespace Engine::Rendering
@@ -34,7 +34,7 @@ namespace Engine::Rendering
 				return true;
 			}
 
-			Engine::Logging::Logger::Error("Material with name '{}' not found.", name);
+			Engine::Logger::Error("Material with name '{}' not found.", name);
 			return false;
 		}
 

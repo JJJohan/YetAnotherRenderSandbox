@@ -4,8 +4,6 @@
 #include "CommandBuffer.hpp"
 #include "Device.hpp"
 
-using namespace Engine::Logging;
-
 namespace Engine::Rendering::Vulkan
 {
 	Buffer::Buffer(VmaAllocator allocator)

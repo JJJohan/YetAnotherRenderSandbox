@@ -1,5 +1,5 @@
 #include "GLTFLoader.hpp"
-#include "Logging/Logger.hpp"
+#include "Logger.hpp"
 #include "AsyncData.hpp"
 #include "Rendering/Resources/GeometryBatch.hpp"
 #include "VertexData.hpp"
@@ -15,7 +15,6 @@
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 
-using namespace Engine::Logging;
 using namespace Engine::Rendering;
 
 namespace Engine

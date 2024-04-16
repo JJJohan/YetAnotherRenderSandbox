@@ -1,14 +1,12 @@
 #include "Debug.hpp"
 #include "Instance.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 
 #ifdef _MSC_VER
 #define DEBUG_BREAK __debugbreak()
 #else
 #define DEBUG_BREAK (void)
 #endif
-
-using namespace Engine::Logging;
 
 namespace Engine::Rendering::Vulkan
 {

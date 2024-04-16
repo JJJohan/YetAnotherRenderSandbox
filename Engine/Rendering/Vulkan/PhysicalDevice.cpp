@@ -2,10 +2,9 @@
 #include "Instance.hpp"
 #include "Surface.hpp"
 #include "SwapChain.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "VulkanTypesInterop.hpp"
 
-using namespace Engine::Logging;
 using namespace Engine::OS;
 
 namespace Engine::Rendering::Vulkan

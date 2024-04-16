@@ -1,11 +1,9 @@
 #include "ChunkData.hpp"
 #include "AsyncData.hpp"
-#include "Logging/Logger.hpp"
+#include "Logger.hpp"
 #include <fstream>
 #include <chrono>
 #include <lz4.h>
-
-using namespace Engine::Logging;
 
 namespace Engine
 {

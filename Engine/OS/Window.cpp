@@ -1,11 +1,9 @@
 #include "Window.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 
 #ifdef _WIN32
 #include "Win32/Win32Window.hpp"
 #endif
-
-using namespace Engine::Logging;
 
 namespace Engine::OS
 {
@@ -82,4 +80,4 @@ namespace Engine::OS
 	{
 		m_size = size;
 	}
-}
+	}

@@ -5,8 +5,6 @@
 #include "../../Resources/ICommandBuffer.hpp"
 #include "../../Renderer.hpp"
 
-using namespace Engine::Logging;
-
 namespace Engine::Rendering
 {
 	SMAABlendPass::SMAABlendPass()

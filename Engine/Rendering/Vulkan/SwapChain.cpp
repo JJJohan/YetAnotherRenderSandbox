@@ -4,11 +4,10 @@
 #include "Surface.hpp"
 #include "ImageView.hpp"
 #include "OS/Window.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "VulkanTypesInterop.hpp"
 #include "RenderImage.hpp"
 
-using namespace Engine::Logging;
 using namespace Engine::OS;
 
 namespace Engine::Rendering::Vulkan

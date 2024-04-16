@@ -4,7 +4,7 @@
 #include "DescriptorPool.hpp"
 #include "CommandBuffer.hpp"
 #include "ImageSampler.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "OS/Files.hpp"
 #include "VulkanTypesInterop.hpp"
 #include <spirv_reflect.h>
@@ -12,7 +12,6 @@
 #include "Buffer.hpp"
 #include <algorithm>
 
-using namespace Engine::Logging;
 using namespace Engine::OS;
 using namespace Engine::Rendering;
 

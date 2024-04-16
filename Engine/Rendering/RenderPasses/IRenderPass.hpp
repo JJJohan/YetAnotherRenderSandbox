@@ -2,7 +2,7 @@
 
 #include <vector>
 #include "../IMaterialManager.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "../Resources/Material.hpp"
 #include "../Resources/AttachmentInfo.hpp"
 #include "../RenderResources/IRenderResource.hpp"
@@ -24,7 +24,7 @@ namespace Engine::Rendering
 		{
 			if (m_materialName != "" && !materialManager.TryGetMaterial(m_materialName, &m_material))
 			{
-				Engine::Logging::Logger::Error("Failed to find material '{}' for render pass '{}'.", m_materialName, GetName());
+				Engine::Logger::Error("Failed to find material '{}' for render pass '{}'.", m_materialName, GetName());
 				return false;
 			}
 

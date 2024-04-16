@@ -7,8 +7,6 @@
 #include "../Resources/GeometryBatch.hpp"
 #include "../Renderer.hpp"
 
-using namespace Engine::Logging;
-
 namespace Engine::Rendering
 {
 	FrustumCullingPass::FrustumCullingPass(const GeometryBatch& sceneGeometryBatch)

@@ -1,4 +1,4 @@
-#include <Core/Logging/Logger.hpp>
+#include <Core/Logger.hpp>
 #include <Core/AsyncData.hpp>
 #include <OS/Window.hpp>
 #include <Rendering/Renderer.hpp>
@@ -11,7 +11,6 @@
 
 using namespace Engine;
 using namespace Engine::Rendering;
-using namespace Engine::Logging;
 using namespace Engine::OS;
 using namespace Engine::UI;
 

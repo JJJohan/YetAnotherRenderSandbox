@@ -1,9 +1,8 @@
 #include "Surface.hpp"
 #include "Instance.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "OS/Window.hpp"
 
-using namespace Engine::Logging;
 using namespace Engine::OS;
 
 namespace Engine::Rendering::Vulkan

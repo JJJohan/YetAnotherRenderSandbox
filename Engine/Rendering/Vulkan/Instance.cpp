@@ -1,6 +1,6 @@
 #include "Instance.hpp"
 #include "Debug.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 
 #if defined (_WIN32)
 #include <vulkan/vulkan_win32.h>
@@ -9,8 +9,6 @@
 #elif defined(__ANDROID__)
 #include <vulkan/vulkan_android.h>
 #endif
-
-using namespace Engine::Logging;
 
 namespace Engine::Rendering::Vulkan
 {

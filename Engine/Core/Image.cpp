@@ -1,5 +1,5 @@
 #include "Image.hpp"
-#include "Logging/Logger.hpp"
+#include "Logger.hpp"
 #include "Utilities.hpp"
 #include "AsyncData.hpp"
 #include "Hash.hpp"
@@ -14,8 +14,6 @@
 #define WUFFS_IMPLEMENTATION
 #define WUFFS_CONFIG__STATIC_FUNCTIONS
 #include <wuffs.h>
-
-using namespace Engine::Logging;
 
 namespace Engine
 {

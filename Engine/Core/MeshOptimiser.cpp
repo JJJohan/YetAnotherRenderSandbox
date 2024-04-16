@@ -1,11 +1,9 @@
 #include "MeshOptimiser.hpp"
 #include <meshoptimizer.h>
-#include "Logging/Logger.hpp"
+#include "Logger.hpp"
 #include "VertexData.hpp"
 #include <glm/glm.hpp>
 #include <chrono>
-
-using namespace Engine::Logging;
 
 namespace Engine
 {

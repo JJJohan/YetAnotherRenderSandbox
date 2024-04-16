@@ -1,13 +1,11 @@
 #include "ShadowMap.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "../Camera.hpp"
 #include "../IDevice.hpp"
 #include "../Resources/IRenderImage.hpp"
 #include "../IResourceFactory.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include "../Renderer.hpp"
-
-using namespace Engine::Logging;
 
 namespace Engine::Rendering
 {

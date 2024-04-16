@@ -3,9 +3,7 @@
 #include "PipelineLayout.hpp"
 #include "VulkanTypesInterop.hpp"
 #include "Buffer.hpp"
-#include "Core/Logging/Logger.hpp"
-
-using namespace Engine::Logging;
+#include "Core/Logger.hpp"
 
 namespace Engine::Rendering::Vulkan
 {

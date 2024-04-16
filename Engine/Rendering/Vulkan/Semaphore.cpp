@@ -1,8 +1,6 @@
 #include "Semaphore.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "Device.hpp"
-
-using namespace Engine::Logging;
 
 namespace Engine::Rendering::Vulkan
 {

@@ -6,8 +6,6 @@
 #include "RenderPasses/PostProcessing/TAAPass.hpp"
 #include "RenderPasses/PostProcessing/TonemapperPass.hpp"
 
-using namespace Engine::Logging;
-
 namespace Engine::Rendering
 {
 	PostProcessing::PostProcessing()

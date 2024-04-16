@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 #include "../Resources/Material.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 
 struct SpvReflectInterfaceVariable;
 struct SpvReflectShaderModule;
@@ -97,20 +97,20 @@ namespace Engine::Rendering::Vulkan
 			const auto& bindingInfoSearch = setInfo.BindingInfos.find(binding);
 			if (bindingInfoSearch == setInfo.BindingInfos.end())
 			{
-				Engine::Logging::Logger::Error("Binding at index {} for material '{}' does not exist.", binding, GetName());
+				Engine::Logger::Error("Binding at index {} for material '{}' does not exist.", binding, GetName());
 				return nullptr;
 			}
 
 			DescriptorBindingInfo* bindingInfo = &bindingInfoSearch->second;
 			if (bindingInfo->Binding.descriptorType != expectedType)
 			{
-				Engine::Logging::Logger::Error("Binding at index {} for material '{}' is not a {} type.", binding, GetName(), typeName);
+				Engine::Logger::Error("Binding at index {} for material '{}' is not a {} type.", binding, GetName(), typeName);
 				return nullptr;
 			}
 
 			if (bindingData.empty())
 			{
-				Engine::Logging::Logger::Error("Attempted to bind empty contents at index {} for material '{}'.", binding, GetName());
+				Engine::Logger::Error("Attempted to bind empty contents at index {} for material '{}'.", binding, GetName());
 				return nullptr;
 			}
 

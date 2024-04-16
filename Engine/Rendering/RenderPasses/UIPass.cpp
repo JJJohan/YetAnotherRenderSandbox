@@ -8,7 +8,6 @@
 #include "../Renderer.hpp"
 #include "UI/UIManager.hpp"
 
-using namespace Engine::Logging;
 using namespace Engine::UI;
 
 namespace Engine::Rendering

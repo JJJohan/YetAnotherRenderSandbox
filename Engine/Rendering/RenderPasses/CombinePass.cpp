@@ -1,5 +1,5 @@
 #include "CombinePass.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "../Resources/IBuffer.hpp"
 #include "../Resources/IRenderImage.hpp"
 #include "../IDevice.hpp"
@@ -7,8 +7,6 @@
 #include "../IResourceFactory.hpp"
 #include "../Renderer.hpp"
 #include "../RenderResources/ShadowMap.hpp"
-
-using namespace Engine::Logging;
 
 namespace Engine::Rendering
 {

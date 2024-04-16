@@ -7,7 +7,7 @@
 #include "../Types.hpp"
 #include "IRenderImage.hpp"
 #include "AttachmentInfo.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 
 namespace Engine::Rendering
 {
@@ -36,18 +36,18 @@ namespace Engine::Rendering
 		inline bool DepthWrite() const { return m_depthWrite; }
 		inline bool DepthTest() const { return m_depthTest; }
 
-		inline AttachmentInfo GetColourAttachmentInfo(uint32_t attachmentIndex, IRenderImage* image, 
+		inline AttachmentInfo GetColourAttachmentInfo(uint32_t attachmentIndex, IRenderImage* image,
 			AttachmentLoadOp loadOp = AttachmentLoadOp::DontCare, AttachmentStoreOp storeOp = AttachmentStoreOp::Store,
 			ClearValue clearValue = { Colour(0,0,0,0) })
 		{
 			if (m_attachmentFormats.size() <= attachmentIndex)
 			{
-				Engine::Logging::Logger::Error("Attachment index {} exceeds attachment count of {}.", attachmentIndex, m_attachmentFormats.size());
+				Engine::Logger::Error("Attachment index {} exceeds attachment count of {}.", attachmentIndex, m_attachmentFormats.size());
 			}
-			
+
 			if (m_attachmentFormats[attachmentIndex] != Format::PlaceholderSwapchain && m_attachmentFormats[attachmentIndex] != image->GetFormat())
 			{
-				Engine::Logging::Logger::Error("Attachment format mismatch for provided image.");
+				Engine::Logger::Error("Attachment format mismatch for provided image.");
 			}
 
 			return AttachmentInfo(image, ImageLayout::ColorAttachment, loadOp, storeOp, clearValue);
@@ -154,7 +154,7 @@ namespace Engine::Rendering
 		{
 			if (samplers.size() != imageViews.size() || samplers.size() != imageLayouts.size())
 			{
-				Engine::Logging::Logger::Error("Sampler, ImageView and imageLayouts arrays should have identical counts.");
+				Engine::Logger::Error("Sampler, ImageView and imageLayouts arrays should have identical counts.");
 				return false;
 			}
 
@@ -167,8 +167,8 @@ namespace Engine::Rendering
 			for (size_t i = 0; i < storageBuffers.size(); ++i)
 				storageBufferPtrs[i] = storageBuffers[i].get();
 			return BindStorageBuffersImp(binding, storageBufferPtrs);
-		}	
-		
+		}
+
 		inline bool BindStorageImages(uint32_t binding, const std::vector<const IImageView*>& imageViews)
 		{
 			return BindStorageImagesImp(binding, imageViews);
@@ -188,7 +188,7 @@ namespace Engine::Rendering
 	protected:
 		virtual bool BindImageViewsImp(uint32_t binding, const std::vector<const IImageView*>& imageViews) = 0;
 		virtual bool BindSamplersImp(uint32_t binding, const std::vector<const IImageSampler*>& samplers) = 0;
-		virtual bool BindCombinedImageSamplersImp(uint32_t binding, const std::vector<const IImageSampler*>& samplers, 
+		virtual bool BindCombinedImageSamplersImp(uint32_t binding, const std::vector<const IImageSampler*>& samplers,
 			const std::vector<const IImageView*>& imageViews, const std::vector<ImageLayout>& imageLayouts) = 0;
 		virtual bool BindStorageBuffersImp(uint32_t binding, const std::vector<const IBuffer*>& storageBuffers) = 0;
 		virtual bool BindStorageImagesImp(uint32_t binding, const std::vector<const IImageView*>& imageViews) = 0;

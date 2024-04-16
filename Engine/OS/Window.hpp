@@ -3,7 +3,7 @@
 #include <string>
 #include <memory>
 #include "Core/Macros.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "InputState.hpp"
 #include <functional>
 
@@ -33,7 +33,7 @@ namespace Engine::OS
 			{
 				if (it->target<TReturn(void)>() == target)
 				{
-					Engine::Logging::Logger::Error("Callback already registered.");
+					Engine::Logger::Error("Callback already registered.");
 					return;
 				}
 			}
@@ -54,7 +54,7 @@ namespace Engine::OS
 				}
 			}
 
-			Engine::Logging::Logger::Error("Callback was not registered.");
+			Engine::Logger::Error("Callback was not registered.");
 		}
 
 		template <typename TReturn, class TArg>
@@ -65,7 +65,7 @@ namespace Engine::OS
 			{
 				if (it->target<TReturn(TArg)>() == target)
 				{
-					Engine::Logging::Logger::Error("Callback already registered.");
+					Engine::Logger::Error("Callback already registered.");
 					return;
 				}
 			}
@@ -86,7 +86,7 @@ namespace Engine::OS
 				}
 			}
 
-			Engine::Logging::Logger::Error("Callback was not registered.");
+			Engine::Logger::Error("Callback was not registered.");
 		}
 
 	public:

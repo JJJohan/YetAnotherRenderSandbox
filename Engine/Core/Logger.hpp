@@ -1,9 +1,9 @@
 #pragma once
 
 #include <format>
-#include "../Macros.hpp"
+#include "Macros.hpp"
 
-namespace Engine::Logging
+namespace Engine
 {
 	enum class LogLevel
 	{

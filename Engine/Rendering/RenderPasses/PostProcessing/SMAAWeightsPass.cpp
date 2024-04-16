@@ -8,9 +8,6 @@
 #include "../../../Core/Image.hpp"
 #include "../../../Core/Base64.hpp"
 
-using namespace Engine;
-using namespace Engine::Logging;
-
 namespace Engine::Rendering
 {
 	SMAAWeightsPass::SMAAWeightsPass()

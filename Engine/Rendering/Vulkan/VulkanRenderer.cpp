@@ -4,7 +4,7 @@
 #include "VulkanRenderer.hpp"
 #include "Core/Colour.hpp"
 #include "OS/Window.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "../Resources/GeometryBatch.hpp"
 #include "UI/Vulkan/VulkanUIManager.hpp"
 #include "Debug.hpp"
@@ -36,7 +36,6 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 static vk::DynamicLoader _dynamicLoader{};
 
 using namespace Engine::OS;
-using namespace Engine::Logging;
 using namespace Engine::UI;
 using namespace Engine::UI::Vulkan;
 

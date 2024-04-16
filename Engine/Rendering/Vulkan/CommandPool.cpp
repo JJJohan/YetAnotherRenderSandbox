@@ -1,10 +1,8 @@
 #include "CommandPool.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "Device.hpp"
 #include "PhysicalDevice.hpp"
 #include "CommandBuffer.hpp"
-
-using namespace Engine::Logging;
 
 namespace Engine::Rendering::Vulkan
 {

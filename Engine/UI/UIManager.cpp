@@ -1,7 +1,7 @@
 #include "UIManager.hpp"
 #include "Rendering/Renderer.hpp"
 #include "OS/Window.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "imgui.h"
 #include "NodeManager.hpp"
 
@@ -13,7 +13,6 @@
 
 using namespace Engine::OS;
 using namespace Engine::Rendering;
-using namespace Engine::Logging;
 
 namespace Engine::UI
 {

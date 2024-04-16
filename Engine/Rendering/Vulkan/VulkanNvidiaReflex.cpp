@@ -1,7 +1,5 @@
 #include "VulkanNvidiaReflex.hpp"
-#include "Core/Logging/Logger.hpp"
-
-using namespace Engine::Logging;
+#include "Core/Logger.hpp"
 
 static PFN_vkSetLatencySleepModeNV _vkSetLatencySleepModeNVAddr = 0;
 static PFN_vkLatencySleepNV _vkLatencySleepNV = 0;

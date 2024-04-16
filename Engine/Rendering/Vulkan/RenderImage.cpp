@@ -1,10 +1,8 @@
 #include "RenderImage.hpp"
 #include "CommandBuffer.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "VulkanTypesInterop.hpp"
 #include "Device.hpp"
-
-using namespace Engine::Logging;
 
 namespace Engine::Rendering::Vulkan
 {

@@ -7,7 +7,6 @@
 #include "../Resources/Material.hpp"
 #include <filesystem>
 
-using namespace Engine::Logging;
 using namespace Engine::OS;
 
 namespace Engine::Rendering::Vulkan

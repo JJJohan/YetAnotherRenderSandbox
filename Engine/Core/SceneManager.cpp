@@ -1,5 +1,5 @@
 #include "SceneManager.hpp"
-#include "Logging/Logger.hpp"
+#include "Logger.hpp"
 #include "ChunkData.hpp"
 #include "Utilities.hpp"
 #include "AsyncData.hpp"
@@ -8,7 +8,6 @@
 #include "Rendering/Renderer.hpp"
 #include "Rendering/Resources/GeometryBatch.hpp"
 
-using namespace Engine::Logging;
 using namespace Engine::Rendering;
 
 namespace Engine

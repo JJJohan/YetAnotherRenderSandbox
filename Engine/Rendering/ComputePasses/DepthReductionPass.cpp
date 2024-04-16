@@ -9,8 +9,6 @@
 #include "../QueueFamilyIndices.hpp"
 #include "../Renderer.hpp"
 
-using namespace Engine::Logging;
-
 namespace Engine::Rendering
 {
 	DepthReductionPass::DepthReductionPass(FrustumCullingPass& frustumCullingPass)

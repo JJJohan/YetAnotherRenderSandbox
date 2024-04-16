@@ -6,7 +6,7 @@
 #include "Rendering/Vulkan/PhysicalDevice.hpp"
 #include "Rendering/Vulkan/CommandBuffer.hpp"
 #include "Rendering/Vulkan/VulkanTypesInterop.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "OS/Window.hpp"
 #include "imgui.h"
 #include "implot.h"
@@ -17,7 +17,6 @@
 using namespace Engine::OS;
 using namespace Engine::Rendering;
 using namespace Engine::Rendering::Vulkan;
-using namespace Engine::Logging;
 
 namespace Engine::UI::Vulkan
 {

@@ -1,6 +1,6 @@
 #include "Renderer.hpp"
 #include "Core/SceneManager.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "Vulkan/VulkanRenderer.hpp"
 #include "OS/Window.hpp"
 #include "IDevice.hpp"
@@ -32,7 +32,6 @@
 
 using namespace Engine::OS;
 using namespace Engine::UI;
-using namespace Engine::Logging;
 using namespace Engine::Rendering::Vulkan;
 
 namespace Engine::Rendering

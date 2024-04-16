@@ -1,10 +1,8 @@
 #include "ImageView.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "Device.hpp"
 #include "RenderImage.hpp"
 #include "VulkanTypesInterop.hpp"
-
-using namespace Engine::Logging;
 
 namespace Engine::Rendering::Vulkan
 {
@@ -13,7 +11,7 @@ namespace Engine::Rendering::Vulkan
 	{
 	}
 
-	bool ImageView::Initialise(std::string_view name, const IDevice& device, const IRenderImage& image, uint32_t baseMipLevel, uint32_t mipLevels, 
+	bool ImageView::Initialise(std::string_view name, const IDevice& device, const IRenderImage& image, uint32_t baseMipLevel, uint32_t mipLevels,
 		uint32_t layerCount, Format format, ImageAspectFlags aspectFlags)
 	{
 		m_mipLevels = mipLevels;

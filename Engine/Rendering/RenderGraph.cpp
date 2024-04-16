@@ -1,6 +1,6 @@
 #include "RenderGraph.hpp"
 #include "Renderer.hpp"
-#include "Core/Logging/Logger.hpp"
+#include "Core/Logger.hpp"
 #include "IMaterialManager.hpp"
 #include "QueueFamilyIndices.hpp"
 #include "Resources/ICommandBuffer.hpp"
@@ -10,8 +10,6 @@
 #include "IPhysicalDevice.hpp"
 #include <unordered_set>
 #include <ranges>
-
-using namespace Engine::Logging;
 
 namespace Engine::Rendering
 {
