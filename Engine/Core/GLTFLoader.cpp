@@ -52,7 +52,7 @@ namespace Engine
 
 	glm::mat4 GetTransformMatrix(const fastgltf::Node& node, const glm::mat4x4& base)
 	{
-		if (const auto* pMatrix = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform))
+		if (const auto* pMatrix = std::get_if<fastgltf::math::fmat4x4>(&node.transform))
 		{
 			return base * glm::mat4x4(glm::make_mat4x4(pMatrix->data()));
 		}
@@ -61,7 +61,7 @@ namespace Engine
 		{
 			return base
 				* glm::translate(glm::mat4(1.0f), glm::make_vec3(pTransform->translation.data()))
-				* glm::toMat4(glm::make_quat(pTransform->rotation.data()))
+				* glm::toMat4(glm::make_quat(pTransform->rotation.value_ptr()))
 				* glm::scale(glm::mat4(1.0f), glm::make_vec3(pTransform->scale.data()));
 		}
 		else
@@ -76,9 +76,9 @@ namespace Engine
 		size_t accessorIndex = std::numeric_limits<size_t>::max();
 		for (const auto& attribute : primitive.attributes)
 		{
-			if (attribute.first.compare(attributeName) == 0)
+			if (attribute.name.compare(attributeName) == 0)
 			{
-				accessorIndex = attribute.second;
+				accessorIndex = attribute.accessorIndex;
 				break;
 			}
 		}
@@ -155,13 +155,13 @@ namespace Engine
 				{
 					for (size_t i = 0; i < indexAccessor.count; ++i)
 					{
-						const uint16_t* index = reinterpret_cast<const uint16_t*>(static_cast<const uint8_t*>(indexData->bytes.data()) + indexBufferView.byteOffset + indexAccessor.byteOffset + i * indexByteStride);
+						const uint16_t* index = reinterpret_cast<const uint16_t*>(indexData->bytes.data() + indexBufferView.byteOffset + indexAccessor.byteOffset + i * indexByteStride);
 						indices[i] = static_cast<uint32_t>(*index);
 					}
 				}
 				else
 				{
-					memcpy(indices.data(), static_cast<const uint8_t*>(indexData->bytes.data()) + indexBufferView.byteOffset + indexAccessor.byteOffset, indexAccessor.count * sizeof(uint32_t));
+					memcpy(indices.data(), indexData->bytes.data() + indexBufferView.byteOffset + indexAccessor.byteOffset, indexAccessor.count * sizeof(uint32_t));
 				}
 
 				importState.indexBufferMap[indexAccessorIndex] = indices;
@@ -309,15 +309,15 @@ namespace Engine
 		auto path = std::filesystem::path(filePath);
 
 		fastgltf::GltfDataBuffer data;
-		data.loadFromFile(path);
+		data.FromPath(path);
 
 		fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
 		fastgltf::Asset asset;
 
-		auto type = fastgltf::determineGltfFileType(&data);
+		auto type = fastgltf::determineGltfFileType(data);
 		if (type == fastgltf::GltfType::glTF)
 		{
-			fastgltf::Expected<fastgltf::Asset> parserResult = parser.loadGltfJson(&data, path.parent_path(), gltfOptions);
+			fastgltf::Expected<fastgltf::Asset> parserResult = parser.loadGltfJson(data, path.parent_path(), gltfOptions);
 
 			if (parserResult.error() != fastgltf::Error::None)
 			{
@@ -329,7 +329,7 @@ namespace Engine
 		}
 		else if (type == fastgltf::GltfType::GLB)
 		{
-			fastgltf::Expected<fastgltf::Asset> parserResult = parser.loadGltfBinary(&data, path.parent_path(), gltfOptions);
+			fastgltf::Expected<fastgltf::Asset> parserResult = parser.loadGltfBinary(data, path.parent_path(), gltfOptions);
 
 			if (parserResult.error() != fastgltf::Error::None)
 			{
@@ -429,7 +429,7 @@ namespace Engine
 
 							importState.loadedImages[imageIndex] = std::make_shared<Image>();
 
-							if (!importState.loadedImages[imageIndex]->LoadFromMemory(imageData->bytes.data() + imageBufferView.byteOffset, imageBufferView.byteLength, m_imageFlags[imageIndex]))
+							if (!importState.loadedImages[imageIndex]->LoadFromMemory(reinterpret_cast<const uint8_t*>(imageData->bytes.data()) + imageBufferView.byteOffset, imageBufferView.byteLength, m_imageFlags[imageIndex]))
 							{
 								importState.loadedImages[imageIndex].reset();
 								Logger::Error("Failed to load image at index {}.", imageIndex);

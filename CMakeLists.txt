@@ -10,13 +10,7 @@ project(
 
 set(CMAKE_SKIP_INSTALL_RULES ON)
 
-# Sanity check Vulkan SDK exists somewhere.
-if(NOT DEFINED ENV{VULKAN_SDK})
-    MESSAGE(STATUS "VULKAN_SDK environment variable not set. Required for build.")
-endif()
-
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-  set(CMAKE_CXX_EXTENSIONS OFF)
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
   cmake_policy(SET CMP0135 NEW)
 endif()
@@ -27,6 +21,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Binaries)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Binaries)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Binaries)
 
+# find Vulkan SDK
+find_package(Vulkan REQUIRED)
+
 # Options
 option(FASTGLTF_USE_CUSTOM_SMALLVECTOR "Uses a custom SmallVector type optimised for small arrays" ON)
 option(ENABLE_AVX2 "Compile with AVX2 vectorisation" OFF)
@@ -34,15 +31,16 @@ option(ENABLE_LTO "Compile with Link Time Optimisation" OFF)
 
 # Build Third party dependencies
 add_library(fastgltf STATIC
-    "ThirdParty/simdjson/simdjson.cpp" 
-    "ThirdParty/simdjson/simdjson.h" 
-    "ThirdParty/fastgltf/src/fastgltf.cpp" 
+    "ThirdParty/simdjson/simdjson.cpp"
+    "ThirdParty/simdjson/simdjson.h"
+    "ThirdParty/fastgltf/src/fastgltf.cpp"
 	"ThirdParty/fastgltf/src/base64.cpp"
-    "ThirdParty/fastgltf/include/fastgltf/base64.hpp" 
+    "ThirdParty/fastgltf/src/io.cpp"
+    "ThirdParty/fastgltf/include/fastgltf/base64.hpp"
 	"ThirdParty/fastgltf/include/fastgltf/glm_element_traits.hpp"
-	"ThirdParty/fastgltf/include/fastgltf/core.hpp" 
-	"ThirdParty/fastgltf/include/fastgltf/tools.hpp" 
-	"ThirdParty/fastgltf/include/fastgltf/types.hpp" 
+	"ThirdParty/fastgltf/include/fastgltf/core.hpp"
+	"ThirdParty/fastgltf/include/fastgltf/tools.hpp"
+	"ThirdParty/fastgltf/include/fastgltf/types.hpp"
 	"ThirdParty/fastgltf/include/fastgltf/util.hpp")
 
 target_compile_options(fastgltf PRIVATE "-w")
@@ -66,8 +64,8 @@ add_library(meshoptimizer STATIC
     "ThirdParty/meshoptimizer/src/vertexcodec.cpp"
     "ThirdParty/meshoptimizer/src/vertexfilter.cpp"
     "ThirdParty/meshoptimizer/src/vfetchanalyzer.cpp"
-    "ThirdParty/meshoptimizer/src/vfetchoptimizer.cpp")	
-	
+    "ThirdParty/meshoptimizer/src/vfetchoptimizer.cpp")
+
 add_library(lz4 STATIC
     "ThirdParty/lz4/lib/lz4.h"
     "ThirdParty/lz4/lib/lz4.c")
@@ -78,11 +76,11 @@ add_library(bc7enc_rdo STATIC
     "ThirdParty/bc7enc_rdo/rgbcx.h"
     "ThirdParty/bc7enc_rdo/rgbcx.cpp"
     "ThirdParty/bc7enc_rdo/rgbcx_table4.h")
-	
+
 add_library(spirv_reflect STATIC
     "ThirdParty/SPIRV-Reflect/spirv_reflect.h"
     "ThirdParty/SPIRV-Reflect/spirv_reflect.cpp")
-	
+
 add_library(imgui STATIC
 	"ThirdParty/imgui/imgui.cpp"
 	"ThirdParty/imgui/imgui.h"
@@ -101,11 +99,15 @@ add_library(imgui STATIC
 	"ThirdParty/imgui/backends/imgui_impl_win32.h"
 	"ThirdParty/imgui/backends/imgui_impl_vulkan.cpp"
 	"ThirdParty/imgui/backends/imgui_impl_vulkan.h")
-	
+
 target_compile_options(imgui PRIVATE "-w")
-target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_DISABLE_DEMO_WINDOWS IMGUI_DISABLE_DEBUG_TOOLS IMGUI_DISABLE_OBSOLETE_KEYIO)
-target_include_directories(imgui PRIVATE "ThirdParty/imgui/" "$ENV{VULKAN_SDK}/Include")
-	
+target_compile_definitions(imgui PUBLIC
+	IMGUI_DISABLE_OBSOLETE_FUNCTIONS
+	IMGUI_DISABLE_DEMO_WINDOWS
+	IMGUI_DISABLE_DEBUG_TOOLS
+	IMGUI_DISABLE_OBSOLETE_KEYIO)
+target_include_directories(imgui PRIVATE "ThirdParty/imgui/" ${Vulkan_INCLUDE_DIR})
+
 add_library(imgui-node-editor STATIC
 	"ThirdParty/imgui-node-editor/imgui_bezier_math.h"
 	"ThirdParty/imgui-node-editor/imgui_canvas.cpp"
@@ -115,11 +117,12 @@ add_library(imgui-node-editor STATIC
 	"ThirdParty/imgui-node-editor/imgui_node_editor.h"
 	"ThirdParty/imgui-node-editor/imgui_node_editor_api.cpp"
 	"ThirdParty/imgui-node-editor/imgui_node_editor_internal.h")
-	
-target_compile_definitions(imgui-node-editor PUBLIC IMPLOT_DISABLE_OBSOLETE_FUNCTIONS)
-target_include_directories(imgui-node-editor PRIVATE "ThirdParty/imgui/")	
+
+target_compile_definitions(imgui-node-editor PUBLIC
+	IMPLOT_DISABLE_OBSOLETE_FUNCTIONS)
+target_include_directories(imgui-node-editor PRIVATE "ThirdParty/imgui/")
 target_link_libraries(imgui-node-editor imgui)
-	
+
 add_library(implot STATIC
 	"ThirdParty/implot/implot.cpp"
 	"ThirdParty/implot/implot.h"
@@ -141,6 +144,3 @@ mark_third_party(implot)
 # Build local projects
 add_subdirectory(Engine)
 add_subdirectory(Sandbox)
-
-# Compile shaders
-# TODO: Copy shader compile from niagara CMakeLists.txt

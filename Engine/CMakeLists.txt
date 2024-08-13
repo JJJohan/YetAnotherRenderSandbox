@@ -163,7 +163,7 @@ set(SOURCE_LIST
 	"UI/ScrollingGraphBuffer.cpp"
 	"UI/Vulkan/VulkanUIManager.hpp"
 	"UI/Vulkan/VulkanUIManager.cpp")
-	
+
 add_library(Engine SHARED ${SOURCE_LIST})
 
 target_include_directories(Engine PUBLIC
@@ -179,10 +179,7 @@ target_include_directories(Engine PUBLIC
 	"../ThirdParty/wuffs/"
 	"../ThirdParty/simdjson/"
 	"../ThirdParty/bc7enc_rdo/"
-	"$ENV{VULKAN_SDK}/Include")
-	
-target_link_directories(Engine PUBLIC
-	"$ENV{VULKAN_SDK}/Lib")
+	${Vulkan_INCLUDE_DIR})
 
 target_link_libraries(Engine PRIVATE
 	bc7enc_rdo
@@ -193,7 +190,7 @@ target_link_libraries(Engine PRIVATE
 	imgui
 	imgui-node-editor
 	implot
-	"vulkan-1")
+	${Vulkan_LIBRARY})
 
 if(WIN32)
   target_compile_definitions(Engine PRIVATE WIN32_LEAN_AND_MEAN)
@@ -206,7 +203,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})
 target_compile_options(Engine PRIVATE "/MP")
 
 target_compile_definitions(Engine PRIVATE ENGINE_EXPORTS)
-	
+
 target_compile_definitions(Engine PUBLIC
     NOMINMAX
 	VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
