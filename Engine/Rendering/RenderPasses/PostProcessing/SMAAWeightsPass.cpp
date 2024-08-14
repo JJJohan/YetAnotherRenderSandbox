@@ -6,7 +6,6 @@
 #include "../../IResourceFactory.hpp"
 #include "../../Renderer.hpp"
 #include "../../../Core/Image.hpp"
-#include "../../../Core/Base64.hpp"
 
 namespace Engine::Rendering
 {
@@ -20,12 +19,12 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Edges", RenderPassImageInfo(Format::R8G8Unorm, true)}
+			{"Edges", RenderPassImageInfo(AccessFlags::Read, Format::R8G8Unorm)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"BlendedWeights", RenderPassImageInfo(Format::R8G8B8A8Unorm)}
+			{"BlendedWeights", RenderPassImageInfo(AccessFlags::Write, Format::R8G8B8A8Unorm)}
 		};
 	}
 

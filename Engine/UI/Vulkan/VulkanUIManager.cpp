@@ -6,6 +6,7 @@
 #include "Rendering/Vulkan/PhysicalDevice.hpp"
 #include "Rendering/Vulkan/CommandBuffer.hpp"
 #include "Rendering/Vulkan/VulkanTypesInterop.hpp"
+#include "Rendering/Vulkan/PipelineManager.hpp"
 #include "Core/Logger.hpp"
 #include "OS/Window.hpp"
 #include "imgui.h"
@@ -57,6 +58,7 @@ namespace Engine::UI::Vulkan
 		uint32_t queueFamily = physicalDevice.GetQueueFamilyIndices().GraphicsFamily.value();
 		const vk::Queue& queue = device.GetGraphicsQueue();
 		vk::Format format = GetVulkanFormat(renderer.GetSwapChain().GetFormat());
+		const PipelineManager& pipelineManager = static_cast<const PipelineManager&>(renderer.GetMaterialManager());
 
 		// Setup Platform/Renderer backends
 		ImGui_ImplVulkan_InitInfo initInfo = {};
@@ -65,7 +67,7 @@ namespace Engine::UI::Vulkan
 		initInfo.Device = device.Get();
 		initInfo.QueueFamily = queueFamily;
 		initInfo.Queue = queue;
-		initInfo.PipelineCache = nullptr;
+		initInfo.PipelineCache = pipelineManager.GetPipelineCache();
 		initInfo.DescriptorPool = m_descriptorPool->Get();
 		initInfo.Subpass = 0;
 		initInfo.MinImageCount = std::max(2U, concurrentFrames);

@@ -1,10 +1,7 @@
 #include "UIPass.hpp"
 #include "../Resources/IBuffer.hpp"
 #include "../Resources/IRenderImage.hpp"
-#include "../IDevice.hpp"
 #include "../Resources/ICommandBuffer.hpp"
-#include "../IResourceFactory.hpp"
-#include "../ISwapChain.hpp"
 #include "../Renderer.hpp"
 #include "UI/UIManager.hpp"
 
@@ -18,12 +15,12 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain)}
+			{"Output", RenderPassImageInfo(AccessFlags::None, Format::PlaceholderSwapchain)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain)}
+			{"Output", RenderPassImageInfo(AccessFlags::None, Format::PlaceholderSwapchain)}
 		};
 	}
 

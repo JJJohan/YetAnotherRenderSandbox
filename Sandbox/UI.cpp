@@ -231,7 +231,7 @@ namespace Sandbox
 				{
 					const char* nodeName = node.Node->GetName().c_str();
 
-					for (const auto& input : node.Node->GetBufferInputs())
+					for (const auto& input : node.Node->GetBufferInputInfos())
 					{
 						const char* inputNodeName = node.InputBufferSources.at(input.first).Node->GetName().c_str();
 						const char* inputCstr = input.first.c_str();
@@ -276,7 +276,7 @@ namespace Sandbox
 					Colour nodeColour;
 
 					std::vector<NodePin> inputPins;
-					for (const auto& input : node.Node->GetBufferInputs())
+					for (const auto& input : node.Node->GetBufferInputInfos())
 					{
 						inputPins.emplace_back(NodePin(input.first, bufferPinColour));
 					}
@@ -287,7 +287,7 @@ namespace Sandbox
 					}
 
 					std::vector<NodePin> outputPins;
-					for (const auto& output : node.Node->GetBufferOutputs())
+					for (const auto& output : node.Node->GetBufferOutputInfos())
 					{
 						outputPins.emplace_back(NodePin(output.first, bufferPinColour));
 					}

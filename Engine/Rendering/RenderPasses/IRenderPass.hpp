@@ -5,7 +5,6 @@
 #include "Core/Logger.hpp"
 #include "../Resources/Material.hpp"
 #include "../Resources/AttachmentInfo.hpp"
-#include "../RenderResources/IRenderResource.hpp"
 #include "../RenderResources/IRenderNode.hpp"
 
 namespace Engine::Rendering

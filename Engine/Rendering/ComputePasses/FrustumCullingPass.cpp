@@ -19,9 +19,9 @@ namespace Engine::Rendering
 		, m_occlusionImage(nullptr)
 		, m_indirectBuffer(nullptr)
 	{
-		m_bufferOutputs =
+		m_bufferOutputInfos =
 		{
-			{ "IndirectDraw", nullptr }
+			{ "IndirectDraw", RenderPassBufferInfo(AccessFlags::Write, nullptr) }
 		};
 	}
 
@@ -48,7 +48,8 @@ namespace Engine::Rendering
 	void FrustumCullingPass::ClearResources()
 	{
 		m_indirectBuffer.reset();
-		m_bufferOutputs["IndirectDraw"] = nullptr;
+		auto& bufferInfo = m_bufferOutputInfos.at("IndirectDraw");
+		bufferInfo.Buffer = nullptr;
 		IComputePass::ClearResources();
 	}
 
@@ -94,7 +95,9 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		m_bufferOutputs["IndirectDraw"] = m_indirectBuffer.get();
+		auto& bufferInfo = m_bufferOutputInfos.at("IndirectDraw");
+		bufferInfo.Buffer = m_indirectBuffer.get();
+
 		return true;
 	}
 

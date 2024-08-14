@@ -89,21 +89,19 @@ namespace Engine::Rendering
 	private:
 		struct ImageInfo
 		{
-			bool Read;
-			bool Write;
+			AccessFlags Access;
 			IRenderImage& Image;
 
 			ImageInfo(IRenderImage& image)
 				: Image(image)
-				, Read(false)
-				, Write(false)
+				, Access(AccessFlags::None)
 			{
 			}
 		};
 
 		inline bool TryGetOrAddImage(std::string_view name, const Renderer& renderer, std::unordered_map<Format, std::vector<ImageInfo>>& formatRenderTextureLookup,
 			std::vector<std::unique_ptr<IRenderImage>>& renderTextures, std::unordered_map<IRenderImage*, uint32_t>& imageInfoLookup,
-			Format format, bool read, bool write, const glm::uvec3& dimensions, IRenderImage** result) const;
+			Format format, AccessFlags accessFlags, const glm::uvec3& dimensions, IRenderImage** result) const;
 
 		bool DetermineRequiredResources(std::vector<IRenderNode*>& renderNodeStack,
 			std::unordered_map<std::string, RenderGraphNode*>& availableImageSources,

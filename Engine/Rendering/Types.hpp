@@ -16,7 +16,7 @@ namespace Engine::Rendering
 		R32G32Sfloat,
 		R32Sfloat,
 		D32Sfloat,
-		D32SfloatS8Uint, 
+		D32SfloatS8Uint,
 		D24UnormS8Uint,
 		Bc5UnormBlock,
 		Bc7SrgbBlock,
@@ -36,6 +36,41 @@ namespace Engine::Rendering
 		Stencil,
 		None
 	};
+
+	enum class AccessFlags
+	{
+		None = 0,
+		Read = 1,
+		Write = 2,
+		ReadWrite = 4
+	};
+
+	inline AccessFlags& operator&=(AccessFlags& a, AccessFlags b)
+	{
+		a = static_cast<AccessFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+		return a;
+	}
+
+	inline AccessFlags& operator|=(AccessFlags& a, AccessFlags b)
+	{
+		a = static_cast<AccessFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+		return a;
+	}
+
+	inline AccessFlags operator|(AccessFlags a, AccessFlags b)
+	{
+		return a |= b;
+	}
+
+	inline AccessFlags operator&(AccessFlags a, AccessFlags b)
+	{
+		return a &= b;
+	}
+
+	inline AccessFlags operator~(AccessFlags a)
+	{
+		return static_cast<AccessFlags>(~static_cast<uint32_t>(a));
+	}
 
 	enum class ImageType
 	{
@@ -288,19 +323,19 @@ namespace Engine::Rendering
 		return a &= b;
 	}
 
-    enum class MemoryUsage
-    {
-        Unknown,
-        GPUOnly,
-        CPUOnly,
-        CPUToGPU,
-        GPUToCPU,
-        CPUCopy,
-        GPULazilyAllocated,
-        Auto,
-        AutoPreferDevice,
-        AutoPreferHost
-    };
+	enum class MemoryUsage
+	{
+		Unknown,
+		GPUOnly,
+		CPUOnly,
+		CPUToGPU,
+		GPUToCPU,
+		CPUCopy,
+		GPULazilyAllocated,
+		Auto,
+		AutoPreferDevice,
+		AutoPreferHost
+	};
 
 	enum class BufferUsageFlags : uint32_t
 	{
@@ -344,8 +379,8 @@ namespace Engine::Rendering
 		return a &= b;
 	}
 
-    enum class AllocationCreateFlags : uint32_t
-    {
+	enum class AllocationCreateFlags : uint32_t
+	{
 		None = 0,
 		DedicatedMemory = 0x00000001,
 		NeverAllocate = 0x00000002,
@@ -361,7 +396,7 @@ namespace Engine::Rendering
 		StrategyMinTime = 0x00020000,
 		StrategyMinOffset = 0x00040000,
 		StrategyMask = StrategyMinMemory | StrategyMinTime | StrategyMinOffset
-    };
+	};
 
 	inline AllocationCreateFlags& operator&=(AllocationCreateFlags& a, AllocationCreateFlags b)
 	{
@@ -392,7 +427,7 @@ namespace Engine::Rendering
 		case Format::Undefined:
 			return 0;
 		case Format::R8G8Unorm:
-			return 2;		
+			return 2;
 		case Format::R8G8B8A8Unorm:
 		case Format::R16G16Sfloat:
 		case Format::R32Sfloat:

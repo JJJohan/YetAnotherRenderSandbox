@@ -1,10 +1,7 @@
 #include "CombinePass.hpp"
-#include "Core/Logger.hpp"
 #include "../Resources/IBuffer.hpp"
 #include "../Resources/IRenderImage.hpp"
-#include "../IDevice.hpp"
 #include "../Resources/ICommandBuffer.hpp"
-#include "../IResourceFactory.hpp"
 #include "../Renderer.hpp"
 #include "../RenderResources/ShadowMap.hpp"
 
@@ -16,16 +13,16 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Albedo", RenderPassImageInfo(Format::R8G8B8A8Unorm, true)},
-			{"WorldNormal", RenderPassImageInfo(Format::R16G16B16A16Sfloat, true)},
-			{"WorldPos", RenderPassImageInfo(Format::R16G16B16A16Sfloat, true)},
-			{"MetalRoughness", RenderPassImageInfo(Format::R8G8Unorm, true)},
-			{"Shadows", RenderPassImageInfo(Format::PlaceholderDepth, true, shadowMap.GetExtent())}
+			{"Albedo", RenderPassImageInfo(AccessFlags::Read, Format::R8G8B8A8Unorm)},
+			{"WorldNormal", RenderPassImageInfo(AccessFlags::Read, Format::R16G16B16A16Sfloat)},
+			{"WorldPos", RenderPassImageInfo(AccessFlags::Read, Format::R16G16B16A16Sfloat)},
+			{"MetalRoughness", RenderPassImageInfo(AccessFlags::Read, Format::R8G8Unorm)},
+			{"Shadows", RenderPassImageInfo(AccessFlags::Read, Format::PlaceholderDepth, shadowMap.GetExtent())}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Output", RenderPassImageInfo(Format::R16G16B16A16Sfloat)}
+			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::R16G16B16A16Sfloat)}
 		};
 	}
 

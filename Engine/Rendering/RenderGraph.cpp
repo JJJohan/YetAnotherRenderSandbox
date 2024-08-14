@@ -87,14 +87,14 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		std::unordered_map<std::string, IBuffer*> inputBuffers;
-		std::unordered_map<std::string, IBuffer*> outputBuffers;
+		std::unordered_map<std::string, RenderPassBufferInfo> inputBufferInfos;
+		std::unordered_map<std::string, RenderPassBufferInfo> outputBufferInfos;
 
 		if (renderNode->GetNodeType() == RenderNodeType::Pass)
 		{
 			IRenderPass* renderPass = static_cast<IRenderPass*>(renderNode);
-			inputBuffers = renderPass->GetBufferInputs();
-			outputBuffers = renderPass->GetBufferOutputs();
+			inputBufferInfos = renderPass->GetBufferInputInfos();
+			outputBufferInfos = renderPass->GetBufferOutputInfos();
 			std::unordered_map<std::string, RenderPassImageInfo> inputImageInfos(renderPass->GetImageInputInfos().begin(), renderPass->GetImageInputInfos().end());
 
 			for (const auto& imageOutput : renderPass->GetImageOutputInfos())
@@ -122,8 +122,8 @@ namespace Engine::Rendering
 		else if (renderNode->GetNodeType() == RenderNodeType::Compute)
 		{
 			IComputePass* computePass = static_cast<IComputePass*>(renderNode);
-			inputBuffers = computePass->GetBufferInputs();
-			outputBuffers = computePass->GetBufferOutputs();
+			inputBufferInfos = computePass->GetBufferInputInfos();
+			outputBufferInfos = computePass->GetBufferOutputInfos();
 
 			if (!computePass->Initialise(materialManager))
 				return false;
@@ -136,11 +136,11 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		for (const auto& bufferOutput : outputBuffers)
+		for (const auto& bufferOutput : outputBufferInfos)
 		{
 			if (m_bufferResourceNodeLookup.contains(bufferOutput.first))
 			{
-				if (inputBuffers.contains(bufferOutput.first))
+				if (inputBufferInfos.contains(bufferOutput.first))
 				{
 					// Pass-through resource.
 					continue;
@@ -186,7 +186,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		for (const auto bufferOutput : renderResource->GetBufferOutputs())
+		for (const auto bufferOutput : renderResource->GetBufferOutputInfos())
 		{
 			if (m_bufferResourceNodeLookup.contains(bufferOutput.first))
 			{
@@ -215,7 +215,7 @@ namespace Engine::Rendering
 
 	inline bool RenderGraph::TryGetOrAddImage(std::string_view name, const Renderer& renderer, std::unordered_map<Format, std::vector<ImageInfo>>& formatRenderTextureLookup,
 		std::vector<std::unique_ptr<IRenderImage>>& renderTextures, std::unordered_map<IRenderImage*, uint32_t>& imageInfoLookup,
-		Format format, bool read, bool write, const glm::uvec3& dimensions, IRenderImage** result) const
+		Format format, AccessFlags accessFlags, const glm::uvec3& dimensions, IRenderImage** result) const
 	{
 		if (format == Format::PlaceholderDepth || format == Format::PlaceholderSwapchain)
 		{
@@ -235,23 +235,23 @@ namespace Engine::Rendering
 				continue;
 
 			// Multiple reads are allowed.
-			if (read && !info.Write)
+			if (accessFlags == AccessFlags::Read && info.Access != AccessFlags::Write)
 			{
-				info.Read = true;
+				info.Access = AccessFlags::Read;
 				*result = &info.Image;
 				return true;
 			}
 
 			// Allow write if no existing reads or writes exist.
-			if (write && !info.Read && !info.Write)
+			if (accessFlags == AccessFlags::Write && info.Access == AccessFlags::None)
 			{
-				info.Write = true;
+				info.Access = AccessFlags::Write;
 				*result = &info.Image;
 				return true;
 			}
 
 			// Passthrough (e.g. directly received from a render resource.)
-			if (!read && !write)
+			if (accessFlags == AccessFlags::None)
 			{
 				*result = &info.Image;
 				return true;
@@ -286,8 +286,7 @@ namespace Engine::Rendering
 
 		imageInfoLookup.emplace(image.get(), static_cast<uint32_t>(availableImages.size()));
 		ImageInfo& newInfo = availableImages.emplace_back(ImageInfo(*image));
-		newInfo.Read = read;
-		newInfo.Write = write;
+		newInfo.Access = accessFlags;
 
 		*result = image.get();
 
@@ -313,14 +312,14 @@ namespace Engine::Rendering
 				RenderGraphNode node = RenderGraphNode(renderNode);
 				bool satisfied = true;
 
-				for (const auto& bufferInput : node.Node->GetBufferInputs())
+				for (const auto& bufferInput : node.Node->GetBufferInputInfos())
 				{
 					const auto& search = stageAvailableBufferSources.find(bufferInput.first);
 					if (search != stageAvailableBufferSources.end())
 					{
 						// Make resource unavailable for the rest of this stage if it's being written to (exists in output.)
 						node.InputBufferSources.emplace(bufferInput.first, *search->second);
-						for (const auto& bufferOutput : node.Node->GetBufferOutputs())
+						for (const auto& bufferOutput : node.Node->GetBufferOutputInfos())
 						{
 							if (bufferOutput.first == search->first)
 							{
@@ -382,7 +381,7 @@ namespace Engine::Rendering
 			// Make resources from current stage available for the next one.
 			for (RenderGraphNode& node : stage)
 			{
-				for (const auto& bufferOutput : node.Node->GetBufferOutputs())
+				for (const auto& bufferOutput : node.Node->GetBufferOutputInfos())
 					availableBufferSources.insert_or_assign(bufferOutput.first, &node);
 
 				for (const auto& imageOutput : node.Node->GetImageOutputInfos())
@@ -411,8 +410,7 @@ namespace Engine::Rendering
 			{
 				for (auto& info : imageInfos.second)
 				{
-					info.Read = false;
-					info.Write = false;
+					info.Access = AccessFlags::None;
 				}
 			}
 
@@ -425,9 +423,9 @@ namespace Engine::Rendering
 					return false;
 				}
 
-				for (const auto& output : node.Node->GetBufferOutputs())
+				for (const auto& output : node.Node->GetBufferOutputInfos())
 				{
-					node.OutputBuffers[output.first] = output.second;
+					node.OutputBuffers[output.first] = output.second.Buffer;
 				}
 
 				if (node.Type == RenderNodeType::Resource)
@@ -452,7 +450,10 @@ namespace Engine::Rendering
 							const auto& imageInfo = imageInfoLookup.find(image);
 							if (imageInfo != imageInfoLookup.end())
 							{
-								formatRenderTextureLookup[image->GetFormat()][imageInfo->second].Read = info.second.IsRead;
+								if ((info.second.Access & AccessFlags::Read) == AccessFlags::Read)
+									formatRenderTextureLookup[image->GetFormat()][imageInfo->second].Access |= AccessFlags::Read;
+								else
+									formatRenderTextureLookup[image->GetFormat()][imageInfo->second].Access &= ~AccessFlags::Read;
 							}
 							node.InputImages[info.first] = image;
 						}
@@ -462,7 +463,7 @@ namespace Engine::Rendering
 							glm::uvec3 requestedExtents = inputInfo.Dimensions == glm::uvec3() ? defaultExtents : inputInfo.Dimensions;
 							IRenderImage* image = nullptr;
 							if (!TryGetOrAddImage(info.first, renderer, formatRenderTextureLookup, m_renderTextures, imageInfoLookup,
-								inputInfo.Format, inputInfo.IsRead, false, requestedExtents, &image))
+								inputInfo.Format, inputInfo.Access, requestedExtents, &image))
 								return false;
 
 							node.InputImages[info.first] = image;
@@ -485,7 +486,7 @@ namespace Engine::Rendering
 							if (matchingInputInfo != imageInfoLookup.end())
 							{
 								const auto& indices = formatRenderTextureLookup[inputImage->GetFormat()];
-								bool matchingIsRead = indices[matchingInputInfo->second].Read;
+								bool matchingIsRead = (indices[matchingInputInfo->second].Access & AccessFlags::Read) == AccessFlags::Read;
 								if (!matchingIsRead && inputImage->GetFormat() == outputInfo.Format && inputImage->GetDimensions() == requestedExtents)
 								{
 									image = inputImage; // Passthrough
@@ -494,13 +495,13 @@ namespace Engine::Rendering
 						}
 
 						if (image == nullptr && !TryGetOrAddImage(info.first, renderer, formatRenderTextureLookup, m_renderTextures, imageInfoLookup,
-							outputInfo.Format, false, true, requestedExtents, &image))
+							outputInfo.Format, AccessFlags::Write, requestedExtents, &image))
 							return false;
 
 						node.OutputImages[info.first] = image;
 					}
 
-					const auto& inputBuffers = node.Node->GetBufferInputs();
+					const auto& inputBuffers = node.Node->GetBufferInputInfos();
 					for (const auto& info : inputBuffers)
 					{
 						const auto& previousOutput = node.InputBufferSources.find(info.first);
@@ -786,9 +787,9 @@ namespace Engine::Rendering
 
 		ImageBlit blit;
 		blit.srcSubresource = ImageSubresourceLayers(ImageAspectFlags::Color, 0, 0, 1);
-		blit.srcOffsets = std::array<glm::uvec3, 2> { glm::uvec3(), offset };
+		blit.srcOffsets = std::array<glm::uvec3, 2>{ glm::uvec3(), offset };
 		blit.dstSubresource = ImageSubresourceLayers(ImageAspectFlags::Color, 0, 0, 1);
-		blit.dstOffsets = std::array<glm::uvec3, 2> { glm::uvec3(), offset };
+		blit.dstOffsets = std::array<glm::uvec3, 2>{ glm::uvec3(), offset };
 
 		IRenderImage& presentImage = renderer.GetPresentImage();
 		finalImage->TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::TransferSrc);

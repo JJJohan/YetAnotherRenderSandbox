@@ -1,7 +1,6 @@
 #include "SceneShadowPass.hpp"
 #include "../Resources/IBuffer.hpp"
 #include "../Resources/IRenderImage.hpp"
-#include "../IDevice.hpp"
 #include "../Resources/ICommandBuffer.hpp"
 #include "../Resources/GeometryBatch.hpp"
 #include "../Renderer.hpp"
@@ -19,17 +18,17 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Shadows", RenderPassImageInfo(Format::PlaceholderDepth, false, shadowMap.GetExtent())}
+			{"Shadows", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderDepth, shadowMap.GetExtent())}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Shadows", RenderPassImageInfo(Format::PlaceholderDepth, false, shadowMap.GetExtent())}
+			{"Shadows", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderDepth, shadowMap.GetExtent())}
 		};
 
-		m_bufferInputs =
+		m_bufferInputInfos =
 		{
-			{"ShadowIndirectDraw", nullptr}
+			{"ShadowIndirectDraw", RenderPassBufferInfo(AccessFlags::Read, nullptr)}
 		};
 	}
 

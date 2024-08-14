@@ -23,12 +23,12 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Depth", RenderPassImageInfo(Format::D32Sfloat, true)}
+			{"Depth", RenderPassImageInfo(AccessFlags::Read, Format::D32Sfloat)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"OcclusionImage", RenderPassImageInfo(Format::R32Sfloat)}
+			{"OcclusionImage", RenderPassImageInfo(AccessFlags::Write, Format::R32Sfloat)}
 		};
 	}
 
@@ -132,7 +132,7 @@ namespace Engine::Rendering
 			!m_material->BindStorageImages(1, destImageViews))
 			return false;
 
-		m_imageOutputInfos["OcclusionImage"] = RenderPassImageInfo(m_occlusionImage->GetFormat(), false, m_occlusionImage->GetDimensions(), m_occlusionImage.get());
+		m_imageOutputInfos["OcclusionImage"] = RenderPassImageInfo(AccessFlags::Write, m_occlusionImage->GetFormat(), m_occlusionImage->GetDimensions(), m_occlusionImage.get());
 
 		return true;
 	}

@@ -2,8 +2,7 @@
 
 #include <unordered_map>
 #include <string>
-#include <glm/glm.hpp>
-#include "../Types.hpp"
+#include "RenderPassResourceInfo.hpp"
 
 namespace Engine::Rendering
 {
@@ -16,22 +15,6 @@ namespace Engine::Rendering
 		Pass,
 		Compute,
 		Resource
-	};
-
-	struct RenderPassImageInfo
-	{
-		Format Format;
-		bool IsRead;
-		glm::uvec3 Dimensions;
-		IRenderImage* Image;
-
-		RenderPassImageInfo(Engine::Rendering::Format format = Format::Undefined, bool isRead = false, const glm::uvec3& dimensions = {}, IRenderImage* image = nullptr)
-			: Format(format)
-			, IsRead(isRead)
-			, Dimensions(dimensions)
-			, Image(image)
-		{
-		}
 	};
 
 	class IRenderNode
@@ -53,9 +36,9 @@ namespace Engine::Rendering
 
 		inline RenderNodeType GetNodeType() const { return m_nodeType; }
 
-		inline const std::unordered_map<std::string, IBuffer*>& GetBufferInputs() const { return m_bufferInputs; }
+		inline const std::unordered_map<std::string, RenderPassBufferInfo>& GetBufferInputInfos() const { return m_bufferInputInfos; }
 
-		inline const std::unordered_map<std::string, IBuffer*>& GetBufferOutputs() const { return m_bufferOutputs; }
+		inline const std::unordered_map<std::string, RenderPassBufferInfo>& GetBufferOutputInfos() const { return m_bufferOutputInfos; }
 
 		inline const std::unordered_map<std::string, RenderPassImageInfo>& GetImageInputInfos() const { return m_imageInputInfos; }
 
@@ -64,8 +47,8 @@ namespace Engine::Rendering
 	protected:
 		IRenderNode(std::string_view name, RenderNodeType nodeType)
 			: m_name(name)
-			, m_bufferInputs()
-			, m_bufferOutputs()
+			, m_bufferInputInfos()
+			, m_bufferOutputInfos()
 			, m_imageInputInfos()
 			, m_imageOutputInfos()
 			, m_enabled(true)
@@ -73,8 +56,8 @@ namespace Engine::Rendering
 		{
 		}
 
-		std::unordered_map<std::string, IBuffer*> m_bufferInputs;
-		std::unordered_map<std::string, IBuffer*> m_bufferOutputs;
+		std::unordered_map<std::string, RenderPassBufferInfo> m_bufferInputInfos;
+		std::unordered_map<std::string, RenderPassBufferInfo> m_bufferOutputInfos;
 		std::unordered_map<std::string, RenderPassImageInfo> m_imageInputInfos;
 		std::unordered_map<std::string, RenderPassImageInfo> m_imageOutputInfos;
 

@@ -15,14 +15,14 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain, true)},
-			{"Velocity", RenderPassImageInfo(Format::R16G16Sfloat, true)},
-			{"Depth", RenderPassImageInfo(Format::D32Sfloat, true)}
+			{"Output", RenderPassImageInfo(AccessFlags::Read, Format::PlaceholderSwapchain)},
+			{"Velocity", RenderPassImageInfo(AccessFlags::Read, Format::R16G16Sfloat)},
+			{"Depth", RenderPassImageInfo(AccessFlags::Read, Format::D32Sfloat)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain)}
+			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderSwapchain)}
 		};
 	}
 
@@ -117,9 +117,9 @@ namespace Engine::Rendering
 
 		ImageBlit blit;
 		blit.srcSubresource = ImageSubresourceLayers(ImageAspectFlags::Color, 0, 0, 1);
-		blit.srcOffsets = std::array<glm::uvec3, 2> { glm::uvec3(), offset };
+		blit.srcOffsets = std::array<glm::uvec3, 2>{ glm::uvec3(), offset };
 		blit.dstSubresource = ImageSubresourceLayers(ImageAspectFlags::Color, 0, 0, 1);
-		blit.dstOffsets = std::array<glm::uvec3, 2> { glm::uvec3(), offset };
+		blit.dstOffsets = std::array<glm::uvec3, 2>{ glm::uvec3(), offset };
 
 		commandBuffer.BlitImage(*outputImage, *m_taaHistoryImage, { blit }, Filter::Linear);
 	}

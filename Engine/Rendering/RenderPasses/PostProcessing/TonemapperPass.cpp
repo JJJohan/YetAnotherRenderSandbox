@@ -3,7 +3,6 @@
 #include "../../Resources/IRenderImage.hpp"
 #include "../../IDevice.hpp"
 #include "../../Resources/ICommandBuffer.hpp"
-#include "../../ISwapChain.hpp"
 #include "../../Renderer.hpp"
 
 namespace Engine::Rendering
@@ -13,12 +12,12 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain, true)}
+			{"Output", RenderPassImageInfo(AccessFlags::Read, Format::PlaceholderSwapchain)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain)}
+			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderSwapchain)}
 		};
 	}
 

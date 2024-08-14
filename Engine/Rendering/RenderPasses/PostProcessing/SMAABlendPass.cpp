@@ -1,7 +1,6 @@
 #include "SMAABlendPass.hpp"
 #include "../../Resources/IBuffer.hpp"
 #include "../../Resources/IRenderImage.hpp"
-#include "../../IDevice.hpp"
 #include "../../Resources/ICommandBuffer.hpp"
 #include "../../Renderer.hpp"
 
@@ -12,13 +11,13 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain, true)},
-			{"BlendedWeights", RenderPassImageInfo(Format::R8G8B8A8Unorm, true)},
+			{"Output", RenderPassImageInfo(AccessFlags::Read, Format::PlaceholderSwapchain)},
+			{"BlendedWeights", RenderPassImageInfo(AccessFlags::Read, Format::R8G8B8A8Unorm)},
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain)}
+			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderSwapchain)}
 		};
 	}
 

@@ -1,7 +1,6 @@
 #include "SMAAEdgesPass.hpp"
 #include "../../Resources/IBuffer.hpp"
 #include "../../Resources/IRenderImage.hpp"
-#include "../../IDevice.hpp"
 #include "../../Resources/ICommandBuffer.hpp"
 #include "../../Renderer.hpp"
 
@@ -12,12 +11,12 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain)}
+			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderSwapchain)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Edges", RenderPassImageInfo(Format::R8G8Unorm)}
+			{"Edges", RenderPassImageInfo(AccessFlags::Write, Format::R8G8Unorm)}
 		};
 	}
 

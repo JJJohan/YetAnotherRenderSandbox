@@ -21,7 +21,7 @@ namespace Engine::Rendering
 	{
 		m_imageOutputInfos =
 		{
-			{"Shadows", {} }
+			{"Shadows", {AccessFlags::Write} }
 		};
 	}
 
@@ -153,7 +153,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		m_imageOutputInfos["Shadows"] = RenderPassImageInfo(depthFormat, false, m_extent, m_shadowImage.get());
+		m_imageOutputInfos["Shadows"] = RenderPassImageInfo(AccessFlags::Write, depthFormat, m_extent, m_shadowImage.get());
 
 		return true;
 	}

@@ -16,6 +16,7 @@ namespace Engine::Rendering::Vulkan
 
 		bool CheckDirty() const;
 		void WritePipelineCache(const IDevice& device) const;
+		inline const VkPipelineCache GetPipelineCache() const { return m_pipelineCache.get(); }
 
 	private:
 		virtual bool BuildMaterials(const IPhysicalDevice& physicalDevice, const IDevice& device, uint32_t concurrentFrames,

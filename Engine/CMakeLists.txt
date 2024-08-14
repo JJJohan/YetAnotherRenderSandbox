@@ -91,6 +91,7 @@ set(SOURCE_LIST
 	"Rendering/RenderResources/ShadowMap.hpp"
 	"Rendering/RenderResources/IRenderNode.hpp"
 	"Rendering/RenderResources/IRenderResource.hpp"
+	"Rendering/RenderResources/RenderPassResourceInfo.hpp"
 	"Rendering/Resources/ICommandPool.hpp"
 	"Rendering/Resources/IImageSampler.hpp"
 	"Rendering/Resources/IImageView.hpp"

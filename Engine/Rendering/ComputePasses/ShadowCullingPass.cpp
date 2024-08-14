@@ -17,9 +17,9 @@ namespace Engine::Rendering
 		, m_mode(CullingMode::FrustumAndOcclusion)
 		, m_shadowIndirectBuffer(nullptr)
 	{
-		m_bufferOutputs =
+		m_bufferOutputInfos =
 		{
-			{ "ShadowIndirectDraw", nullptr }
+			{ "ShadowIndirectDraw", RenderPassBufferInfo(AccessFlags::Write, nullptr) }
 		};
 	}
 
@@ -69,7 +69,8 @@ namespace Engine::Rendering
 	void ShadowCullingPass::ClearResources()
 	{
 		m_shadowIndirectBuffer.reset();
-		m_bufferOutputs["ShadowIndirectDraw"] = nullptr;
+		auto& bufferInfo = m_bufferOutputInfos.at("ShadowIndirectDraw");
+		bufferInfo.Buffer = nullptr;
 		IComputePass::ClearResources();
 	}
 
@@ -82,7 +83,9 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		m_bufferOutputs["ShadowIndirectDraw"] = m_shadowIndirectBuffer.get();
+		auto& bufferInfo = m_bufferOutputInfos.at("ShadowIndirectDraw");
+		bufferInfo.Buffer = m_shadowIndirectBuffer.get();
+
 		return true;
 	}
 

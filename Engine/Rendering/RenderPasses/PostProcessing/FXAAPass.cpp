@@ -1,7 +1,6 @@
 #include "FXAAPass.hpp"
 #include "../../Resources/IBuffer.hpp"
 #include "../../Resources/IRenderImage.hpp"
-#include "../../IDevice.hpp"
 #include "../../Resources/ICommandBuffer.hpp"
 #include "../../Renderer.hpp"
 
@@ -12,12 +11,12 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain, true)}
+			{"Output", RenderPassImageInfo(AccessFlags::Read, Format::PlaceholderSwapchain)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Output", RenderPassImageInfo(Format::PlaceholderSwapchain)}
+			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderSwapchain)}
 		};
 	}
 

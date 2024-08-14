@@ -1,7 +1,6 @@
 #include "SceneOpaquePass.hpp"
 #include "../Resources/IBuffer.hpp"
 #include "../Resources/IRenderImage.hpp"
-#include "../IDevice.hpp"
 #include "../Resources/ICommandBuffer.hpp"
 #include "../Resources/GeometryBatch.hpp"
 #include "../Renderer.hpp"
@@ -16,17 +15,17 @@ namespace Engine::Rendering
 	{
 		m_imageOutputInfos =
 		{
-			{"Albedo", RenderPassImageInfo(Format::R8G8B8A8Unorm)},
-			{"WorldNormal", RenderPassImageInfo(Format::R16G16B16A16Sfloat)},
-			{"WorldPos", RenderPassImageInfo(Format::R16G16B16A16Sfloat)},
-			{"MetalRoughness", RenderPassImageInfo(Format::R8G8Unorm)},
-			{"Velocity", RenderPassImageInfo(Format::R16G16Sfloat)},
-			{"Depth", RenderPassImageInfo(Format::PlaceholderDepth)}
+			{"Albedo", RenderPassImageInfo(AccessFlags::Write, Format::R8G8B8A8Unorm)},
+			{"WorldNormal", RenderPassImageInfo(AccessFlags::Write, Format::R16G16B16A16Sfloat)},
+			{"WorldPos", RenderPassImageInfo(AccessFlags::Write, Format::R16G16B16A16Sfloat)},
+			{"MetalRoughness", RenderPassImageInfo(AccessFlags::Write, Format::R8G8Unorm)},
+			{"Velocity", RenderPassImageInfo(AccessFlags::Write, Format::R16G16Sfloat)},
+			{"Depth", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderDepth)}
 		};
 
-		m_bufferInputs =
+		m_bufferInputInfos =
 		{
-			{"IndirectDraw", nullptr}
+			{"IndirectDraw", RenderPassBufferInfo(AccessFlags::Read, nullptr)}
 		};
 	}
 
