@@ -3,6 +3,7 @@
 #include "Core/Logger.hpp"
 #include "VulkanTypesInterop.hpp"
 #include "Device.hpp"
+#include "VulkanImageMemoryBarriers.hpp"
 
 namespace Engine::Rendering::Vulkan
 {
@@ -59,7 +60,9 @@ namespace Engine::Rendering::Vulkan
 	{
 		if (m_mipLevels == 1)
 		{
-			TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly, 0, 0);
+			VulkanImageMemoryBarriers imageMemoryBarriers{};
+			AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, imageMemoryBarriers, 0, 0);
+			commandBuffer.TransitionImageLayouts(imageMemoryBarriers);
 			return;
 		}
 
@@ -95,9 +98,9 @@ namespace Engine::Rendering::Vulkan
 
 			vk::ImageBlit blit;
 			blit.srcSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i - 1, 0, 1);
-			blit.srcOffsets = std::array<vk::Offset3D, 2> { vk::Offset3D(), vk::Offset3D(mipDimensions.x, mipDimensions.y, 1) };
+			blit.srcOffsets = std::array<vk::Offset3D, 2>{ vk::Offset3D(), vk::Offset3D(mipDimensions.x, mipDimensions.y, 1) };
 			blit.dstSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i, 0, 1);
-			blit.dstOffsets = std::array<vk::Offset3D, 2> { vk::Offset3D(), vk::Offset3D(mipDimensions.x > 1 ? mipDimensions.x / 2 : 1, mipDimensions.y > 1 ? mipDimensions.y / 2 : 1, 1) };
+			blit.dstOffsets = std::array<vk::Offset3D, 2>{ vk::Offset3D(), vk::Offset3D(mipDimensions.x > 1 ? mipDimensions.x / 2 : 1, mipDimensions.y > 1 ? mipDimensions.y / 2 : 1, 1) };
 
 			vulkanCommandBuffer.blitImage(m_image, vk::ImageLayout::eTransferSrcOptimal, m_image, vk::ImageLayout::eTransferDstOptimal, { blit }, vk::Filter::eLinear);
 
@@ -320,16 +323,17 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	void RenderImage::TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer,
-		ImageLayout newLayout, uint32_t srcQueueFamily, uint32_t dstQueueFamily)
+	bool RenderImage::AppendImageLayoutTransition(const IDevice& device, const ICommandBuffer& commandBuffer,
+		ImageLayout newLayout, IImageMemoryBarriers& imageMemoryBarriers, uint32_t srcQueueFamily,
+		uint32_t dstQueueFamily)
 	{
 		if (m_layout == newLayout)
-			return;
+			return false;
 
 		if (!LayoutSupported(m_usageFlags, newLayout))
 		{
 			Logger::Error("Image was not created with usage flags that support the requested layout.");
-			return;
+			return false;
 		}
 
 		vk::AccessFlags2 srcAccessMask;
@@ -340,42 +344,40 @@ namespace Engine::Rendering::Vulkan
 		if (!SetFlags(m_layout, srcAccessMask, srcStage, true))
 		{
 			Logger::Error("Source image layout not handled.");
-			return;
+			return false;
 		}
 
 		if (!SetFlags(newLayout, dstAccessMask, dstStage, false))
 		{
 			Logger::Error("Destination image layout not handled.");
-			return;
+			return false;
 		}
 
 		if (!ProcessQueueFamilyIndices(commandBuffer, srcQueueFamily, dstQueueFamily,
 			srcAccessMask, dstAccessMask, srcStage, dstStage, newLayout))
-			return;
+			return false;
 
 		vk::ImageAspectFlags aspectFlags = GetAspectFlags(m_format);
 
 		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, m_layerCount);
 
-		vk::ImageMemoryBarrier2 barrier(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
-			srcQueueFamily, dstQueueFamily, m_image, subResourceRange);
-
-		vk::DependencyInfo dependencyInfo(vk::DependencyFlagBits::eByRegion, 0, nullptr, 0, nullptr, 1, &barrier);
-
-		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);
-		vulkanCommandBuffer.Get().pipelineBarrier2(dependencyInfo);
+		VulkanImageMemoryBarriers& vulkanMemoryBarriers = static_cast<VulkanImageMemoryBarriers&>(imageMemoryBarriers);
+		vulkanMemoryBarriers.AddMemoryBarrier(vk::ImageMemoryBarrier2(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
+			srcQueueFamily, dstQueueFamily, m_image, subResourceRange));
 
 		m_layout = newLayout;
+		return true;
 	}
 
-	void RenderImage::TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
+	bool RenderImage::AppendImageLayoutTransitionExt(const IDevice& device, const ICommandBuffer& commandBuffer,
 		MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
-		uint32_t baseMipLevel, uint32_t mipLevelCount, uint32_t srcQueueFamily, uint32_t dstQueueFamily)
+		IImageMemoryBarriers& imageMemoryBarriers, uint32_t baseMipLevel, uint32_t mipLevelCount,
+		uint32_t srcQueueFamily, uint32_t dstQueueFamily)
 	{
 		if (!LayoutSupported(m_usageFlags, newLayout))
 		{
 			Logger::Error("Image was not created with usage flags that support the requested layout.");
-			return;
+			return false;
 		}
 
 		vk::AccessFlags2 srcAccessMask;
@@ -386,25 +388,22 @@ namespace Engine::Rendering::Vulkan
 		if (!SetFlags(m_layout, srcAccessMask, srcStage, true))
 		{
 			Logger::Error("Source image layout not handled.");
-			return;
+			return false;
 		}
 
 		if (!ProcessQueueFamilyIndices(commandBuffer, srcQueueFamily, dstQueueFamily,
 			srcAccessMask, dstAccessMask, srcStage, dstStage, newLayout))
-			return;
+			return false;
 
 		vk::ImageAspectFlags aspectFlags = GetAspectFlags(m_format);
 
 		vk::ImageSubresourceRange subResourceRange(aspectFlags, baseMipLevel, mipLevelCount == 0 ? m_mipLevels : mipLevelCount, 0, m_layerCount);
 
-		vk::ImageMemoryBarrier2 barrier(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
-			srcQueueFamily, dstQueueFamily, m_image, subResourceRange);
-
-		vk::DependencyInfo dependencyInfo(vk::DependencyFlagBits::eByRegion, 0, nullptr, 0, nullptr, 1, &barrier);
-
-		const CommandBuffer& vulkanCommandBuffer = static_cast<const CommandBuffer&>(commandBuffer);
-		vulkanCommandBuffer.Get().pipelineBarrier2(dependencyInfo);
+		VulkanImageMemoryBarriers& vulkanMemoryBarriers = static_cast<VulkanImageMemoryBarriers&>(imageMemoryBarriers);
+		vulkanMemoryBarriers.AddMemoryBarrier(vk::ImageMemoryBarrier2(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
+			srcQueueFamily, dstQueueFamily, m_image, subResourceRange));
 
 		m_layout = newLayout;
+		return true;
 	}
 }

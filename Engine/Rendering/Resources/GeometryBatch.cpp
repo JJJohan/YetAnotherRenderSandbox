@@ -3,10 +3,10 @@
 #include "../IDevice.hpp"
 #include "../Resources/IBuffer.hpp"
 #include "../Resources/IRenderImage.hpp"
-#include "../Resources/IImageSampler.hpp"
 #include "../IResourceFactory.hpp"
 #include "../Resources/ICommandBuffer.hpp"
 #include "../Resources/MeshInfo.hpp"
+#include "../Resources/IImageMemoryBarriers.hpp"
 #include "Core/MeshOptimiser.hpp"
 #include "Core/Image.hpp"
 #include "../Renderer.hpp"
@@ -678,7 +678,10 @@ namespace Engine::Rendering
 					return false;
 				}
 
-				renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferDst);
+				std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(resourceFactory.CreateImageMemoryBarriers());
+				renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::TransferDst, *imageMemoryBarriers);
+				commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+				imageMemoryBarriers->Clear();
 
 				for (uint32_t i = 0; i < imageData.Header.MipLevels; ++i)
 				{
@@ -687,7 +690,8 @@ namespace Engine::Rendering
 						return false;
 				}
 
-				renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
+				renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
+				commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
 
 				if (asyncData != nullptr)
 					asyncData->AddSubProgress(subTicks);
@@ -796,7 +800,10 @@ namespace Engine::Rendering
 				return false;
 			}
 
-			renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferDst);
+			std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(resourceFactory.CreateImageMemoryBarriers());
+			renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::TransferDst, *imageMemoryBarriers);
+			commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+			imageMemoryBarriers->Clear();
 
 			for (size_t i = 0; i < pixels.size(); ++i)
 			{
@@ -814,7 +821,8 @@ namespace Engine::Rendering
 				chunkData->AddImageData(header, pixels);
 			}
 
-			renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
+			renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
+			commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
 
 			++imageCount;
 

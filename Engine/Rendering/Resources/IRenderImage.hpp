@@ -12,6 +12,7 @@ namespace Engine::Rendering
 	class IDevice;
 	class IPhysicalDevice;
 	class ICommandBuffer;
+	class IImageMemoryBarriers;
 
 	class IRenderImage
 	{
@@ -38,12 +39,13 @@ namespace Engine::Rendering
 
 		virtual bool UpdateContents(const void* data, size_t offset, uint64_t size) = 0;
 
-		virtual void TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer,
-			ImageLayout newLayout, uint32_t srcQueueFamily = 0, uint32_t dstQueueFamily = 0) = 0;
+		virtual bool AppendImageLayoutTransition(const IDevice& device, const ICommandBuffer& commandBuffer,
+			ImageLayout newLayout, IImageMemoryBarriers& imageMemoryBarriers, uint32_t srcQueueFamily = 0,
+			uint32_t dstQueueFamily = 0) = 0;
 
-		virtual void TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
+		virtual bool AppendImageLayoutTransitionExt(const IDevice& device, const ICommandBuffer& commandBuffer,
 			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
-			uint32_t baseMipLevel = 0, uint32_t mipLevelCount = 0,
+			IImageMemoryBarriers& imageMemoryBarriers, uint32_t baseMipLevel = 0, uint32_t mipLevelCount = 0,
 			uint32_t srcQueueFamily = 0, uint32_t dstQueueFamily = 0) = 0;
 
 		virtual void GenerateMipmaps(const IDevice& device, const ICommandBuffer& commandBuffer) = 0;

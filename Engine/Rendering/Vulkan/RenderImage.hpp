@@ -25,16 +25,18 @@ namespace Engine::Rendering::Vulkan
 
 		virtual bool UpdateContents(const void* data, size_t offset, size_t size) override;
 
-		virtual void TransitionImageLayout(const IDevice& device, const ICommandBuffer& commandBuffer,
-			ImageLayout newLayout, uint32_t srcQueueFamily, uint32_t dstQueueFamily) override;
+		virtual bool AppendImageLayoutTransition(const IDevice& device, const ICommandBuffer& commandBuffer,
+			ImageLayout newLayout, IImageMemoryBarriers& imageMemoryBarriers, uint32_t srcQueueFamily,
+			uint32_t dstQueueFamily) override;
 
-		virtual void TransitionImageLayoutExt(const IDevice& device, const ICommandBuffer& commandBuffer,
+		virtual bool AppendImageLayoutTransitionExt(const IDevice& device, const ICommandBuffer& commandBuffer,
 			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
-			uint32_t baseMipLevel, uint32_t mipLevelCount, uint32_t srcQueueFamily, uint32_t dstQueueFamily) override;
+			IImageMemoryBarriers& imageMemoryBarriers, uint32_t baseMipLevel, uint32_t mipLevelCount,
+			uint32_t srcQueueFamily, uint32_t dstQueueFamily) override;
 
 		virtual void GenerateMipmaps(const IDevice& device, const ICommandBuffer& commandBuffer) override;
 
-		virtual bool CreateView(std::string_view name, const IDevice& device, uint32_t baseMipLevel, 
+		virtual bool CreateView(std::string_view name, const IDevice& device, uint32_t baseMipLevel,
 			ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const override;
 
 		inline const VkImage& Get() const { return m_image; }

@@ -4,6 +4,7 @@
 #include "VulkanTypesInterop.hpp"
 #include "Buffer.hpp"
 #include "Core/Logger.hpp"
+#include "VulkanImageMemoryBarriers.hpp"
 
 namespace Engine::Rendering::Vulkan
 {
@@ -155,5 +156,12 @@ namespace Engine::Rendering::Vulkan
 	void CommandBuffer::FillBuffer(const IBuffer& buffer, size_t offset, size_t size, uint32_t data) const
 	{
 		m_commandBuffer->fillBuffer(static_cast<const Buffer&>(buffer).Get(), offset, size, data);
+	}
+
+	void CommandBuffer::TransitionImageLayouts(const IImageMemoryBarriers& imageMemoryBarriers) const
+	{
+		const std::vector<vk::ImageMemoryBarrier2>& memoryBarriers = static_cast<const VulkanImageMemoryBarriers&>(imageMemoryBarriers).GetMemoryBarriers();
+		vk::DependencyInfo dependencyInfo(vk::DependencyFlagBits::eByRegion, 0, nullptr, 0, nullptr, static_cast<uint32_t>(memoryBarriers.size()), memoryBarriers.data());
+		m_commandBuffer->pipelineBarrier2(dependencyInfo);
 	}
 }

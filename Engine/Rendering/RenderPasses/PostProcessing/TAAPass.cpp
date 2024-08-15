@@ -3,6 +3,7 @@
 #include "../../Resources/IRenderImage.hpp"
 #include "../../IDevice.hpp"
 #include "../../Resources/ICommandBuffer.hpp"
+#include "../../Resources/IImageMemoryBarriers.hpp"
 #include "../../IResourceFactory.hpp"
 #include "../../ISwapChain.hpp"
 #include "../../Renderer.hpp"
@@ -92,7 +93,10 @@ namespace Engine::Rendering
 		const std::unordered_map<std::string, IRenderImage*>& imageOutputs)
 	{
 		const IDevice& device = renderer.GetDevice();
-		m_taaHistoryImage->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
+
+		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(renderer.GetResourceFactory().CreateImageMemoryBarriers());
+		m_taaHistoryImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
+		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
 	}
 
 	void TAAPass::Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
@@ -109,8 +113,10 @@ namespace Engine::Rendering
 		const IDevice& device = renderer.GetDevice();
 		IRenderImage* outputImage = imageOutputs.at("Output");
 
-		m_taaHistoryImage->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferDst);
-		outputImage->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferSrc);
+		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(renderer.GetResourceFactory().CreateImageMemoryBarriers());
+		m_taaHistoryImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::TransferDst, *imageMemoryBarriers);
+		outputImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::TransferSrc, *imageMemoryBarriers);
+		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
 
 		const glm::uvec3& extents = m_taaHistoryImage->GetDimensions();
 		const glm::uvec3 offset(extents.x, extents.y, extents.z);

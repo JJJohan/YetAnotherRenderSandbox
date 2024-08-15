@@ -115,9 +115,13 @@ namespace Engine::Rendering
 
 		bool FindFinalNode();
 
+		bool TransitionImageLayoutsForStage(const Renderer& renderer, uint32_t frameIndex,
+			const std::vector<RenderGraphNode>& nodes) const;
+
 		bool DrawRenderPass(const Renderer& renderer, const RenderGraphNode& node,
 			uint32_t frameIndex, const glm::uvec2& size,
-			SubmitInfo& renderSubmitInfo, bool& stageHasRenderPasses) const;
+			SubmitInfo& renderSubmitInfo, bool skipGraphicsCommandBufferReset,
+			bool& stageHasRenderPasses) const;
 
 		bool DispatchComputePass(Renderer& renderer, const RenderGraphNode& node, uint32_t frameIndex,
 			SubmitInfo& computeSubmitInfo, bool& stageHasComputePasses) const;

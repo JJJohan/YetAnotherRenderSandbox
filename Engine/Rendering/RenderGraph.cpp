@@ -6,6 +6,7 @@
 #include "Resources/ICommandBuffer.hpp"
 #include "Resources/ICommandPool.hpp"
 #include "Resources/ISemaphore.hpp"
+#include "Resources/IImageMemoryBarriers.hpp"
 #include "IResourceFactory.hpp"
 #include "IPhysicalDevice.hpp"
 #include <unordered_set>
@@ -680,8 +681,60 @@ namespace Engine::Rendering
 		return true;
 	}
 
+	bool RenderGraph::TransitionImageLayoutsForStage(const Renderer& renderer, uint32_t frameIndex, const std::vector<RenderGraphNode>& nodes) const
+	{
+		const IDevice& device = renderer.GetDevice();
+
+		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(renderer.GetResourceFactory().CreateImageMemoryBarriers());
+		const ICommandBuffer* firstCommandBuffer = nullptr;
+		for (const auto& node : nodes)
+		{
+			if (node.Type != RenderNodeType::Pass)
+				continue;
+
+			IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
+			const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_renderCommandBuffers.at(pass);
+
+			const ICommandBuffer& commandBuffer = *passCommandBuffers[frameIndex];
+			if (firstCommandBuffer == nullptr)
+				firstCommandBuffer = &commandBuffer;
+
+			for (const auto& imageInput : node.InputImages)
+			{
+				imageInput.second->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
+			}
+
+			const std::vector<AttachmentInfo>& colourAttachments = pass->GetColourAttachments();
+			for (const auto& colourAttachment : colourAttachments)
+			{
+				colourAttachment.renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ColorAttachment, *imageMemoryBarriers);
+			}
+
+			const std::optional<AttachmentInfo>& depthAttachment = pass->GetDepthAttachment();
+
+			if (depthAttachment.has_value())
+			{
+				depthAttachment->renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::DepthStencilAttachment, *imageMemoryBarriers);
+			}
+		}
+
+		if (firstCommandBuffer != nullptr)
+		{
+			firstCommandBuffer->Reset();
+			if (!firstCommandBuffer->Begin())
+			{
+				return false;
+			}
+
+			if (!imageMemoryBarriers->Empty())
+				firstCommandBuffer->TransitionImageLayouts(*imageMemoryBarriers);
+		}
+
+		return true;
+	}
+
 	bool RenderGraph::DrawRenderPass(const Renderer& renderer, const RenderGraphNode& node, uint32_t frameIndex,
-		const glm::uvec2& size, SubmitInfo& renderSubmitInfo, bool& stageHasRenderPasses) const
+		const glm::uvec2& size, SubmitInfo& renderSubmitInfo, bool skipGraphicsCommandBufferReset, bool& stageHasRenderPasses) const
 	{
 		const IDevice& device = renderer.GetDevice();
 
@@ -689,32 +742,20 @@ namespace Engine::Rendering
 		const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_renderCommandBuffers.at(pass);
 
 		const ICommandBuffer& commandBuffer = *passCommandBuffers[frameIndex];
-		commandBuffer.Reset();
-
-		if (!commandBuffer.Begin())
+		if (!skipGraphicsCommandBufferReset)
 		{
-			return false;
+			commandBuffer.Reset();
+
+			if (!commandBuffer.Begin())
+			{
+				return false;
+			}
 		}
 
 		m_renderStats.Begin(commandBuffer, pass->GetName(), false);
 
-		for (const auto& imageInput : node.InputImages)
-		{
-			imageInput.second->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
-		}
-
 		const std::vector<AttachmentInfo>& colourAttachments = pass->GetColourAttachments();
-		for (const auto& colourAttachment : colourAttachments)
-		{
-			colourAttachment.renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::ColorAttachment);
-		}
-
 		const std::optional<AttachmentInfo>& depthAttachment = pass->GetDepthAttachment();
-
-		if (depthAttachment.has_value())
-		{
-			depthAttachment->renderImage->TransitionImageLayout(device, commandBuffer, ImageLayout::DepthStencilAttachment);
-		}
 
 		glm::uvec2 passSize = size;
 		pass->GetCustomSize(passSize);
@@ -774,8 +815,9 @@ namespace Engine::Rendering
 	bool RenderGraph::BlitToSwapchain(Renderer& renderer, const IDevice& device, uint32_t frameIndex,
 		std::vector<SubmitInfo>& renderSubmitInfos, std::vector<SubmitInfo>& computeSubmitInfos) const
 	{
-		m_blitCommandBuffers[frameIndex]->Reset();
-		if (!m_blitCommandBuffers[frameIndex]->Begin())
+		ICommandBuffer& blitCommandBuffer = *m_blitCommandBuffers[frameIndex];
+		blitCommandBuffer.Reset();
+		if (!blitCommandBuffer.Begin())
 		{
 			return false;
 		}
@@ -785,23 +827,28 @@ namespace Engine::Rendering
 		const glm::uvec3& extents = finalImage->GetDimensions();
 		const glm::uvec3 offset(extents.x, extents.y, extents.z);
 
-		ImageBlit blit;
+		ImageBlit blit{};
 		blit.srcSubresource = ImageSubresourceLayers(ImageAspectFlags::Color, 0, 0, 1);
 		blit.srcOffsets = std::array<glm::uvec3, 2>{ glm::uvec3(), offset };
 		blit.dstSubresource = ImageSubresourceLayers(ImageAspectFlags::Color, 0, 0, 1);
 		blit.dstOffsets = std::array<glm::uvec3, 2>{ glm::uvec3(), offset };
 
-		IRenderImage& presentImage = renderer.GetPresentImage();
-		finalImage->TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::TransferSrc);
-		presentImage.TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::TransferDst);
-		m_blitCommandBuffers[frameIndex]->BlitImage(*finalImage, presentImage, { blit }, Filter::Linear);
-		presentImage.TransitionImageLayout(device, *m_blitCommandBuffers[frameIndex], ImageLayout::PresentSrc);
+		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(renderer.GetResourceFactory().CreateImageMemoryBarriers());
 
-		m_blitCommandBuffers[frameIndex]->End();
+		IRenderImage& presentImage = renderer.GetPresentImage();
+		finalImage->AppendImageLayoutTransition(device, blitCommandBuffer, ImageLayout::TransferSrc, *imageMemoryBarriers);
+		presentImage.AppendImageLayoutTransition(device, blitCommandBuffer, ImageLayout::TransferDst, *imageMemoryBarriers);
+		blitCommandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+		imageMemoryBarriers->Clear();
+
+		blitCommandBuffer.BlitImage(*finalImage, presentImage, { blit }, Filter::Linear);
+		presentImage.AppendImageLayoutTransition(device, blitCommandBuffer, ImageLayout::PresentSrc, *imageMemoryBarriers);
+		blitCommandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+		blitCommandBuffer.End();
 
 		++m_renderSemaphore->Value;
 		SubmitInfo& blitSubmitInfo = renderSubmitInfos.emplace_back();
-		blitSubmitInfo.CommandBuffers.emplace_back(m_blitCommandBuffers[frameIndex].get());
+		blitSubmitInfo.CommandBuffers.emplace_back(&blitCommandBuffer);
 		blitSubmitInfo.WaitSemaphores.emplace_back(m_renderSemaphore.get());
 		blitSubmitInfo.WaitValues.emplace_back(m_renderSemaphore->Value - 1);
 		blitSubmitInfo.Stages.emplace_back(MaterialStageFlags::Transfer);
@@ -827,14 +874,21 @@ namespace Engine::Rendering
 			SubmitInfo renderSubmitInfo;
 			SubmitInfo computeSubmitInfo;
 
+			// Perform image layout transitions in bulk, per stage.
+			if (!TransitionImageLayoutsForStage(renderer, frameIndex, stage))
+				return false;
+
 			bool stageHasRenderPasses = false;
 			bool stageHasComputePasses = false;
+			bool skipGraphicsCommandBufferReset = true;
 			for (const auto& node : stage)
 			{
 				if (node.Type == RenderNodeType::Pass)
 				{
-					if (!DrawRenderPass(renderer, node, frameIndex, size, renderSubmitInfo, stageHasRenderPasses))
+					if (!DrawRenderPass(renderer, node, frameIndex, size, renderSubmitInfo, skipGraphicsCommandBufferReset, stageHasRenderPasses))
 						return false;
+
+					skipGraphicsCommandBufferReset = false;
 				}
 				else if (node.Type == RenderNodeType::Compute)
 				{

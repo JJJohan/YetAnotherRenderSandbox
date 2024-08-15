@@ -52,6 +52,8 @@ namespace Engine::Rendering::Vulkan
 
 		virtual void FillBuffer(const IBuffer& buffer, size_t offset, size_t size, uint32_t data) const override;
 
+		virtual void TransitionImageLayouts(const IImageMemoryBarriers& imageMemoryBarriers) const override;
+
 	private:
 		vk::UniqueCommandBuffer m_commandBuffer;
 	};

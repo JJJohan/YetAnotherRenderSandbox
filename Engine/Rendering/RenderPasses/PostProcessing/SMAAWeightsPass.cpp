@@ -3,6 +3,7 @@
 #include "../../Resources/IRenderImage.hpp"
 #include "../../IDevice.hpp"
 #include "../../Resources/ICommandBuffer.hpp"
+#include "../../Resources/IImageMemoryBarriers.hpp"
 #include "../../IResourceFactory.hpp"
 #include "../../Renderer.hpp"
 #include "../../../Core/Image.hpp"
@@ -100,8 +101,11 @@ namespace Engine::Rendering
 		if (!searchImage.LoadFromFile("Textures/SMAASearchTex.png"))
 			return false;
 
-		m_areaTexture->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferDst);
-		m_searchTexture->TransitionImageLayout(device, commandBuffer, ImageLayout::TransferDst);
+		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(resourceFactory.CreateImageMemoryBarriers());
+		m_areaTexture->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::TransferDst, *imageMemoryBarriers);
+		m_searchTexture->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::TransferDst, *imageMemoryBarriers);
+		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+		imageMemoryBarriers->Clear();
 
 		const std::vector<uint8_t>& areaPixels = areaImage.GetPixels().front();
 		if (!CreateImageStagingBuffer(device, resourceFactory, commandBuffer, m_areaTexture.get(), areaPixels.data(), areaPixels.size(), m_areaUploadBuffer))
@@ -111,8 +115,9 @@ namespace Engine::Rendering
 		if (!CreateImageStagingBuffer(device, resourceFactory, commandBuffer, m_searchTexture.get(), searchPixels.data(), searchPixels.size(), m_searchUploadBuffer))
 			return false;
 
-		m_areaTexture->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
-		m_searchTexture->TransitionImageLayout(device, commandBuffer, ImageLayout::ShaderReadOnly);
+		m_areaTexture->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
+		m_searchTexture->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
+		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
 
 		commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::MemoryWrite,
 			MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead);

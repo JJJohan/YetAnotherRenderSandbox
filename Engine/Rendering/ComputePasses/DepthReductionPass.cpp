@@ -6,6 +6,7 @@
 #include "../IDevice.hpp"
 #include "../IPhysicalDevice.hpp"
 #include "../Resources/ICommandBuffer.hpp"
+#include "../Resources/IImageMemoryBarriers.hpp"
 #include "../QueueFamilyIndices.hpp"
 #include "../Renderer.hpp"
 
@@ -158,14 +159,19 @@ namespace Engine::Rendering
 		uint32_t graphicsQueueIndex = indices.GraphicsFamily.value();
 		uint32_t computeQueueIndex = indices.ComputeFamily.value();
 
-		m_depthImage->TransitionImageLayoutExt(device, commandBuffer,
-			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly, MaterialAccessFlags::ShaderRead);
+		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(renderer.GetResourceFactory().CreateImageMemoryBarriers());
+
+		m_depthImage->AppendImageLayoutTransitionExt(device, commandBuffer,
+			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly, MaterialAccessFlags::ShaderRead, *imageMemoryBarriers);
 
 		bool firstDraw = m_occlusionImage->GetLayout() == ImageLayout::Undefined;
 
-		m_occlusionImage->TransitionImageLayoutExt(device, commandBuffer,
+		m_occlusionImage->AppendImageLayoutTransitionExt(device, commandBuffer,
 			MaterialStageFlags::ComputeShader, ImageLayout::General,
-			MaterialAccessFlags::ShaderWrite | MaterialAccessFlags::ShaderRead);
+			MaterialAccessFlags::ShaderWrite | MaterialAccessFlags::ShaderRead, *imageMemoryBarriers);
+
+		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+		imageMemoryBarriers->Clear();
 
 		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
 
@@ -178,11 +184,17 @@ namespace Engine::Rendering
 			commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(dimensionsAndIndex), reinterpret_cast<uint32_t*>(&dimensionsAndIndex));
 			commandBuffer.Dispatch(getGroupCount(levelWidth, 32), getGroupCount(levelHeight, 32), 1);
 
-			m_occlusionImage->TransitionImageLayoutExt(device, commandBuffer,
-				MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderRead);
+			m_occlusionImage->AppendImageLayoutTransitionExt(device, commandBuffer,
+				MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderRead, *imageMemoryBarriers);
+			commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+			imageMemoryBarriers->Clear();
 		}
 
-		m_depthImage->TransitionImageLayoutExt(device, commandBuffer,
-			MaterialStageFlags::EarlyFragmentTests, ImageLayout::DepthStencilAttachment, MaterialAccessFlags::DepthStencilAttachmentRead | MaterialAccessFlags::DepthStencilAttachmentWrite);
+		m_depthImage->AppendImageLayoutTransitionExt(device, commandBuffer,
+			MaterialStageFlags::EarlyFragmentTests, ImageLayout::DepthStencilAttachment,
+			MaterialAccessFlags::DepthStencilAttachmentRead | MaterialAccessFlags::DepthStencilAttachmentWrite,
+			*imageMemoryBarriers);
+
+		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
 	}
 }

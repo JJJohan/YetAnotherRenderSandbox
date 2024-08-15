@@ -27,6 +27,7 @@ namespace Engine::Rendering
 	class IRenderImage;
 	class Material;
 	class IBuffer;
+	class IImageMemoryBarriers;
 
 	class ICommandBuffer
 	{
@@ -65,6 +66,8 @@ namespace Engine::Rendering
 		virtual void MemoryBarrier(MaterialStageFlags srcStage, MaterialAccessFlags srcMask, MaterialStageFlags dstStage, MaterialAccessFlags dstMask) const = 0;
 
 		virtual void FillBuffer(const IBuffer& buffer, size_t offset, size_t size, uint32_t data) const = 0;
+
+		virtual void TransitionImageLayouts(const IImageMemoryBarriers& imageMemoryBarriers) const = 0;
 
 		inline uint32_t GetQueueFamilyIndex() const { return m_queueFamilyIndex; }
 

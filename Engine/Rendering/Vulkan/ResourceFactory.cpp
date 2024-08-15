@@ -5,6 +5,7 @@
 #include "VulkanRenderer.hpp"
 #include "CommandPool.hpp"
 #include "Semaphore.hpp"
+#include "VulkanImageMemoryBarriers.hpp"
 
 namespace Engine::Rendering::Vulkan
 {
@@ -36,5 +37,10 @@ namespace Engine::Rendering::Vulkan
 	std::unique_ptr<ISemaphore> ResourceFactory::CreateGraphicsSemaphore() const
 	{
 		return std::make_unique<Semaphore>();
+	}
+
+	std::unique_ptr<IImageMemoryBarriers> ResourceFactory::CreateImageMemoryBarriers() const
+	{
+		return std::make_unique<VulkanImageMemoryBarriers>();
 	}
 }
