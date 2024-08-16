@@ -875,18 +875,19 @@ namespace Engine::Rendering
 			if (stageHasRenderPasses)
 			{
 				renderSubmitInfo.CommandBuffers.emplace_back(&renderCommandBuffer);
-				++m_renderSemaphore->Value;
 
 				if (firstStageWithRenderPassesInGraph)
 				{
+					++m_renderSemaphore->Value;
+
 					renderSubmitInfo.WaitSemaphores.emplace_back(m_renderSemaphore.get());
 					renderSubmitInfo.WaitValues.emplace_back(m_renderSemaphore->Value - 1);
-					renderSubmitInfo.Stages.emplace_back(MaterialStageFlags::ColorAttachmentOutput);
-				}
+					renderSubmitInfo.Stages.emplace_back(MaterialStageFlags::TopOfPipe);
 
-				renderSubmitInfo.SignalSemaphores.emplace_back(m_renderSemaphore.get());
-				renderSubmitInfo.SignalValues.emplace_back(m_renderSemaphore->Value);
-				firstStageWithRenderPassesInGraph = false;
+					renderSubmitInfo.SignalSemaphores.emplace_back(m_renderSemaphore.get());
+					renderSubmitInfo.SignalValues.emplace_back(m_renderSemaphore->Value);
+					firstStageWithRenderPassesInGraph = false;
+				}
 
 				renderSubmitInfos.emplace_back(std::move(renderSubmitInfo));
 			}
@@ -894,18 +895,19 @@ namespace Engine::Rendering
 			if (stageHasComputePasses)
 			{
 				computeSubmitInfo.CommandBuffers.emplace_back(&computeCommandBuffer);
-				++m_computeSemaphore->Value;
 
 				if (firstStageWithComputePassesInGraph)
 				{
+					++m_computeSemaphore->Value;
+
 					computeSubmitInfo.WaitSemaphores.emplace_back(m_computeSemaphore.get());
 					computeSubmitInfo.WaitValues.emplace_back(m_computeSemaphore->Value - 1);
-					computeSubmitInfo.Stages.emplace_back(MaterialStageFlags::ComputeShader);
-				}
+					computeSubmitInfo.Stages.emplace_back(MaterialStageFlags::TopOfPipe);
 
-				computeSubmitInfo.SignalSemaphores.emplace_back(m_computeSemaphore.get());
-				computeSubmitInfo.SignalValues.emplace_back(m_computeSemaphore->Value);
-				firstStageWithComputePassesInGraph = false;
+					computeSubmitInfo.SignalSemaphores.emplace_back(m_computeSemaphore.get());
+					computeSubmitInfo.SignalValues.emplace_back(m_computeSemaphore->Value);
+					firstStageWithComputePassesInGraph = false;
+				}
 
 				// TODO: Sort out render-compute synchronization.
 				//computeSubmitInfos.emplace_back(std::move(computeSubmitInfo));
