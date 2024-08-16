@@ -9,7 +9,6 @@
 #include "Resources/IImageMemoryBarriers.hpp"
 #include "IResourceFactory.hpp"
 #include "IPhysicalDevice.hpp"
-#include <unordered_set>
 #include <ranges>
 
 namespace Engine::Rendering
@@ -24,8 +23,8 @@ namespace Engine::Rendering
 		, m_finalNode(nullptr)
 		, m_renderCommandBuffers()
 		, m_computeCommandBuffers()
-		, m_renderCommandPool(nullptr)
-		, m_computeCommandPool(nullptr)
+		, m_renderCommandPools()
+		, m_computeCommandPools()
 		, m_renderSemaphore(nullptr)
 		, m_computeSemaphore(nullptr)
 		, m_renderTextures()
@@ -39,6 +38,8 @@ namespace Engine::Rendering
 		m_blitCommandBuffers.clear();
 		m_renderCommandBuffers.clear();
 		m_computeCommandBuffers.clear();
+		m_renderCommandPools.clear();
+		m_computeCommandPools.clear();
 	}
 
 	bool RenderGraph::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, const IResourceFactory& resourceFactory, uint32_t concurrentFrameCount)
@@ -57,24 +58,28 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		m_renderCommandPool = std::move(resourceFactory.CreateCommandPool());
-		if (!m_renderCommandPool->Initialise("RenderCommandPool", physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
+		for (uint32_t i = 0; i < concurrentFrameCount; ++i)
 		{
-			return false;
-		}
+			m_renderCommandPools.emplace_back(std::move(resourceFactory.CreateCommandPool()));
+			if (!m_renderCommandPools[i]->Initialise("RenderCommandPool", physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
+			{
+				return false;
+			}
 
-		m_blitCommandBuffers = std::move(m_renderCommandPool->CreateCommandBuffers("BlitCommandBuffer", device, concurrentFrameCount));
-		if (m_blitCommandBuffers.empty())
-		{
-			return false;
-		}
+			auto commandBuffers = m_renderCommandPools[i]->CreateCommandBuffers("BlitCommandBuffer", device, 1);
+			if (commandBuffers.empty())
+			{
+				return false;
+			}
+			m_blitCommandBuffers.emplace_back(std::move(commandBuffers[0]));
 
-		// TODO: Sort out render-compute synchronization.
-		m_computeCommandPool = std::move(resourceFactory.CreateCommandPool());
-		//if (!m_computeCommandPool->Initialise("ComputeCommandPool", physicalDevice, device, indices.ComputeFamily.value(), CommandPoolFlags::Reset))
-		if (!m_computeCommandPool->Initialise("ComputeCommandPool", physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
-		{
-			return false;
+			// TODO: Sort out render-compute synchronization.
+			m_computeCommandPools.emplace_back(std::move(resourceFactory.CreateCommandPool()));
+			//if (!m_computeCommandPools[i]->Initialise("ComputeCommandPool", physicalDevice, device, indices.ComputeFamily.value(), CommandPoolFlags::Reset))
+			if (!m_computeCommandPools[i]->Initialise("ComputeCommandPool", physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
+			{
+				return false;
+			}
 		}
 
 		return true;
@@ -529,6 +534,7 @@ namespace Engine::Rendering
 		uint32_t concurrentFrameCount = renderer.GetConcurrentFrameCount();
 
 		// Build the actual passes.
+		uint32_t stageIndex = 0;
 		for (const auto& stage : m_renderGraph)
 		{
 			for (const auto& node : stage)
@@ -541,14 +547,6 @@ namespace Engine::Rendering
 						Logger::Error("Failed to build render pass '{}' while building render graph.", pass->GetName());
 						return false;
 					}
-
-					std::vector<std::unique_ptr<ICommandBuffer>> commandBuffers = std::move(m_renderCommandPool->CreateCommandBuffers(node.Node->GetName(), device, concurrentFrameCount));
-					if (commandBuffers.empty())
-					{
-						return false;
-					}
-
-					m_renderCommandBuffers[pass] = std::move(commandBuffers);
 				}
 				else if (node.Type == RenderNodeType::Compute)
 				{
@@ -558,16 +556,28 @@ namespace Engine::Rendering
 						Logger::Error("Failed to build compute pass '{}' while building render graph.", pass->GetName());
 						return false;
 					}
-
-					std::vector<std::unique_ptr<ICommandBuffer>> commandBuffers = std::move(m_computeCommandPool->CreateCommandBuffers(node.Node->GetName(), device, concurrentFrameCount));
-					if (commandBuffers.empty())
-					{
-						return false;
-					}
-
-					m_computeCommandBuffers[pass] = std::move(commandBuffers);
 				}
 			}
+
+			std::vector<std::unique_ptr<ICommandBuffer>> renderCommandBuffers;
+			std::vector<std::unique_ptr<ICommandBuffer>> computeCommandBuffers;
+			for (uint32_t i = 0; i < concurrentFrameCount; ++i)
+			{
+				auto commandBuffers = m_renderCommandPools[i]->CreateCommandBuffers(std::format("Stage {} Render Command Buffer {}", stageIndex, i), device, 1);
+				if (commandBuffers.empty())
+					return false;
+				renderCommandBuffers.emplace_back(std::move(commandBuffers[0]));
+
+				commandBuffers = m_computeCommandPools[i]->CreateCommandBuffers(std::format("Stage {} Compute Command Buffer {}", stageIndex, i), device, 1);
+				if (commandBuffers.empty())
+					return false;
+				computeCommandBuffers.emplace_back(std::move(commandBuffers[0]));
+			}
+
+			m_renderCommandBuffers.emplace_back(std::move(renderCommandBuffers));
+			m_computeCommandBuffers.emplace_back(std::move(computeCommandBuffers));
+
+			++stageIndex;
 		}
 
 		return true;
@@ -681,23 +691,17 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool RenderGraph::TransitionImageLayoutsForStage(const Renderer& renderer, uint32_t frameIndex, const std::vector<RenderGraphNode>& nodes) const
+	void RenderGraph::TransitionImageLayoutsForStage(const Renderer& renderer, const ICommandBuffer& commandBuffer, const std::vector<RenderGraphNode>& nodes) const
 	{
 		const IDevice& device = renderer.GetDevice();
 
 		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(renderer.GetResourceFactory().CreateImageMemoryBarriers());
-		const ICommandBuffer* firstCommandBuffer = nullptr;
 		for (const auto& node : nodes)
 		{
 			if (node.Type != RenderNodeType::Pass)
 				continue;
 
 			IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
-			const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_renderCommandBuffers.at(pass);
-
-			const ICommandBuffer& commandBuffer = *passCommandBuffers[frameIndex];
-			if (firstCommandBuffer == nullptr)
-				firstCommandBuffer = &commandBuffer;
 
 			for (const auto& imageInput : node.InputImages)
 			{
@@ -718,39 +722,16 @@ namespace Engine::Rendering
 			}
 		}
 
-		if (firstCommandBuffer != nullptr)
-		{
-			firstCommandBuffer->Reset();
-			if (!firstCommandBuffer->Begin())
-			{
-				return false;
-			}
-
-			if (!imageMemoryBarriers->Empty())
-				firstCommandBuffer->TransitionImageLayouts(*imageMemoryBarriers);
-		}
-
-		return true;
+		if (!imageMemoryBarriers->Empty())
+			commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
 	}
 
-	bool RenderGraph::DrawRenderPass(const Renderer& renderer, const RenderGraphNode& node, uint32_t frameIndex,
-		const glm::uvec2& size, SubmitInfo& renderSubmitInfo, bool skipGraphicsCommandBufferReset, bool& stageHasRenderPasses) const
+	bool RenderGraph::DrawRenderPass(const Renderer& renderer, const RenderGraphNode& node, const ICommandBuffer& commandBuffer,
+		uint32_t frameIndex, const glm::uvec2& size) const
 	{
 		const IDevice& device = renderer.GetDevice();
 
 		IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
-		const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_renderCommandBuffers.at(pass);
-
-		const ICommandBuffer& commandBuffer = *passCommandBuffers[frameIndex];
-		if (!skipGraphicsCommandBufferReset)
-		{
-			commandBuffer.Reset();
-
-			if (!commandBuffer.Begin())
-			{
-				return false;
-			}
-		}
 
 		m_renderStats.Begin(commandBuffer, pass->GetName(), false);
 
@@ -775,39 +756,20 @@ namespace Engine::Rendering
 		pass->PostDraw(renderer, commandBuffer, passSize, frameIndex, node.InputImages, node.OutputImages);
 
 		m_renderStats.End(commandBuffer, false);
-		stageHasRenderPasses = true;
-
-		commandBuffer.End();
-
-		renderSubmitInfo.CommandBuffers.emplace_back(&commandBuffer);
 
 		return true;
 	}
 
-	bool RenderGraph::DispatchComputePass(Renderer& renderer, const RenderGraphNode& node, uint32_t frameIndex,
-		SubmitInfo& computeSubmitInfo, bool& stageHasComputePasses) const
+	bool RenderGraph::DispatchComputePass(Renderer& renderer, const RenderGraphNode& node, const ICommandBuffer& commandBuffer,
+		uint32_t frameIndex) const
 	{
 		IComputePass* pass = static_cast<IComputePass*>(node.Node);
-		const std::vector<std::unique_ptr<ICommandBuffer>>& passCommandBuffers = m_computeCommandBuffers.at(pass);
-
-		const ICommandBuffer& commandBuffer = *passCommandBuffers[frameIndex];
-		commandBuffer.Reset();
-
-		if (!commandBuffer.Begin())
-		{
-			return false;
-		}
 
 		m_renderStats.Begin(commandBuffer, pass->GetName(), true);
 
 		pass->Dispatch(renderer, commandBuffer, frameIndex);
 
 		m_renderStats.End(commandBuffer, true);
-		stageHasComputePasses = true;
-
-		commandBuffer.End();
-
-		computeSubmitInfo.CommandBuffers.emplace_back(&commandBuffer);
 
 		return true;
 	}
@@ -867,38 +829,52 @@ namespace Engine::Rendering
 		std::vector<SubmitInfo> renderSubmitInfos;
 		std::vector<SubmitInfo> computeSubmitInfos;
 
+		m_renderCommandPools[frameIndex]->Reset(device);
+		m_computeCommandPools[frameIndex]->Reset(device);
+
 		bool firstStageWithRenderPassesInGraph = true;
 		bool firstStageWithComputePassesInGraph = true;
+		uint32_t stageIndex = 0;
 		for (const auto& stage : m_renderGraph)
 		{
+			const ICommandBuffer& renderCommandBuffer = *m_renderCommandBuffers[stageIndex][frameIndex];
+			const ICommandBuffer& computeCommandBuffer = *m_computeCommandBuffers[stageIndex][frameIndex];
+
+			if (!renderCommandBuffer.Begin() || !computeCommandBuffer.Begin())
+			{
+				return false;
+			}
+
 			SubmitInfo renderSubmitInfo;
 			SubmitInfo computeSubmitInfo;
 
 			// Perform image layout transitions in bulk, per stage.
-			if (!TransitionImageLayoutsForStage(renderer, frameIndex, stage))
-				return false;
+			TransitionImageLayoutsForStage(renderer, renderCommandBuffer, stage);
 
 			bool stageHasRenderPasses = false;
 			bool stageHasComputePasses = false;
-			bool skipGraphicsCommandBufferReset = true;
 			for (const auto& node : stage)
 			{
 				if (node.Type == RenderNodeType::Pass)
 				{
-					if (!DrawRenderPass(renderer, node, frameIndex, size, renderSubmitInfo, skipGraphicsCommandBufferReset, stageHasRenderPasses))
+					if (!DrawRenderPass(renderer, node, renderCommandBuffer, frameIndex, size))
 						return false;
-
-					skipGraphicsCommandBufferReset = false;
+					stageHasRenderPasses = true;
 				}
 				else if (node.Type == RenderNodeType::Compute)
 				{
-					if (!DispatchComputePass(renderer, node, frameIndex, computeSubmitInfo, stageHasComputePasses))
+					if (!DispatchComputePass(renderer, node, computeCommandBuffer, frameIndex))
 						return false;
+					stageHasComputePasses = true;
 				}
 			}
 
+			renderCommandBuffer.End();
+			computeCommandBuffer.End();
+
 			if (stageHasRenderPasses)
 			{
+				renderSubmitInfo.CommandBuffers.emplace_back(&renderCommandBuffer);
 				++m_renderSemaphore->Value;
 
 				if (firstStageWithRenderPassesInGraph)
@@ -911,10 +887,13 @@ namespace Engine::Rendering
 				renderSubmitInfo.SignalSemaphores.emplace_back(m_renderSemaphore.get());
 				renderSubmitInfo.SignalValues.emplace_back(m_renderSemaphore->Value);
 				firstStageWithRenderPassesInGraph = false;
+
+				renderSubmitInfos.emplace_back(std::move(renderSubmitInfo));
 			}
 
 			if (stageHasComputePasses)
 			{
+				computeSubmitInfo.CommandBuffers.emplace_back(&computeCommandBuffer);
 				++m_computeSemaphore->Value;
 
 				if (firstStageWithComputePassesInGraph)
@@ -927,17 +906,13 @@ namespace Engine::Rendering
 				computeSubmitInfo.SignalSemaphores.emplace_back(m_computeSemaphore.get());
 				computeSubmitInfo.SignalValues.emplace_back(m_computeSemaphore->Value);
 				firstStageWithComputePassesInGraph = false;
-			}
 
-			if (!renderSubmitInfo.CommandBuffers.empty())
-				renderSubmitInfos.emplace_back(std::move(renderSubmitInfo));
-
-			if (!computeSubmitInfo.CommandBuffers.empty())
-			{
 				// TODO: Sort out render-compute synchronization.
 				//computeSubmitInfos.emplace_back(std::move(computeSubmitInfo));
 				renderSubmitInfos.emplace_back(std::move(computeSubmitInfo));
 			}
+
+			++stageIndex;
 		}
 
 		return BlitToSwapchain(renderer, device, frameIndex, renderSubmitInfos, computeSubmitInfos);

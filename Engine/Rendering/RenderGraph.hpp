@@ -115,16 +115,14 @@ namespace Engine::Rendering
 
 		bool FindFinalNode();
 
-		bool TransitionImageLayoutsForStage(const Renderer& renderer, uint32_t frameIndex,
+		void TransitionImageLayoutsForStage(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 			const std::vector<RenderGraphNode>& nodes) const;
 
 		bool DrawRenderPass(const Renderer& renderer, const RenderGraphNode& node,
-			uint32_t frameIndex, const glm::uvec2& size,
-			SubmitInfo& renderSubmitInfo, bool skipGraphicsCommandBufferReset,
-			bool& stageHasRenderPasses) const;
+			const ICommandBuffer& commandBuffer, uint32_t frameIndex, const glm::uvec2& size) const;
 
-		bool DispatchComputePass(Renderer& renderer, const RenderGraphNode& node, uint32_t frameIndex,
-			SubmitInfo& computeSubmitInfo, bool& stageHasComputePasses) const;
+		bool DispatchComputePass(Renderer& renderer, const RenderGraphNode& node, const ICommandBuffer& commandBuffer,
+			uint32_t frameIndex) const;
 
 		bool BlitToSwapchain(Renderer& renderer, const IDevice& device, uint32_t frameIndex,
 			std::vector<SubmitInfo>& renderSubmitInfos, std::vector<SubmitInfo>& computeSubmitInfos) const;
@@ -140,10 +138,10 @@ namespace Engine::Rendering
 		std::vector<std::vector<RenderGraphNode>> m_renderGraph;
 
 		std::vector<std::unique_ptr<ICommandBuffer>> m_blitCommandBuffers;
-		std::unordered_map<IRenderPass*, std::vector<std::unique_ptr<ICommandBuffer>>> m_renderCommandBuffers;
-		std::unordered_map<IComputePass*, std::vector<std::unique_ptr<ICommandBuffer>>> m_computeCommandBuffers;
-		std::unique_ptr<ICommandPool> m_renderCommandPool;
-		std::unique_ptr<ICommandPool> m_computeCommandPool;
+		std::vector<std::vector<std::unique_ptr<ICommandBuffer>>> m_renderCommandBuffers;
+		std::vector<std::vector<std::unique_ptr<ICommandBuffer>>> m_computeCommandBuffers;
+		std::vector<std::unique_ptr<ICommandPool>> m_renderCommandPools;
+		std::vector<std::unique_ptr<ICommandPool>> m_computeCommandPools;
 		std::unique_ptr<ISemaphore> m_renderSemaphore;
 		std::unique_ptr<ISemaphore> m_computeSemaphore;
 
