@@ -28,7 +28,7 @@ namespace Engine::Rendering
 
 		m_bufferInputInfos =
 		{
-			{"ShadowIndirectDraw", RenderPassBufferInfo(AccessFlags::Read, nullptr)}
+			{"ShadowIndirectDraw", RenderPassBufferInfo(AccessFlags::Read, MaterialStageFlags::DrawIndirect, MaterialAccessFlags::IndirectCommandRead)}
 		};
 	}
 

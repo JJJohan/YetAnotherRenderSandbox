@@ -20,13 +20,15 @@ namespace Engine::Rendering
 		, m_renderPasses()
 		, m_renderNodeLookup()
 		, m_dirty(true)
+		, m_asyncCompute(false)
 		, m_finalNode(nullptr)
 		, m_renderCommandBuffers()
 		, m_computeCommandBuffers()
 		, m_renderCommandPools()
 		, m_computeCommandPools()
-		, m_renderSemaphore(nullptr)
-		, m_computeSemaphore(nullptr)
+		, m_bufferInfoBarrierState()
+		, m_renderToComputeSemaphore(nullptr)
+		, m_computeToRenderSemaphore(nullptr)
 		, m_renderTextures()
 		, m_renderStats(renderStats)
 		, m_blitCommandBuffers()
@@ -42,20 +44,31 @@ namespace Engine::Rendering
 		m_computeCommandPools.clear();
 	}
 
-	bool RenderGraph::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device, const IResourceFactory& resourceFactory, uint32_t concurrentFrameCount)
+	bool RenderGraph::Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device,
+		const IResourceFactory& resourceFactory, uint32_t concurrentFrameCount, bool asyncCompute)
 	{
 		const QueueFamilyIndices& indices = physicalDevice.GetQueueFamilyIndices();
 
-		m_renderSemaphore = std::move(resourceFactory.CreateGraphicsSemaphore());
-		if (!m_renderSemaphore->Initialise("GraphicsSemaphore", device))
-		{
-			return false;
-		}
+		m_renderToComputeSemaphore.reset();
+		m_computeToRenderSemaphore.reset();
+		m_renderCommandBuffers.clear();
+		m_computeCommandBuffers.clear();
+		m_renderCommandPools.clear();
+		m_computeCommandPools.clear();
 
-		m_computeSemaphore = std::move(resourceFactory.CreateGraphicsSemaphore());
-		if (!m_computeSemaphore->Initialise("ComputeSemaphore", device))
+		if (asyncCompute)
 		{
-			return false;
+			m_renderToComputeSemaphore = std::move(resourceFactory.CreateGraphicsSemaphore());
+			if (!m_renderToComputeSemaphore->Initialise("GraphicsToComputeSemaphore", device))
+			{
+				return false;
+			}
+
+			m_computeToRenderSemaphore = std::move(resourceFactory.CreateGraphicsSemaphore());
+			if (!m_computeToRenderSemaphore->Initialise("ComputeToGraphicsSemaphore", device))
+			{
+				return false;
+			}
 		}
 
 		for (uint32_t i = 0; i < concurrentFrameCount; ++i)
@@ -73,14 +86,17 @@ namespace Engine::Rendering
 			}
 			m_blitCommandBuffers.emplace_back(std::move(commandBuffers[0]));
 
-			// TODO: Sort out render-compute synchronization.
-			m_computeCommandPools.emplace_back(std::move(resourceFactory.CreateCommandPool()));
-			//if (!m_computeCommandPools[i]->Initialise("ComputeCommandPool", physicalDevice, device, indices.ComputeFamily.value(), CommandPoolFlags::Reset))
-			if (!m_computeCommandPools[i]->Initialise("ComputeCommandPool", physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
+			if (asyncCompute)
 			{
-				return false;
+				m_computeCommandPools.emplace_back(std::move(resourceFactory.CreateCommandPool()));
+				if (!m_computeCommandPools[i]->Initialise("ComputeCommandPool", physicalDevice, device, indices.ComputeFamily.value(), CommandPoolFlags::Reset))
+				{
+					return false;
+				}
 			}
 		}
+
+		m_asyncCompute = asyncCompute;
 
 		return true;
 	}
@@ -557,6 +573,22 @@ namespace Engine::Rendering
 						return false;
 					}
 				}
+
+				for (const auto& pair : node.Node->GetBufferInputInfos())
+				{
+					if (!m_bufferInfoBarrierState.contains(pair.first))
+					{
+						m_bufferInfoBarrierState.emplace(pair.first, RenderPassBufferInfo());
+					}
+				}
+
+				for (const auto& pair : node.Node->GetBufferOutputInfos())
+				{
+					if (!m_bufferInfoBarrierState.contains(pair.first))
+					{
+						m_bufferInfoBarrierState.emplace(pair.first, RenderPassBufferInfo());
+					}
+				}
 			}
 
 			std::vector<std::unique_ptr<ICommandBuffer>> renderCommandBuffers;
@@ -568,14 +600,18 @@ namespace Engine::Rendering
 					return false;
 				renderCommandBuffers.emplace_back(std::move(commandBuffers[0]));
 
-				commandBuffers = m_computeCommandPools[i]->CreateCommandBuffers(std::format("Stage {} Compute Command Buffer {}", stageIndex, i), device, 1);
-				if (commandBuffers.empty())
-					return false;
-				computeCommandBuffers.emplace_back(std::move(commandBuffers[0]));
+				if (m_asyncCompute)
+				{
+					commandBuffers = m_computeCommandPools[i]->CreateCommandBuffers(std::format("Stage {} Compute Command Buffer {}", stageIndex, i), device, 1);
+					if (commandBuffers.empty())
+						return false;
+					computeCommandBuffers.emplace_back(std::move(commandBuffers[0]));
+				}
 			}
 
 			m_renderCommandBuffers.emplace_back(std::move(renderCommandBuffers));
-			m_computeCommandBuffers.emplace_back(std::move(computeCommandBuffers));
+			if (m_asyncCompute)
+				m_computeCommandBuffers.emplace_back(std::move(computeCommandBuffers));
 
 			++stageIndex;
 		}
@@ -620,6 +656,7 @@ namespace Engine::Rendering
 	bool RenderGraph::Build(const Renderer& renderer)
 	{
 		const IDevice& device = renderer.GetDevice();
+		const IPhysicalDevice& physicalDevice = renderer.GetPhysicalDevice();
 
 		std::unordered_map<std::string, RenderGraphNode&> renderGraphNodeLookup;
 		std::unordered_map<Format, std::vector<ImageInfo>> formatRenderTextureLookup;
@@ -629,11 +666,18 @@ namespace Engine::Rendering
 		m_renderCommandBuffers.clear();
 		m_computeCommandBuffers.clear();
 		m_renderTextures.clear();
+		m_bufferInfoBarrierState.clear();
+
+		bool asyncCompute = renderer.GetAsyncComputeState();
+		if (asyncCompute != m_asyncCompute)
+		{
+			if (!Initialise(physicalDevice, device, renderer.GetResourceFactory(), renderer.GetConcurrentFrameCount(), asyncCompute))
+				return false;
+		}
 
 		std::unordered_map<std::string, RenderGraphNode*> availableBufferSources{};
 		std::unordered_map<std::string, RenderGraphNode*> availableImageSources{};
 
-		const IPhysicalDevice& physicalDevice = renderer.GetPhysicalDevice();
 		Format depthFormat = physicalDevice.GetDepthFormat();
 		const ISwapChain& swapchain = renderer.GetSwapChain();
 		glm::uvec3 defaultExtents = glm::uvec3(swapchain.GetExtent(), 1);
@@ -691,39 +735,148 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	void RenderGraph::TransitionImageLayoutsForStage(const Renderer& renderer, const ICommandBuffer& commandBuffer, const std::vector<RenderGraphNode>& nodes) const
+	void RenderGraph::TransitionResourcesForStage(const Renderer& renderer, const ICommandBuffer& commandBuffer, bool isCompute, const std::vector<RenderGraphNode>& nodes)
 	{
 		const IDevice& device = renderer.GetDevice();
+		bool asyncCompute = renderer.GetAsyncComputeState();
+		uint32_t currentQueueFamilyIndex = commandBuffer.GetQueueFamilyIndex();
+		bool needsSemaphore = false;
 
 		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(renderer.GetResourceFactory().CreateImageMemoryBarriers());
+
+		// Transition image layouts where necessary.		
 		for (const auto& node : nodes)
 		{
-			if (node.Type != RenderNodeType::Pass)
-				continue;
-
-			IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
-
-			for (const auto& imageInput : node.InputImages)
+			if (node.Type == RenderNodeType::Pass && (!isCompute || !asyncCompute))
 			{
-				imageInput.second->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
+				IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
+
+				for (const auto& imageInput : node.InputImages)
+				{
+					imageInput.second->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
+				}
+
+				const std::vector<AttachmentInfo>& colourAttachments = pass->GetColourAttachments();
+				for (const auto& colourAttachment : colourAttachments)
+				{
+					colourAttachment.renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ColorAttachment, *imageMemoryBarriers);
+				}
+
+				const std::optional<AttachmentInfo>& depthAttachment = pass->GetDepthAttachment();
+
+				if (depthAttachment.has_value())
+				{
+					depthAttachment->renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::DepthStencilAttachment, *imageMemoryBarriers);
+				}
+			}
+			else if (node.Type == RenderNodeType::Compute && (isCompute || !asyncCompute))
+			{
+				for (const auto& pair : node.Node->GetImageInputInfos())
+				{
+					const RenderPassImageInfo& imageInfo = pair.second;
+					if (imageInfo.Image != nullptr)
+						imageInfo.Image->AppendImageLayoutTransitionExt(device, commandBuffer, imageInfo.StageFlags, imageInfo.Layout, imageInfo.MatAccessFlags, *imageMemoryBarriers);
+				}
+
+				for (const auto& pair : node.Node->GetImageOutputInfos())
+				{
+					const RenderPassImageInfo& imageInfo = pair.second;
+					if (imageInfo.Image != nullptr)
+						imageInfo.Image->AppendImageLayoutTransitionExt(device, commandBuffer, imageInfo.StageFlags, imageInfo.Layout, imageInfo.MatAccessFlags, *imageMemoryBarriers);
+				}
 			}
 
-			const std::vector<AttachmentInfo>& colourAttachments = pass->GetColourAttachments();
-			for (const auto& colourAttachment : colourAttachments)
+			if (asyncCompute)
 			{
-				colourAttachment.renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ColorAttachment, *imageMemoryBarriers);
-			}
+				for (const auto& pair : node.Node->GetImageInputInfos())
+				{
+					const RenderPassImageInfo& imageInfo = pair.second;
+					if (imageInfo.QueueFamilyIndex != currentQueueFamilyIndex)
+						needsSemaphore = true;
+				}
 
-			const std::optional<AttachmentInfo>& depthAttachment = pass->GetDepthAttachment();
-
-			if (depthAttachment.has_value())
-			{
-				depthAttachment->renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::DepthStencilAttachment, *imageMemoryBarriers);
+				for (const auto& pair : node.Node->GetImageOutputInfos())
+				{
+					const RenderPassImageInfo& imageInfo = pair.second;
+					if (imageInfo.QueueFamilyIndex != currentQueueFamilyIndex)
+						needsSemaphore = true;
+				}
 			}
 		}
 
 		if (!imageMemoryBarriers->Empty())
 			commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+
+		// Iterate over relevant buffer resources to determine if a memory barrier and/or a semaphore needs to occur.
+
+		std::unordered_map<std::string, RenderPassBufferInfo> bufferInfos{};
+		for (const auto& node : nodes)
+		{
+			if (!asyncCompute || (node.Type == RenderNodeType::Pass && !isCompute) || (node.Type == RenderNodeType::Compute && isCompute))
+			{
+				const auto& bufferInputInfos = node.Node->GetBufferInputInfos();
+				const auto& bufferOutputInfos = node.Node->GetBufferOutputInfos();
+				bufferInfos.insert(bufferInputInfos.begin(), bufferInputInfos.end());
+				bufferInfos.insert(bufferOutputInfos.begin(), bufferOutputInfos.end());
+			}
+		}
+
+		if (!bufferInfos.empty())
+		{
+			// If queue family index changes, insert an appropriate semaphore.
+			// Find the earliest stages to perform memory barrier for.
+			bool needsBarrier = false;
+			MaterialStageFlags srcStage = MaterialStageFlags::None;
+			MaterialAccessFlags srcMask = MaterialAccessFlags::None;
+			MaterialStageFlags dstStage = MaterialStageFlags::None;
+			MaterialAccessFlags dstMask = MaterialAccessFlags::None;
+
+			for (const auto& pair : bufferInfos)
+			{
+				const RenderPassBufferInfo& bufferInfo = pair.second;
+
+				if (bufferInfo.QueueFamilyIndex != currentQueueFamilyIndex)
+				{
+					needsSemaphore = true;
+				}
+
+				if (bufferInfo.StageFlags != MaterialStageFlags::None)
+				{
+					auto& currentState = m_bufferInfoBarrierState.at(pair.first);
+					if (currentState.StageFlags != bufferInfo.StageFlags || currentState.MatAccessFlags != bufferInfo.MatAccessFlags)
+					{
+						srcStage = srcStage == MaterialStageFlags::None ? currentState.StageFlags : std::min(srcStage, currentState.StageFlags);
+						dstStage = dstStage == MaterialStageFlags::None ? bufferInfo.StageFlags : std::min(dstStage, bufferInfo.StageFlags);
+						srcMask |= currentState.MatAccessFlags;
+						dstMask |= bufferInfo.MatAccessFlags;
+						needsBarrier = true;
+
+						currentState.Access = bufferInfo.Access;
+						currentState.StageFlags = bufferInfo.StageFlags;
+						currentState.MatAccessFlags = bufferInfo.MatAccessFlags;
+					}
+				}
+			}
+
+			if (needsBarrier)
+			{
+				commandBuffer.MemoryBarrier(srcStage, srcMask, dstStage, dstMask);
+			}
+		}
+
+		if (needsSemaphore)
+		{
+			if (isCompute)
+			{
+				// Render -> Compute
+			}
+			else
+			{
+				// Compute -> Render
+			}
+
+			assert(false); // TODO
+		}
 	}
 
 	bool RenderGraph::DrawRenderPass(const Renderer& renderer, const RenderGraphNode& node, const ICommandBuffer& commandBuffer,
@@ -808,21 +961,15 @@ namespace Engine::Rendering
 		blitCommandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
 		blitCommandBuffer.End();
 
-		++m_renderSemaphore->Value;
 		SubmitInfo& blitSubmitInfo = renderSubmitInfos.emplace_back();
 		blitSubmitInfo.CommandBuffers.emplace_back(&blitCommandBuffer);
-		blitSubmitInfo.WaitSemaphores.emplace_back(m_renderSemaphore.get());
-		blitSubmitInfo.WaitValues.emplace_back(m_renderSemaphore->Value - 1);
-		blitSubmitInfo.Stages.emplace_back(MaterialStageFlags::Transfer);
-		blitSubmitInfo.SignalSemaphores.emplace_back(m_renderSemaphore.get());
-		blitSubmitInfo.SignalValues.emplace_back(m_renderSemaphore->Value);
 
 		m_renderStats.FinaliseResults(renderer.GetPhysicalDevice(), device, m_renderResources);
 
 		return renderer.Present(renderSubmitInfos, computeSubmitInfos);
 	}
 
-	bool RenderGraph::Draw(Renderer& renderer, uint32_t frameIndex) const
+	bool RenderGraph::Draw(Renderer& renderer, uint32_t frameIndex)
 	{
 		const IDevice& device = renderer.GetDevice();
 		const glm::uvec2& size = renderer.GetSwapChain().GetExtent();
@@ -830,29 +977,35 @@ namespace Engine::Rendering
 		std::vector<SubmitInfo> computeSubmitInfos;
 
 		m_renderCommandPools[frameIndex]->Reset(device);
-		m_computeCommandPools[frameIndex]->Reset(device);
+		if (m_asyncCompute)
+			m_computeCommandPools[frameIndex]->Reset(device);
 
-		bool firstStageWithRenderPassesInGraph = true;
-		bool firstStageWithComputePassesInGraph = true;
 		uint32_t stageIndex = 0;
 		for (const auto& stage : m_renderGraph)
 		{
 			const ICommandBuffer& renderCommandBuffer = *m_renderCommandBuffers[stageIndex][frameIndex];
-			const ICommandBuffer& computeCommandBuffer = *m_computeCommandBuffers[stageIndex][frameIndex];
-
-			if (!renderCommandBuffer.Begin() || !computeCommandBuffer.Begin())
+			if (!renderCommandBuffer.Begin())
 			{
 				return false;
+			}
+
+			const ICommandBuffer* computeCommandBuffer = &renderCommandBuffer;
+			if (m_asyncCompute)
+			{
+				computeCommandBuffer = m_computeCommandBuffers[stageIndex][frameIndex].get();
+				if (!computeCommandBuffer->Begin())
+				{
+					return false;
+				}
 			}
 
 			SubmitInfo renderSubmitInfo;
 			SubmitInfo computeSubmitInfo;
 
-			// Perform image layout transitions in bulk, per stage.
-			TransitionImageLayoutsForStage(renderer, renderCommandBuffer, stage);
+			// Perform resource transitions in bulk, per stage.
 
 			bool stageHasRenderPasses = false;
-			bool stageHasComputePasses = false;
+			TransitionResourcesForStage(renderer, renderCommandBuffer, false, stage);
 			for (const auto& node : stage)
 			{
 				if (node.Type == RenderNodeType::Pass)
@@ -861,57 +1014,35 @@ namespace Engine::Rendering
 						return false;
 					stageHasRenderPasses = true;
 				}
-				else if (node.Type == RenderNodeType::Compute)
+			}
+
+			bool stageHasComputePasses = false;
+			if (m_asyncCompute)
+				TransitionResourcesForStage(renderer, *computeCommandBuffer, true, stage);
+			for (const auto& node : stage)
+			{
+				if (node.Type == RenderNodeType::Compute)
 				{
-					if (!DispatchComputePass(renderer, node, computeCommandBuffer, frameIndex))
+					if (!DispatchComputePass(renderer, node, *computeCommandBuffer, frameIndex))
 						return false;
 					stageHasComputePasses = true;
 				}
 			}
 
 			renderCommandBuffer.End();
-			computeCommandBuffer.End();
+			if (m_asyncCompute)
+				computeCommandBuffer->End();
 
-			if (stageHasRenderPasses)
+			if (stageHasRenderPasses || (!m_asyncCompute && stageHasComputePasses))
 			{
 				renderSubmitInfo.CommandBuffers.emplace_back(&renderCommandBuffer);
-
-				if (firstStageWithRenderPassesInGraph)
-				{
-					++m_renderSemaphore->Value;
-
-					renderSubmitInfo.WaitSemaphores.emplace_back(m_renderSemaphore.get());
-					renderSubmitInfo.WaitValues.emplace_back(m_renderSemaphore->Value - 1);
-					renderSubmitInfo.Stages.emplace_back(MaterialStageFlags::TopOfPipe);
-
-					renderSubmitInfo.SignalSemaphores.emplace_back(m_renderSemaphore.get());
-					renderSubmitInfo.SignalValues.emplace_back(m_renderSemaphore->Value);
-					firstStageWithRenderPassesInGraph = false;
-				}
-
 				renderSubmitInfos.emplace_back(std::move(renderSubmitInfo));
 			}
 
-			if (stageHasComputePasses)
+			if (m_asyncCompute && stageHasComputePasses)
 			{
-				computeSubmitInfo.CommandBuffers.emplace_back(&computeCommandBuffer);
-
-				if (firstStageWithComputePassesInGraph)
-				{
-					++m_computeSemaphore->Value;
-
-					computeSubmitInfo.WaitSemaphores.emplace_back(m_computeSemaphore.get());
-					computeSubmitInfo.WaitValues.emplace_back(m_computeSemaphore->Value - 1);
-					computeSubmitInfo.Stages.emplace_back(MaterialStageFlags::TopOfPipe);
-
-					computeSubmitInfo.SignalSemaphores.emplace_back(m_computeSemaphore.get());
-					computeSubmitInfo.SignalValues.emplace_back(m_computeSemaphore->Value);
-					firstStageWithComputePassesInGraph = false;
-				}
-
-				// TODO: Sort out render-compute synchronization.
-				//computeSubmitInfos.emplace_back(std::move(computeSubmitInfo));
-				renderSubmitInfos.emplace_back(std::move(computeSubmitInfo));
+				computeSubmitInfo.CommandBuffers.emplace_back(computeCommandBuffer);
+				computeSubmitInfos.emplace_back(std::move(computeSubmitInfo));
 			}
 
 			++stageIndex;

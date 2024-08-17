@@ -214,7 +214,11 @@ namespace Engine::Rendering::Vulkan
 			return;
 		}
 
-		m_asyncComputeEnabled = enable;
+		if (m_asyncComputeEnabled != enable)
+		{
+			m_asyncComputeEnabled = enable;
+			m_renderGraph->MarkDirty();
+		}
 	}
 
 	bool VulkanRenderer::Initialise()
@@ -255,7 +259,8 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		const QueueFamilyIndices& indices = vkPhysicalDevice->GetQueueFamilyIndices();
-		m_asyncComputeEnabled = m_asyncComputeSupported = indices.ComputeFamily != indices.GraphicsFamily;
+		m_asyncComputeSupported = indices.ComputeFamily != indices.GraphicsFamily;
+		m_asyncComputeEnabled = false;
 
 		if (!CreateAllocator()
 			|| !static_cast<SwapChain*>(m_swapChain.get())->Initialise(*m_physicalDevice, *m_device, *m_surface, m_window, m_allocator, m_lastWindowSize, m_renderSettings.m_hdr)

@@ -7,6 +7,7 @@
 #include "RenderPasses/IRenderPass.hpp"
 #include "ComputePasses/IComputePass.hpp"
 #include "RenderResources/IRenderResource.hpp"
+#include "RenderResources/RenderPassResourceInfo.hpp"
 #include "Resources/SubmitInfo.hpp"
 
 namespace Engine::Rendering
@@ -50,12 +51,12 @@ namespace Engine::Rendering
 		virtual ~RenderGraph();
 
 		bool Initialise(const IPhysicalDevice& physicalDevice, const IDevice& device,
-			const IResourceFactory& resourceFactory, uint32_t concurrentFrameCount);
+			const IResourceFactory& resourceFactory, uint32_t concurrentFrameCount, bool asyncCompute);
 
 		bool AddRenderNode(IRenderNode* renderNode, const IMaterialManager& materialManager);
 		bool AddResource(IRenderResource* renderResource);
 		bool Build(const Renderer& renderer);
-		bool Draw(Renderer& renderer, uint32_t frameIndex) const;
+		bool Draw(Renderer& renderer, uint32_t frameIndex);
 		void SetPassEnabled(const std::string& passName, bool enabled);
 
 		inline const std::vector<std::vector<RenderGraphNode>>& GetBuiltGraph() const { return m_renderGraph; }
@@ -115,8 +116,8 @@ namespace Engine::Rendering
 
 		bool FindFinalNode();
 
-		void TransitionImageLayoutsForStage(const Renderer& renderer, const ICommandBuffer& commandBuffer,
-			const std::vector<RenderGraphNode>& nodes) const;
+		void TransitionResourcesForStage(const Renderer& renderer, const ICommandBuffer& commandBuffer, bool isCompute,
+			const std::vector<RenderGraphNode>& nodes);
 
 		bool DrawRenderPass(const Renderer& renderer, const RenderGraphNode& node,
 			const ICommandBuffer& commandBuffer, uint32_t frameIndex, const glm::uvec2& size) const;
@@ -128,6 +129,7 @@ namespace Engine::Rendering
 			std::vector<SubmitInfo>& renderSubmitInfos, std::vector<SubmitInfo>& computeSubmitInfos) const;
 
 		bool m_dirty;
+		bool m_asyncCompute;
 		const RenderGraphNode* m_finalNode;
 		RenderStats& m_renderStats;
 
@@ -142,8 +144,9 @@ namespace Engine::Rendering
 		std::vector<std::vector<std::unique_ptr<ICommandBuffer>>> m_computeCommandBuffers;
 		std::vector<std::unique_ptr<ICommandPool>> m_renderCommandPools;
 		std::vector<std::unique_ptr<ICommandPool>> m_computeCommandPools;
-		std::unique_ptr<ISemaphore> m_renderSemaphore;
-		std::unique_ptr<ISemaphore> m_computeSemaphore;
+		std::unique_ptr<ISemaphore> m_renderToComputeSemaphore;
+		std::unique_ptr<ISemaphore> m_computeToRenderSemaphore;
+		std::unordered_map<std::string, RenderPassBufferInfo> m_bufferInfoBarrierState;
 
 		std::unordered_map<std::string, const IRenderNode*> m_imageResourceNodeLookup;
 		std::unordered_map<std::string, const IRenderNode*> m_bufferResourceNodeLookup;

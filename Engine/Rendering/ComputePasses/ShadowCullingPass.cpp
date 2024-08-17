@@ -19,7 +19,7 @@ namespace Engine::Rendering
 	{
 		m_bufferOutputInfos =
 		{
-			{ "ShadowIndirectDraw", RenderPassBufferInfo(AccessFlags::Write, nullptr) }
+			{ "ShadowIndirectDraw", RenderPassBufferInfo(AccessFlags::Write, MaterialStageFlags::Transfer, MaterialAccessFlags::TransferWrite, nullptr) }
 		};
 	}
 
@@ -128,13 +128,7 @@ namespace Engine::Rendering
 
 		commandBuffer.FillBuffer(*m_shadowIndirectBuffer, 0, sizeof(uint32_t) * 4, 0);
 
-		commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::TransferWrite,
-			MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderRead | MaterialAccessFlags::ShaderWrite);
-
 		commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(glm::vec4), reinterpret_cast<const uint32_t*>(&frustum));
 		commandBuffer.Dispatch(m_dispatchSize, 1, 1);
-
-		commandBuffer.MemoryBarrier(MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderWrite,
-			MaterialStageFlags::DrawIndirect, MaterialAccessFlags::IndirectCommandRead);
 	}
 }

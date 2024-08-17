@@ -153,7 +153,8 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		m_imageOutputInfos["Shadows"] = RenderPassImageInfo(AccessFlags::Write, depthFormat, m_extent, m_shadowImage.get());
+		m_imageOutputInfos["Shadows"] = RenderPassImageInfo(AccessFlags::Write, depthFormat, m_extent,
+			ImageLayout::Undefined, MaterialStageFlags::None, MaterialAccessFlags::None, m_shadowImage.get());
 
 		return true;
 	}

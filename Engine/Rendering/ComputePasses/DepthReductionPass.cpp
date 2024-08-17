@@ -4,10 +4,8 @@
 #include "../Resources/IImageSampler.hpp"
 #include "../IResourceFactory.hpp"
 #include "../IDevice.hpp"
-#include "../IPhysicalDevice.hpp"
 #include "../Resources/ICommandBuffer.hpp"
 #include "../Resources/IImageMemoryBarriers.hpp"
-#include "../QueueFamilyIndices.hpp"
 #include "../Renderer.hpp"
 
 namespace Engine::Rendering
@@ -24,12 +22,14 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Depth", RenderPassImageInfo(AccessFlags::Read, Format::D32Sfloat)}
+			{"Depth", RenderPassImageInfo(AccessFlags::Read, Format::D32Sfloat, {}, ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderRead)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"OcclusionImage", RenderPassImageInfo(AccessFlags::Write, Format::R32Sfloat)}
+			{"OcclusionImage", RenderPassImageInfo(AccessFlags::Write, Format::R32Sfloat, {}, ImageLayout::General,
+				MaterialStageFlags::ComputeShader, MaterialAccessFlags::ShaderWrite | MaterialAccessFlags::ShaderRead)}
 		};
 	}
 
@@ -133,7 +133,10 @@ namespace Engine::Rendering
 			!m_material->BindStorageImages(1, destImageViews))
 			return false;
 
-		m_imageOutputInfos["OcclusionImage"] = RenderPassImageInfo(AccessFlags::Write, m_occlusionImage->GetFormat(), m_occlusionImage->GetDimensions(), m_occlusionImage.get());
+		m_imageOutputInfos["OcclusionImage"] = RenderPassImageInfo(AccessFlags::Write, m_occlusionImage->GetFormat(), m_occlusionImage->GetDimensions(),
+			ImageLayout::General, MaterialStageFlags::ComputeShader,
+			MaterialAccessFlags::ShaderWrite | MaterialAccessFlags::ShaderRead, 
+			m_occlusionImage.get());
 
 		return true;
 	}
@@ -154,24 +157,7 @@ namespace Engine::Rendering
 	{
 		const IDevice& device = renderer.GetDevice();
 
-		// TODO: Handle queue barriers between graphicsFamily and computeFamily to avoid issues with image layout.
-		const QueueFamilyIndices& indices = renderer.GetPhysicalDevice().GetQueueFamilyIndices();
-		uint32_t graphicsQueueIndex = indices.GraphicsFamily.value();
-		uint32_t computeQueueIndex = indices.ComputeFamily.value();
-
 		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(renderer.GetResourceFactory().CreateImageMemoryBarriers());
-
-		m_depthImage->AppendImageLayoutTransitionExt(device, commandBuffer,
-			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly, MaterialAccessFlags::ShaderRead, *imageMemoryBarriers);
-
-		bool firstDraw = m_occlusionImage->GetLayout() == ImageLayout::Undefined;
-
-		m_occlusionImage->AppendImageLayoutTransitionExt(device, commandBuffer,
-			MaterialStageFlags::ComputeShader, ImageLayout::General,
-			MaterialAccessFlags::ShaderWrite | MaterialAccessFlags::ShaderRead, *imageMemoryBarriers);
-
-		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
-		imageMemoryBarriers->Clear();
 
 		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
 
@@ -189,12 +175,5 @@ namespace Engine::Rendering
 			commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
 			imageMemoryBarriers->Clear();
 		}
-
-		m_depthImage->AppendImageLayoutTransitionExt(device, commandBuffer,
-			MaterialStageFlags::EarlyFragmentTests, ImageLayout::DepthStencilAttachment,
-			MaterialAccessFlags::DepthStencilAttachmentRead | MaterialAccessFlags::DepthStencilAttachmentWrite,
-			*imageMemoryBarriers);
-
-		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
 	}
 }

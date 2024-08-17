@@ -10,9 +10,11 @@ namespace Engine::Rendering
 	struct RenderPassResourceInfo
 	{
 		AccessFlags Access;
+		uint32_t QueueFamilyIndex;
 
 		RenderPassResourceInfo(AccessFlags accessFlags = AccessFlags::None)
 			: Access(accessFlags)
+			, QueueFamilyIndex(0)
 		{
 		}
 	};
@@ -22,12 +24,20 @@ namespace Engine::Rendering
 		Format Format;
 		glm::uvec3 Dimensions;
 		IRenderImage* Image;
+		ImageLayout Layout;
+		MaterialStageFlags StageFlags;
+		MaterialAccessFlags MatAccessFlags;
 
-		RenderPassImageInfo(AccessFlags accessFlags = AccessFlags::None, Engine::Rendering::Format format = Format::Undefined, const glm::uvec3& dimensions = {}, IRenderImage* image = nullptr)
+		RenderPassImageInfo(AccessFlags accessFlags = AccessFlags::None, Engine::Rendering::Format format = Format::Undefined,
+			const glm::uvec3& dimensions = {}, ImageLayout imageLayout = ImageLayout::Undefined, MaterialStageFlags stageFlags = MaterialStageFlags::None,
+			MaterialAccessFlags materialAccessFlags = MaterialAccessFlags::None, IRenderImage* image = nullptr)
 			: RenderPassResourceInfo(accessFlags)
 			, Format(format)
 			, Dimensions(dimensions)
 			, Image(image)
+			, Layout(imageLayout)
+			, StageFlags(stageFlags)
+			, MatAccessFlags(materialAccessFlags)
 		{
 		}
 	};
@@ -35,10 +45,15 @@ namespace Engine::Rendering
 	struct RenderPassBufferInfo : public RenderPassResourceInfo
 	{
 		IBuffer* Buffer;
+		MaterialStageFlags StageFlags;
+		MaterialAccessFlags MatAccessFlags;
 
-		RenderPassBufferInfo(AccessFlags accessFlags = AccessFlags::None, IBuffer* buffer = nullptr)
+		RenderPassBufferInfo(AccessFlags accessFlags = AccessFlags::None, MaterialStageFlags stageFlags = MaterialStageFlags::TopOfPipe,
+			MaterialAccessFlags materialAccessFlags = MaterialAccessFlags::None, IBuffer* buffer = nullptr)
 			: RenderPassResourceInfo(accessFlags)
 			, Buffer(buffer)
+			, StageFlags(stageFlags)
+			, MatAccessFlags(materialAccessFlags)
 		{
 		}
 	};

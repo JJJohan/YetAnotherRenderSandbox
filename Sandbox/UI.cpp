@@ -112,9 +112,8 @@ namespace Sandbox
 		}
 		drawer.EndDisabled();
 
-		// TODO: Implement
-		bool asyncComputeSupported = false;// m_renderer->IsAsyncComputeSupported();
-		m_options.UseAsyncCompute = false;
+		bool asyncComputeSupported = m_renderer->IsAsyncComputeSupported();
+		m_options.UseAsyncCompute = m_renderer->GetAsyncComputeState();
 		drawer.BeginDisabled(!asyncComputeSupported);
 		if (drawer.Checkbox("Async Compute", &m_options.UseAsyncCompute))
 		{

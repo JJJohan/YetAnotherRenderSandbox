@@ -243,7 +243,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		if (!m_renderGraph->Initialise(*m_physicalDevice, *m_device, *m_resourceFactory, m_maxConcurrentFrames))
+		if (!m_renderGraph->Initialise(*m_physicalDevice, *m_device, *m_resourceFactory, m_maxConcurrentFrames, m_asyncComputeEnabled))
 		{
 			Logger::Error("Failed to initialise render graph.");
 			return false;
