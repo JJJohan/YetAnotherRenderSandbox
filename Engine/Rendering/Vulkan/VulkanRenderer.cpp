@@ -474,7 +474,7 @@ namespace Engine::Rendering::Vulkan
 			std::vector<vk::PipelineStageFlags>& firstStageInfo = stageArrays.front();
 			firstStageInfo.emplace_back(vk::PipelineStageFlagBits::eTopOfPipe);
 			vk::TimelineSemaphoreSubmitInfo& firstTimelineInfo = timelineInfos.front();
-			std::vector<uint64_t> firstSignalValues(firstTimelineInfo.signalSemaphoreValueCount + 1);
+			std::vector<uint64_t> firstSignalValues(firstTimelineInfo.waitSemaphoreValueCount + 1);
 			memcpy(firstSignalValues.data(), firstTimelineInfo.pWaitSemaphoreValues, sizeof(uint64_t) * firstTimelineInfo.waitSemaphoreValueCount);
 			firstSignalValues[firstTimelineInfo.waitSemaphoreValueCount++] = 0; // Dummy value to wait for acquire semaphore.
 			firstTimelineInfo.pWaitSemaphoreValues = firstSignalValues.data();

@@ -119,6 +119,10 @@ namespace Engine::Rendering
 		void TransitionResourcesForStage(const Renderer& renderer, const ICommandBuffer& commandBuffer, bool isCompute,
 			const std::vector<RenderGraphNode>& nodes);
 
+		void ReleaseResourceQueueFamilyOwnership(Renderer& renderer, const ICommandBuffer& renderCommandBuffer,
+			const ICommandBuffer& computeCommandBuffer, const std::vector<std::pair<std::string, bool>>& resourcesToTransfer,
+			bool& renderToCompute, bool& computeToRender);
+
 		bool DrawRenderPass(const Renderer& renderer, const RenderGraphNode& node,
 			const ICommandBuffer& commandBuffer, uint32_t frameIndex, const glm::uvec2& size) const;
 
@@ -147,6 +151,8 @@ namespace Engine::Rendering
 		std::unique_ptr<ISemaphore> m_renderToComputeSemaphore;
 		std::unique_ptr<ISemaphore> m_computeToRenderSemaphore;
 		std::unordered_map<std::string, RenderPassBufferInfo> m_bufferInfoBarrierState;
+		std::unordered_map<std::string, RenderPassImageInfo> m_imageInfoBarrierState;
+		std::vector<std::vector<std::pair<std::string, bool>>> m_perStageOwnershipReleaseResources;
 
 		std::unordered_map<std::string, const IRenderNode*> m_imageResourceNodeLookup;
 		std::unordered_map<std::string, const IRenderNode*> m_bufferResourceNodeLookup;

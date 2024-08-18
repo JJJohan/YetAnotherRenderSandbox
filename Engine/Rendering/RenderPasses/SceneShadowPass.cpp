@@ -62,6 +62,7 @@ namespace Engine::Rendering
 		m_depthAttachment = AttachmentInfo(shadowImage, ImageLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
 
 		m_indirectDrawBuffer = bufferInputs.at("ShadowIndirectDraw");
+		m_bufferInputInfos.at("ShadowIndirectDraw").Buffer = m_indirectDrawBuffer;
 
 		// If scene manager has not been built or is empty, mark the pass as done so drawing is skipped for this pass.
 		if (!m_sceneGeometryBatch.IsBuilt() || m_sceneGeometryBatch.GetVertexBuffers().empty())

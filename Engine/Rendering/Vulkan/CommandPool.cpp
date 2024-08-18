@@ -45,8 +45,8 @@ namespace Engine::Rendering::Vulkan
 		uint32_t index = 0;
 		for (vk::UniqueCommandBuffer& commandBuffer : commandBuffers)
 		{
-			std::string uniqueName = std::format("{}{}", name, index);
-			vkDevice.SetResourceName(ResourceType::CommandBuffer, commandBuffer.get(), uniqueName.c_str());
+			std::string_view uniqueName = count == 1 ? name : std::format("{}{}", name, index);
+			vkDevice.SetResourceName(ResourceType::CommandBuffer, commandBuffer.get(), uniqueName.data());
 			results.emplace_back(std::make_unique<CommandBuffer>(std::move(commandBuffer), m_queueFamilyIndex));
 			++index;
 		}

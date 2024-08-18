@@ -3,7 +3,7 @@
 #include "../../Resources/IRenderImage.hpp"
 #include "../../IDevice.hpp"
 #include "../../Resources/ICommandBuffer.hpp"
-#include "../../Resources/IImageMemoryBarriers.hpp"
+#include "../../Resources/IMemoryBarriers.hpp"
 #include "../../IResourceFactory.hpp"
 #include "../../ISwapChain.hpp"
 #include "../../Renderer.hpp"
@@ -94,9 +94,9 @@ namespace Engine::Rendering
 	{
 		const IDevice& device = renderer.GetDevice();
 
-		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(renderer.GetResourceFactory().CreateImageMemoryBarriers());
-		m_taaHistoryImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
-		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+		std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
+		m_taaHistoryImage->AppendImageLayoutTransition(commandBuffer, ImageLayout::ShaderReadOnly, *memoryBarriers);
+		commandBuffer.MemoryBarrier(*memoryBarriers);
 	}
 
 	void TAAPass::Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
@@ -113,10 +113,10 @@ namespace Engine::Rendering
 		const IDevice& device = renderer.GetDevice();
 		IRenderImage* outputImage = imageOutputs.at("Output");
 
-		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(renderer.GetResourceFactory().CreateImageMemoryBarriers());
-		m_taaHistoryImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::TransferDst, *imageMemoryBarriers);
-		outputImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::TransferSrc, *imageMemoryBarriers);
-		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+		std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
+		m_taaHistoryImage->AppendImageLayoutTransition(commandBuffer, ImageLayout::TransferDst, *memoryBarriers);
+		outputImage->AppendImageLayoutTransition(commandBuffer, ImageLayout::TransferSrc, *memoryBarriers);
+		commandBuffer.MemoryBarrier(*memoryBarriers);
 
 		const glm::uvec3& extents = m_taaHistoryImage->GetDimensions();
 		const glm::uvec3 offset(extents.x, extents.y, extents.z);

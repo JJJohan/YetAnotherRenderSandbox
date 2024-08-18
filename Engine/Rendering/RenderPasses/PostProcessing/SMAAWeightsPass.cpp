@@ -3,7 +3,7 @@
 #include "../../Resources/IRenderImage.hpp"
 #include "../../IDevice.hpp"
 #include "../../Resources/ICommandBuffer.hpp"
-#include "../../Resources/IImageMemoryBarriers.hpp"
+#include "../../Resources/IMemoryBarriers.hpp"
 #include "../../IResourceFactory.hpp"
 #include "../../Renderer.hpp"
 #include "../../../Core/Image.hpp"
@@ -101,11 +101,11 @@ namespace Engine::Rendering
 		if (!searchImage.LoadFromFile("Textures/SMAASearchTex.png"))
 			return false;
 
-		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(resourceFactory.CreateImageMemoryBarriers());
-		m_areaTexture->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::TransferDst, *imageMemoryBarriers);
-		m_searchTexture->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::TransferDst, *imageMemoryBarriers);
-		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
-		imageMemoryBarriers->Clear();
+		std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(resourceFactory.CreateMemoryBarriers());
+		m_areaTexture->AppendImageLayoutTransition(commandBuffer, ImageLayout::TransferDst, *memoryBarriers);
+		m_searchTexture->AppendImageLayoutTransition(commandBuffer, ImageLayout::TransferDst, *memoryBarriers);
+		commandBuffer.MemoryBarrier(*memoryBarriers);
+		memoryBarriers->Clear();
 
 		const std::vector<uint8_t>& areaPixels = areaImage.GetPixels().front();
 		if (!CreateImageStagingBuffer(device, resourceFactory, commandBuffer, m_areaTexture.get(), areaPixels.data(), areaPixels.size(), m_areaUploadBuffer))
@@ -115,12 +115,13 @@ namespace Engine::Rendering
 		if (!CreateImageStagingBuffer(device, resourceFactory, commandBuffer, m_searchTexture.get(), searchPixels.data(), searchPixels.size(), m_searchUploadBuffer))
 			return false;
 
-		m_areaTexture->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
-		m_searchTexture->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
-		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
-
-		commandBuffer.MemoryBarrier(MaterialStageFlags::Transfer, MaterialAccessFlags::MemoryWrite,
-			MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead);
+		m_areaTexture->AppendImageLayoutTransition(commandBuffer, ImageLayout::ShaderReadOnly, *memoryBarriers);
+		m_searchTexture->AppendImageLayoutTransition(commandBuffer, ImageLayout::ShaderReadOnly, *memoryBarriers);
+		m_areaUploadBuffer->AppendBufferMemoryBarrier(commandBuffer, MaterialStageFlags::Transfer, MaterialAccessFlags::MemoryWrite,
+			MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead, *memoryBarriers);
+		m_searchUploadBuffer->AppendBufferMemoryBarrier(commandBuffer, MaterialStageFlags::Transfer, MaterialAccessFlags::MemoryWrite,
+			MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead, *memoryBarriers);
+		commandBuffer.MemoryBarrier(*memoryBarriers);
 
 		return true;
 	}

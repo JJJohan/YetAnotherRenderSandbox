@@ -9,6 +9,7 @@ namespace Engine::Rendering
 	class ICommandBuffer;
 	class IRenderImage;
 	class IDevice;
+	class IMemoryBarriers;
 
 	class IBuffer
 	{
@@ -27,6 +28,12 @@ namespace Engine::Rendering
 		virtual uint64_t GetDeviceAddress(const IDevice& device) = 0;
 		virtual void Copy(const ICommandBuffer& commandBuffer, const IBuffer& destination, size_t size) const = 0;
 		virtual void CopyToImage(uint32_t mipLevel, const ICommandBuffer& commandBuffer, const IRenderImage& destination) const = 0;
+
+		virtual bool AppendBufferMemoryBarrier(const ICommandBuffer& commandBuffer,
+			MaterialStageFlags srcStageFlags, MaterialAccessFlags srcAccessFlags,
+			MaterialStageFlags dstStageFlags, MaterialAccessFlags dstAccessFlags,
+			IMemoryBarriers& memoryBarriers, uint32_t srcQueueFamily = 0,
+			uint32_t dstQueueFamily = 0) = 0;
 
 		inline uint64_t Size() const { return m_size; }
 

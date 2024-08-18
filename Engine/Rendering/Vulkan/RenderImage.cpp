@@ -3,7 +3,7 @@
 #include "Core/Logger.hpp"
 #include "VulkanTypesInterop.hpp"
 #include "Device.hpp"
-#include "VulkanImageMemoryBarriers.hpp"
+#include "VulkanMemoryBarriers.hpp"
 
 namespace Engine::Rendering::Vulkan
 {
@@ -56,13 +56,13 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	void RenderImage::GenerateMipmaps(const IDevice& device, const ICommandBuffer& commandBuffer)
+	void RenderImage::GenerateMipmaps(const ICommandBuffer& commandBuffer)
 	{
 		if (m_mipLevels == 1)
 		{
-			VulkanImageMemoryBarriers imageMemoryBarriers{};
-			AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, imageMemoryBarriers, 0, 0);
-			commandBuffer.TransitionImageLayouts(imageMemoryBarriers);
+			VulkanMemoryBarriers memoryBarriers{};
+			AppendImageLayoutTransition(commandBuffer, ImageLayout::ShaderReadOnly, memoryBarriers, 0, 0);
+			commandBuffer.MemoryBarrier(memoryBarriers);
 			return;
 		}
 
@@ -205,9 +205,9 @@ namespace Engine::Rendering::Vulkan
 		return HasStencilComponent(format) || format == Format::D32Sfloat;
 	}
 
-	static inline bool SetFlags(const ImageLayout& imageLayout, vk::AccessFlags2& accessMask, vk::PipelineStageFlags2& stage, bool input)
+	static inline bool SetFlags(const ImageLayout& srcLayout, const ImageLayout& destLayout, vk::AccessFlags2& accessMask, vk::PipelineStageFlags2& stage, bool input)
 	{
-		switch (imageLayout)
+		switch (srcLayout)
 		{
 		case ImageLayout::Undefined:
 			accessMask = vk::AccessFlagBits2::eNone;
@@ -223,7 +223,7 @@ namespace Engine::Rendering::Vulkan
 			return true;
 		case ImageLayout::ShaderReadOnly:
 			accessMask = vk::AccessFlagBits2::eShaderRead;
-			stage = vk::PipelineStageFlagBits2::eFragmentShader;
+			stage = destLayout == ImageLayout::General ? vk::PipelineStageFlagBits2::eComputeShader : vk::PipelineStageFlagBits2::eFragmentShader;
 			return true;
 		case ImageLayout::ColorAttachment:
 			accessMask = input ? vk::AccessFlagBits2::eColorAttachmentWrite : vk::AccessFlagBits2::eColorAttachmentRead | vk::AccessFlagBits2::eColorAttachmentWrite;
@@ -307,12 +307,14 @@ namespace Engine::Rendering::Vulkan
 			if (commandBufferQueueIndex == srcQueueFamily)
 			{
 				newLayout = m_layout;
+				dstStage = vk::PipelineStageFlagBits2::eTopOfPipe;
+				dstAccessMask = vk::AccessFlagBits2::eNone;
 			}
-
-			srcStage = vk::PipelineStageFlagBits2::eBottomOfPipe;
-			dstStage = vk::PipelineStageFlagBits2::eTopOfPipe;
-			srcAccessMask = vk::AccessFlagBits2::eNone;
-			dstAccessMask = vk::AccessFlagBits2::eNone;
+			else
+			{
+				srcStage = vk::PipelineStageFlagBits2::eBottomOfPipe;
+				srcAccessMask = vk::AccessFlagBits2::eNone;
+			}
 		}
 		else
 		{
@@ -323,8 +325,8 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
-	bool RenderImage::AppendImageLayoutTransition(const IDevice& device, const ICommandBuffer& commandBuffer,
-		ImageLayout newLayout, IImageMemoryBarriers& imageMemoryBarriers, uint32_t srcQueueFamily,
+	bool RenderImage::AppendImageLayoutTransition(const ICommandBuffer& commandBuffer,
+		ImageLayout newLayout, IMemoryBarriers& memoryBarriers, uint32_t srcQueueFamily,
 		uint32_t dstQueueFamily)
 	{
 		if (m_layout == newLayout)
@@ -341,13 +343,13 @@ namespace Engine::Rendering::Vulkan
 		vk::PipelineStageFlags2 srcStage;
 		vk::PipelineStageFlags2 dstStage;
 
-		if (!SetFlags(m_layout, srcAccessMask, srcStage, true))
+		if (!SetFlags(m_layout, newLayout, srcAccessMask, srcStage, true))
 		{
 			Logger::Error("Source image layout not handled.");
 			return false;
 		}
 
-		if (!SetFlags(newLayout, dstAccessMask, dstStage, false))
+		if (!SetFlags(newLayout, newLayout, dstAccessMask, dstStage, false))
 		{
 			Logger::Error("Destination image layout not handled.");
 			return false;
@@ -361,17 +363,17 @@ namespace Engine::Rendering::Vulkan
 
 		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, m_layerCount);
 
-		VulkanImageMemoryBarriers& vulkanMemoryBarriers = static_cast<VulkanImageMemoryBarriers&>(imageMemoryBarriers);
-		vulkanMemoryBarriers.AddMemoryBarrier(vk::ImageMemoryBarrier2(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
+		VulkanMemoryBarriers& vulkanMemoryBarriers = static_cast<VulkanMemoryBarriers&>(memoryBarriers);
+		vulkanMemoryBarriers.AddImageMemoryBarrier(vk::ImageMemoryBarrier2(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
 			srcQueueFamily, dstQueueFamily, m_image, subResourceRange));
 
 		m_layout = newLayout;
 		return true;
 	}
 
-	bool RenderImage::AppendImageLayoutTransitionExt(const IDevice& device, const ICommandBuffer& commandBuffer,
+	bool RenderImage::AppendImageLayoutTransitionExt(const ICommandBuffer& commandBuffer,
 		MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
-		IImageMemoryBarriers& imageMemoryBarriers, uint32_t baseMipLevel, uint32_t mipLevelCount,
+		IMemoryBarriers& imageMemoryBarriers, uint32_t baseMipLevel, uint32_t mipLevelCount,
 		uint32_t srcQueueFamily, uint32_t dstQueueFamily)
 	{
 		if (!LayoutSupported(m_usageFlags, newLayout))
@@ -385,7 +387,7 @@ namespace Engine::Rendering::Vulkan
 		vk::PipelineStageFlags2 srcStage;
 		vk::PipelineStageFlags2 dstStage = static_cast<vk::PipelineStageFlagBits2>(newStageFlags);
 
-		if (!SetFlags(m_layout, srcAccessMask, srcStage, true))
+		if (!SetFlags(m_layout, newLayout, srcAccessMask, srcStage, true))
 		{
 			Logger::Error("Source image layout not handled.");
 			return false;
@@ -399,8 +401,8 @@ namespace Engine::Rendering::Vulkan
 
 		vk::ImageSubresourceRange subResourceRange(aspectFlags, baseMipLevel, mipLevelCount == 0 ? m_mipLevels : mipLevelCount, 0, m_layerCount);
 
-		VulkanImageMemoryBarriers& vulkanMemoryBarriers = static_cast<VulkanImageMemoryBarriers&>(imageMemoryBarriers);
-		vulkanMemoryBarriers.AddMemoryBarrier(vk::ImageMemoryBarrier2(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
+		VulkanMemoryBarriers& vulkanMemoryBarriers = static_cast<VulkanMemoryBarriers&>(imageMemoryBarriers);
+		vulkanMemoryBarriers.AddImageMemoryBarrier(vk::ImageMemoryBarrier2(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
 			srcQueueFamily, dstQueueFamily, m_image, subResourceRange));
 
 		m_layout = newLayout;

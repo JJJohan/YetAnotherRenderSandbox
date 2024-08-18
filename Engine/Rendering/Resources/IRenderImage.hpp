@@ -12,7 +12,7 @@ namespace Engine::Rendering
 	class IDevice;
 	class IPhysicalDevice;
 	class ICommandBuffer;
-	class IImageMemoryBarriers;
+	class IMemoryBarriers;
 
 	class IRenderImage
 	{
@@ -39,16 +39,16 @@ namespace Engine::Rendering
 
 		virtual bool UpdateContents(const void* data, size_t offset, uint64_t size) = 0;
 
-		virtual bool AppendImageLayoutTransition(const IDevice& device, const ICommandBuffer& commandBuffer,
-			ImageLayout newLayout, IImageMemoryBarriers& imageMemoryBarriers, uint32_t srcQueueFamily = 0,
+		virtual bool AppendImageLayoutTransition(const ICommandBuffer& commandBuffer,
+			ImageLayout newLayout, IMemoryBarriers& memoryBarriers, uint32_t srcQueueFamily = 0,
 			uint32_t dstQueueFamily = 0) = 0;
 
-		virtual bool AppendImageLayoutTransitionExt(const IDevice& device, const ICommandBuffer& commandBuffer,
+		virtual bool AppendImageLayoutTransitionExt(const ICommandBuffer& commandBuffer,
 			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
-			IImageMemoryBarriers& imageMemoryBarriers, uint32_t baseMipLevel = 0, uint32_t mipLevelCount = 0,
+			IMemoryBarriers& memoryBarriers, uint32_t baseMipLevel = 0, uint32_t mipLevelCount = 0,
 			uint32_t srcQueueFamily = 0, uint32_t dstQueueFamily = 0) = 0;
 
-		virtual void GenerateMipmaps(const IDevice& device, const ICommandBuffer& commandBuffer) = 0;
+		virtual void GenerateMipmaps(const ICommandBuffer& commandBuffer) = 0;
 
 		virtual bool CreateView(std::string_view name, const IDevice& device, uint32_t baseMipLevel,
 			ImageAspectFlags aspectFlags, std::unique_ptr<IImageView>& imageView) const = 0;

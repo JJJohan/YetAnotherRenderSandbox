@@ -7,14 +7,25 @@ namespace Engine::Rendering
 	class IRenderImage;
 	class IBuffer;
 
+	enum RenderNodeType
+	{
+		Pass,
+		Compute,
+		Resource
+	};
+
 	struct RenderPassResourceInfo
 	{
 		AccessFlags Access;
 		uint32_t QueueFamilyIndex;
+		RenderNodeType LastUsagePassType;
+		uint32_t LastUsagePassStageIndex;
 
 		RenderPassResourceInfo(AccessFlags accessFlags = AccessFlags::None)
 			: Access(accessFlags)
 			, QueueFamilyIndex(0)
+			, LastUsagePassStageIndex(0)
+			, LastUsagePassType(RenderNodeType::Pass)
 		{
 		}
 	};

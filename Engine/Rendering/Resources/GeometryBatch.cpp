@@ -6,7 +6,7 @@
 #include "../IResourceFactory.hpp"
 #include "../Resources/ICommandBuffer.hpp"
 #include "../Resources/MeshInfo.hpp"
-#include "../Resources/IImageMemoryBarriers.hpp"
+#include "../Resources/IMemoryBarriers.hpp"
 #include "Core/MeshOptimiser.hpp"
 #include "Core/Image.hpp"
 #include "../Renderer.hpp"
@@ -678,10 +678,10 @@ namespace Engine::Rendering
 					return false;
 				}
 
-				std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(resourceFactory.CreateImageMemoryBarriers());
-				renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::TransferDst, *imageMemoryBarriers);
-				commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
-				imageMemoryBarriers->Clear();
+				std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(resourceFactory.CreateMemoryBarriers());
+				renderImage->AppendImageLayoutTransition(commandBuffer, ImageLayout::TransferDst, *memoryBarriers);
+				commandBuffer.MemoryBarrier(*memoryBarriers);
+				memoryBarriers->Clear();
 
 				for (uint32_t i = 0; i < imageData.Header.MipLevels; ++i)
 				{
@@ -690,8 +690,8 @@ namespace Engine::Rendering
 						return false;
 				}
 
-				renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
-				commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+				renderImage->AppendImageLayoutTransition(commandBuffer, ImageLayout::ShaderReadOnly, *memoryBarriers);
+				commandBuffer.MemoryBarrier(*memoryBarriers);
 
 				if (asyncData != nullptr)
 					asyncData->AddSubProgress(subTicks);
@@ -800,10 +800,10 @@ namespace Engine::Rendering
 				return false;
 			}
 
-			std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(resourceFactory.CreateImageMemoryBarriers());
-			renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::TransferDst, *imageMemoryBarriers);
-			commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
-			imageMemoryBarriers->Clear();
+			std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(resourceFactory.CreateMemoryBarriers());
+			renderImage->AppendImageLayoutTransition(commandBuffer, ImageLayout::TransferDst, *memoryBarriers);
+			commandBuffer.MemoryBarrier(*memoryBarriers);
+			memoryBarriers->Clear();
 
 			for (size_t i = 0; i < pixels.size(); ++i)
 			{
@@ -821,8 +821,8 @@ namespace Engine::Rendering
 				chunkData->AddImageData(header, pixels);
 			}
 
-			renderImage->AppendImageLayoutTransition(device, commandBuffer, ImageLayout::ShaderReadOnly, *imageMemoryBarriers);
-			commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+			renderImage->AppendImageLayoutTransition(commandBuffer, ImageLayout::ShaderReadOnly, *memoryBarriers);
+			commandBuffer.MemoryBarrier(*memoryBarriers);
 
 			++imageCount;
 

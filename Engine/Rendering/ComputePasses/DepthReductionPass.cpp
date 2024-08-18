@@ -5,7 +5,7 @@
 #include "../IResourceFactory.hpp"
 #include "../IDevice.hpp"
 #include "../Resources/ICommandBuffer.hpp"
-#include "../Resources/IImageMemoryBarriers.hpp"
+#include "../Resources/IMemoryBarriers.hpp"
 #include "../Renderer.hpp"
 
 namespace Engine::Rendering
@@ -135,7 +135,7 @@ namespace Engine::Rendering
 
 		m_imageOutputInfos["OcclusionImage"] = RenderPassImageInfo(AccessFlags::Write, m_occlusionImage->GetFormat(), m_occlusionImage->GetDimensions(),
 			ImageLayout::General, MaterialStageFlags::ComputeShader,
-			MaterialAccessFlags::ShaderWrite | MaterialAccessFlags::ShaderRead, 
+			MaterialAccessFlags::ShaderWrite | MaterialAccessFlags::ShaderRead,
 			m_occlusionImage.get());
 
 		return true;
@@ -157,7 +157,7 @@ namespace Engine::Rendering
 	{
 		const IDevice& device = renderer.GetDevice();
 
-		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(renderer.GetResourceFactory().CreateImageMemoryBarriers());
+		std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
 
 		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
 
@@ -170,10 +170,10 @@ namespace Engine::Rendering
 			commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(dimensionsAndIndex), reinterpret_cast<uint32_t*>(&dimensionsAndIndex));
 			commandBuffer.Dispatch(getGroupCount(levelWidth, 32), getGroupCount(levelHeight, 32), 1);
 
-			m_occlusionImage->AppendImageLayoutTransitionExt(device, commandBuffer,
-				MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderRead, *imageMemoryBarriers);
-			commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
-			imageMemoryBarriers->Clear();
+			m_occlusionImage->AppendImageLayoutTransitionExt(commandBuffer,
+				MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderRead, *memoryBarriers);
+			commandBuffer.MemoryBarrier(*memoryBarriers);
+			memoryBarriers->Clear();
 		}
 	}
 }

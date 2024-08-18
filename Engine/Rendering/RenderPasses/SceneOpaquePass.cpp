@@ -54,6 +54,7 @@ namespace Engine::Rendering
 		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(4, imageOutputs.at("Velocity"), AttachmentLoadOp::Clear));
 
 		m_indirectDrawBuffer = bufferInputs.at("IndirectDraw");
+		m_bufferInputInfos.at("IndirectDraw").Buffer = m_indirectDrawBuffer;
 
 		m_depthAttachment = AttachmentInfo(imageOutputs.at("Depth"), ImageLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
 

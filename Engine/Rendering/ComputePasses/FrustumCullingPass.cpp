@@ -4,7 +4,7 @@
 #include "../IResourceFactory.hpp"
 #include "../IDevice.hpp"
 #include "../Resources/ICommandBuffer.hpp"
-#include "../Resources/IImageMemoryBarriers.hpp"
+#include "../Resources/IMemoryBarriers.hpp"
 #include "../Resources/GeometryBatch.hpp"
 #include "../Renderer.hpp"
 
@@ -131,11 +131,11 @@ namespace Engine::Rendering
 		bool firstDraw = m_occlusionImage->GetLayout() == ImageLayout::Undefined;
 
 		// Occlusion image may be used for the first time in this pass, so transition it to a shader read layout.
-		std::unique_ptr<IImageMemoryBarriers> imageMemoryBarriers = std::move(renderer.GetResourceFactory().CreateImageMemoryBarriers());
-		m_occlusionImage->AppendImageLayoutTransitionExt(device, commandBuffer,
+		std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
+		m_occlusionImage->AppendImageLayoutTransitionExt(commandBuffer,
 			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly,
-			MaterialAccessFlags::ShaderRead, *imageMemoryBarriers);
-		commandBuffer.TransitionImageLayouts(*imageMemoryBarriers);
+			MaterialAccessFlags::ShaderRead, *memoryBarriers);
+		commandBuffer.MemoryBarrier(*memoryBarriers);
 
 		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
 

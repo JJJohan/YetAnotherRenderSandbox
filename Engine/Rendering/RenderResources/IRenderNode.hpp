@@ -10,13 +10,6 @@ namespace Engine::Rendering
 	class IRenderImage;
 	class Renderer;
 
-	enum RenderNodeType
-	{
-		Pass,
-		Compute,
-		Resource
-	};
-
 	class IRenderNode
 	{
 	public:

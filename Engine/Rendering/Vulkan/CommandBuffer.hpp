@@ -50,9 +50,9 @@ namespace Engine::Rendering::Vulkan
 
 		virtual void MemoryBarrier(MaterialStageFlags srcStage, MaterialAccessFlags srcMask, MaterialStageFlags dstStage, MaterialAccessFlags dstMask) const override;
 
-		virtual void FillBuffer(const IBuffer& buffer, size_t offset, size_t size, uint32_t data) const override;
+		virtual void MemoryBarrier(const IMemoryBarriers& memoryBarriersContainer) const override;
 
-		virtual void TransitionImageLayouts(const IImageMemoryBarriers& imageMemoryBarriers) const override;
+		virtual void FillBuffer(const IBuffer& buffer, size_t offset, size_t size, uint32_t data) const override;
 
 	private:
 		vk::UniqueCommandBuffer m_commandBuffer;

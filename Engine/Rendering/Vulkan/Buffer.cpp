@@ -3,6 +3,7 @@
 #include "VulkanTypesInterop.hpp"
 #include "CommandBuffer.hpp"
 #include "Device.hpp"
+#include "VulkanMemoryBarriers.hpp"
 
 namespace Engine::Rendering::Vulkan
 {
@@ -95,6 +96,61 @@ namespace Engine::Rendering::Vulkan
 		deviceImp.SetResourceName(ResourceType::Buffer, m_buffer, name);
 
 		m_mappedDataPtr = m_bufferAllocInfo.pMappedData;
+		return true;
+	}
+
+	bool Buffer::ProcessQueueFamilyIndices(const ICommandBuffer& commandBuffer, uint32_t& srcQueueFamily,
+		uint32_t& dstQueueFamily, vk::AccessFlags2& srcAccessMask, vk::AccessFlags2& dstAccessMask,
+		vk::PipelineStageFlags2& srcStage, vk::PipelineStageFlags2& dstStage)
+	{
+		if (srcQueueFamily != dstQueueFamily)
+		{
+			uint32_t commandBufferQueueIndex = commandBuffer.GetQueueFamilyIndex();
+			if (commandBufferQueueIndex != srcQueueFamily && commandBufferQueueIndex != dstQueueFamily)
+			{
+				Logger::Error("Command buffer queue family index matches neither requested source or destination index.");
+				return false;
+			}
+
+			if (srcQueueFamily == commandBufferQueueIndex) // release
+			{
+				dstStage = vk::PipelineStageFlagBits2::eTopOfPipe;
+				dstAccessMask = vk::AccessFlagBits2::eNone;
+			}
+			else // acquire
+			{
+				srcStage = vk::PipelineStageFlagBits2::eBottomOfPipe;
+				srcAccessMask = vk::AccessFlagBits2::eNone;
+			}
+		}
+		else
+		{
+			srcQueueFamily = VK_QUEUE_FAMILY_IGNORED;
+			dstQueueFamily = VK_QUEUE_FAMILY_IGNORED;
+		}
+
+		return true;
+	}
+
+	bool Buffer::AppendBufferMemoryBarrier(const ICommandBuffer& commandBuffer,
+		MaterialStageFlags srcStageFlags, MaterialAccessFlags srcAccessFlags,
+		MaterialStageFlags dstStageFlags, MaterialAccessFlags dstAccessFlags,
+		IMemoryBarriers& memoryBarriers, uint32_t srcQueueFamily,
+		uint32_t dstQueueFamily)
+	{
+		vk::AccessFlags2 srcAccessMask = static_cast<vk::AccessFlagBits2>(srcAccessFlags);
+		vk::AccessFlags2 dstAccessMask = static_cast<vk::AccessFlagBits2>(dstAccessFlags);
+		vk::PipelineStageFlags2 srcStage = static_cast<vk::PipelineStageFlagBits2>(srcStageFlags);
+		vk::PipelineStageFlags2 dstStage = static_cast<vk::PipelineStageFlagBits2>(dstStageFlags);
+
+		if (!ProcessQueueFamilyIndices(commandBuffer, srcQueueFamily, dstQueueFamily,
+			srcAccessMask, dstAccessMask, srcStage, dstStage))
+			return false;
+
+		VulkanMemoryBarriers& vulkanMemoryBarriers = static_cast<VulkanMemoryBarriers&>(memoryBarriers);
+		vulkanMemoryBarriers.AddBufferMemoryBarrier(vk::BufferMemoryBarrier2(srcStage, srcAccessMask, dstStage, dstAccessMask,
+			srcQueueFamily, dstQueueFamily, m_buffer, 0, m_size));
+
 		return true;
 	}
 }
