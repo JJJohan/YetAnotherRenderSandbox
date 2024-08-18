@@ -793,7 +793,6 @@ namespace Engine::Rendering
 		const std::vector<RenderGraphNode>& nodes)
 	{
 		const IDevice& device = renderer.GetDevice();
-		bool asyncCompute = renderer.GetAsyncComputeState();
 		uint32_t currentQueueFamilyIndex = commandBuffer.GetQueueFamilyIndex();
 
 		std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
@@ -801,7 +800,7 @@ namespace Engine::Rendering
 		// Transition image layouts where necessary.		
 		for (const auto& node : nodes)
 		{
-			if (node.Type == RenderNodeType::Pass && (!isCompute || !asyncCompute))
+			if (node.Type == RenderNodeType::Pass && (!isCompute || !m_asyncCompute))
 			{
 				IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
 
@@ -823,7 +822,7 @@ namespace Engine::Rendering
 					depthAttachment->renderImage->AppendImageLayoutTransition(commandBuffer, ImageLayout::DepthStencilAttachment, *memoryBarriers);
 				}
 			}
-			else if (node.Type == RenderNodeType::Compute && (isCompute || !asyncCompute))
+			else if (node.Type == RenderNodeType::Compute && (isCompute || !m_asyncCompute))
 			{
 				for (const auto& pair : node.Node->GetImageInputInfos())
 				{
@@ -868,7 +867,7 @@ namespace Engine::Rendering
 		std::unordered_map<std::string, RenderPassBufferInfo> bufferInfos{};
 		for (const auto& node : nodes)
 		{
-			if (!asyncCompute || (node.Type == RenderNodeType::Pass && !isCompute) || (node.Type == RenderNodeType::Compute && isCompute))
+			if (!m_asyncCompute || (node.Type == RenderNodeType::Pass && !isCompute) || (node.Type == RenderNodeType::Compute && isCompute))
 			{
 				const auto& bufferInputInfos = node.Node->GetBufferInputInfos();
 				const auto& bufferOutputInfos = node.Node->GetBufferOutputInfos();
