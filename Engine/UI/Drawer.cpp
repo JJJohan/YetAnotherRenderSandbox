@@ -15,16 +15,22 @@ namespace Engine::UI
 		return ImGui::Begin(label, open);
 	}
 
+
+	bool Drawer::BeginChild(const char* label, const glm::vec2& size) const
+	{
+		return ImGui::BeginChild(label, ImVec2(size.x, size.y));
+	}
+
+	void Drawer::EndChild() const
+	{
+		ImGui::EndChild();
+	}
+
 	void Drawer::Text(const char* fmt, ...) const
 	{
 		va_list args;
 		va_start(args, fmt);
-
-		size_t len = vsnprintf(0, 0, fmt, args);
-		char* buffer = new char[len + 1];
-		vsnprintf(buffer, len + 1, fmt, args);
-		ImGui::TextUnformatted(buffer);
-
+		ImGui::TextV(fmt, args);
 		va_end(args);
 	}
 
@@ -112,6 +118,12 @@ namespace Engine::UI
 	void Drawer::SetCursorPos(const glm::vec2& pos) const
 	{
 		ImGui::SetCursorPos(ImVec2(pos.x, pos.y));
+	}
+
+	glm::vec2 Drawer::GetCursorPos() const
+	{
+		const ImVec2& pos = ImGui::GetCursorPos();
+		return glm::vec2(pos.x, pos.y);
 	}
 
 	void Drawer::BeginDisabled(bool disabled) const
@@ -211,5 +223,61 @@ namespace Engine::UI
 			}
 			ImGui::End();
 		}
+	}
+
+	void Drawer::DrawRect(const glm::vec2& min, const glm::vec2& max, const Colour& fillColour, const Colour& borderColour) const
+	{
+		assert(fillColour || borderColour);
+
+		if (std::fabsf(max.x - min.x) < 1e-6f || std::fabsf(max.y - min.y) < 1e-6f)
+			return;
+
+		ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+		const ImVec2& minV = reinterpret_cast<const ImVec2&>(min);
+		const ImVec2& maxV = reinterpret_cast<const ImVec2&>(max);
+
+		if (fillColour.A > 0)
+			drawList->AddRectFilled(minV, maxV, fillColour);
+
+		if (borderColour.A > 0)
+			drawList->AddRect(minV, maxV, borderColour);
+	}
+
+	bool Drawer::Selectable(const char* label, bool& selected, const glm::vec2& size) const
+	{
+		return ImGui::Selectable(label, &selected, ImGuiSelectableFlags_None, reinterpret_cast<const ImVec2&>(size));
+	}
+
+	void Drawer::SameLine(float offsetFromStartX, float spacing) const
+	{
+		ImGui::SameLine(offsetFromStartX, spacing);
+	}
+
+	glm::vec2 Drawer::GetCursorScreenPos() const
+	{
+		const ImVec2& cursorScreenPos = ImGui::GetCursorScreenPos();
+		return glm::vec2(cursorScreenPos.x, cursorScreenPos.y);
+	}
+
+	void Drawer::SetCursorPosX(float x) const
+	{
+		ImGui::SetCursorPosX(x);
+	}
+
+	void Drawer::SetCursorPosY(float y) const
+	{
+		ImGui::SetCursorPosY(y);
+	}
+
+	void Drawer::Tooltip(const char* fmt, ...) const
+	{
+		if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+			return;
+
+		va_list args;
+		va_start(args, fmt);
+		ImGui::SetTooltipV(fmt, args);
+		va_end(args);
 	}
 }

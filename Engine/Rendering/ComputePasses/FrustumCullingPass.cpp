@@ -43,15 +43,39 @@ namespace Engine::Rendering
 		const std::unordered_map<std::string, IBuffer*>& bufferOutputs)
 	{
 		m_built = false;
+
+		if (m_mode != CullingMode::FrustumAndOcclusion)
+		{
+			return FrustumPassBuild(renderer, m_dummyOcclusionImage.get());
+		}
+
 		return true;
 	}
 
 	void FrustumCullingPass::ClearResources()
 	{
 		m_indirectBuffer.reset();
+		m_dummyOcclusionImage.reset();
 		auto& bufferInfo = m_bufferOutputInfos.at("IndirectDraw");
 		bufferInfo.Buffer = nullptr;
 		IComputePass::ClearResources();
+	}
+
+	bool FrustumCullingPass::CreateDummyOcclusionImage(const IDevice& device, const IResourceFactory& resourceFactory)
+	{
+		glm::uvec3 dimensions(1, 1, 1);
+
+		ImageUsageFlags usageFlags = ImageUsageFlags::Storage | ImageUsageFlags::Sampled | ImageUsageFlags::TransferSrc;
+		m_dummyOcclusionImage = std::move(resourceFactory.CreateRenderImage());
+		if (!m_dummyOcclusionImage->Initialise("DummyOcclusionImage", device, ImageType::e2D, Format::R32Sfloat, dimensions, 1, 1,
+			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice,
+			AllocationCreateFlags::None, SharingMode::Exclusive))
+		{
+			Logger::Error("Failed to create dummy occlusion image.");
+			return false;
+		}
+
+		return true;
 	}
 
 	bool FrustumCullingPass::FrustumPassBuild(const Renderer& renderer, IRenderImage* occlusionImage)
@@ -96,6 +120,11 @@ namespace Engine::Rendering
 			return false;
 		}
 
+		if (m_mode != CullingMode::FrustumAndOcclusion && !CreateDummyOcclusionImage(renderer.GetDevice(), renderer.GetResourceFactory()))
+		{
+			return false;
+		}
+
 		auto& bufferInfo = m_bufferOutputInfos.at("IndirectDraw");
 		bufferInfo.Buffer = m_indirectBuffer.get();
 
@@ -128,7 +157,7 @@ namespace Engine::Rendering
 
 		const IDevice& device = renderer.GetDevice();
 
-		bool firstDraw = m_occlusionImage->GetLayout() == ImageLayout::Undefined;
+		bool enableOcclusion = m_mode == CullingMode::FrustumAndOcclusion && m_occlusionImage->GetLayout() != ImageLayout::Undefined;
 
 		// Occlusion image may be used for the first time in this pass, so transition it to a shader read layout.
 		std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
@@ -144,7 +173,7 @@ namespace Engine::Rendering
 		m_drawCullData.frustum = camera.GetProjectionFrustum();
 		m_drawCullData.P00 = projection[0][0];
 		m_drawCullData.P11 = projection[1][1];
-		m_drawCullData.enableOcclusion = firstDraw ? 0 : 1;
+		m_drawCullData.enableOcclusion = enableOcclusion ? 1 : 0;
 
 		commandBuffer.FillBuffer(*m_indirectBuffer, 0, sizeof(uint32_t), 0);
 

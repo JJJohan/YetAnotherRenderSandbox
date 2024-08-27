@@ -31,7 +31,6 @@ namespace Engine::Rendering::Vulkan
 
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
 			Logger::Error("Vulkan - {}", pCallbackData->pMessage);
-			DEBUG_BREAK;
 			break;
 
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:

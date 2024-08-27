@@ -13,16 +13,22 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Albedo", RenderPassImageInfo(AccessFlags::Read, Format::R8G8B8A8Unorm)},
-			{"WorldNormal", RenderPassImageInfo(AccessFlags::Read, Format::R16G16B16A16Sfloat)},
-			{"WorldPos", RenderPassImageInfo(AccessFlags::Read, Format::R16G16B16A16Sfloat)},
-			{"MetalRoughness", RenderPassImageInfo(AccessFlags::Read, Format::R8G8Unorm)},
-			{"Shadows", RenderPassImageInfo(AccessFlags::Read, Format::PlaceholderDepth, shadowMap.GetExtent())}
+			{"Albedo", RenderPassImageInfo(AccessFlags::Read, Format::R8G8B8A8Unorm, {}, ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead)},
+			{"WorldNormal", RenderPassImageInfo(AccessFlags::Read, Format::R16G16B16A16Sfloat, {}, ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead)},
+			{"WorldPos", RenderPassImageInfo(AccessFlags::Read, Format::R16G16B16A16Sfloat, {}, ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead)},
+			{"MetalRoughness", RenderPassImageInfo(AccessFlags::Read, Format::R8G8Unorm, {}, ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead)},
+			{"Shadows", RenderPassImageInfo(AccessFlags::Read, Format::PlaceholderDepth, shadowMap.GetExtent(), ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::R16G16B16A16Sfloat)}
+			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::R16G16B16A16Sfloat, {}, ImageLayout::ColorAttachment,
+				MaterialStageFlags::ColorAttachmentOutput, MaterialAccessFlags::ColorAttachmentRead | MaterialAccessFlags::ColorAttachmentWrite)}
 		};
 	}
 
@@ -66,7 +72,7 @@ namespace Engine::Rendering
 			!m_material->BindImageView(5, shadowImageView))
 			return false;
 
-		return true;
+		return IRenderNode::Build(renderer, imageInputs, imageOutputs, bufferInputs, bufferOutputs);
 	}
 
 	void CombinePass::Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,

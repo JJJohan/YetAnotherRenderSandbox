@@ -30,16 +30,6 @@ namespace Engine::Rendering
 			return true;
 		}
 
-		virtual bool Build(const Renderer& renderer,
-			const std::unordered_map<std::string, IRenderImage*>& imageInputs,
-			const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
-			const std::unordered_map<std::string, IBuffer*>& bufferInputs,
-			const std::unordered_map<std::string, IBuffer*>& bufferOutputs) = 0;
-
-		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
-		{
-		}
-
 		// Call before BeginRendering, but after command buffer Begin.
 		inline virtual void PreDraw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,

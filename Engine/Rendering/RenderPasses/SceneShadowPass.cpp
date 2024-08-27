@@ -18,12 +18,14 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Shadows", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderDepth, shadowMap.GetExtent())}
+			{"Shadows", RenderPassImageInfo(AccessFlags::Read, Format::PlaceholderDepth, shadowMap.GetExtent(), ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Shadows", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderDepth, shadowMap.GetExtent())}
+			{"Shadows", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderDepth, shadowMap.GetExtent(), ImageLayout::DepthStencilAttachment,
+				MaterialStageFlags::EarlyFragmentTests | MaterialStageFlags::LateFragmentTests, MaterialAccessFlags::DepthStencilAttachmentRead | MaterialAccessFlags::DepthStencilAttachmentWrite)}
 		};
 
 		m_bufferInputInfos =
@@ -62,11 +64,10 @@ namespace Engine::Rendering
 		m_depthAttachment = AttachmentInfo(shadowImage, ImageLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
 
 		m_indirectDrawBuffer = bufferInputs.at("ShadowIndirectDraw");
-		m_bufferInputInfos.at("ShadowIndirectDraw").Buffer = m_indirectDrawBuffer;
 
 		// If scene manager has not been built or is empty, mark the pass as done so drawing is skipped for this pass.
 		if (!m_sceneGeometryBatch.IsBuilt() || m_sceneGeometryBatch.GetVertexBuffers().empty())
-			return true;
+			return IRenderNode::Build(renderer, imageInputs, imageOutputs, bufferInputs, bufferOutputs);
 
 		const IBuffer& meshInfoBuffer = m_sceneGeometryBatch.GetMeshInfoBuffer();
 		const std::vector<std::unique_ptr<IRenderImage>>& imageArray = m_sceneGeometryBatch.GetImages();
@@ -83,7 +84,7 @@ namespace Engine::Rendering
 			return false;
 
 		m_built = true;
-		return true;
+		return IRenderNode::Build(renderer, imageInputs, imageOutputs, bufferInputs, bufferOutputs);
 	}
 
 	void SceneShadowPass::Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,

@@ -20,7 +20,8 @@ namespace Engine::Rendering
 
 		m_imageOutputInfos =
 		{
-			{"Output", RenderPassImageInfo(AccessFlags::None, Format::PlaceholderSwapchain)}
+			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderSwapchain, {}, ImageLayout::ColorAttachment,
+				MaterialStageFlags::ColorAttachmentOutput, MaterialAccessFlags::ColorAttachmentRead | MaterialAccessFlags::ColorAttachmentWrite)}
 		};
 	}
 
@@ -40,7 +41,7 @@ namespace Engine::Rendering
 
 		m_colourAttachments.emplace_back(AttachmentInfo(imageOutputs.at("Output"), ImageLayout::ColorAttachment, AttachmentLoadOp::Load));
 
-		return true;
+		return IRenderNode::Build(renderer, imageInputs, imageOutputs, bufferInputs, bufferOutputs);
 	}
 
 	void UIPass::Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,

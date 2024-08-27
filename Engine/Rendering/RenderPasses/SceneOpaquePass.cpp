@@ -15,12 +15,18 @@ namespace Engine::Rendering
 	{
 		m_imageOutputInfos =
 		{
-			{"Albedo", RenderPassImageInfo(AccessFlags::Write, Format::R8G8B8A8Unorm)},
-			{"WorldNormal", RenderPassImageInfo(AccessFlags::Write, Format::R16G16B16A16Sfloat)},
-			{"WorldPos", RenderPassImageInfo(AccessFlags::Write, Format::R16G16B16A16Sfloat)},
-			{"MetalRoughness", RenderPassImageInfo(AccessFlags::Write, Format::R8G8Unorm)},
-			{"Velocity", RenderPassImageInfo(AccessFlags::Write, Format::R16G16Sfloat)},
-			{"Depth", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderDepth)}
+			{"Albedo", RenderPassImageInfo(AccessFlags::Write, Format::R8G8B8A8Unorm, {}, ImageLayout::ColorAttachment,
+				MaterialStageFlags::ColorAttachmentOutput, MaterialAccessFlags::ColorAttachmentRead | MaterialAccessFlags::ColorAttachmentWrite)},
+			{"WorldNormal", RenderPassImageInfo(AccessFlags::Write, Format::R16G16B16A16Sfloat, {}, ImageLayout::ColorAttachment,
+				MaterialStageFlags::ColorAttachmentOutput, MaterialAccessFlags::ColorAttachmentRead | MaterialAccessFlags::ColorAttachmentWrite)},
+			{"WorldPos", RenderPassImageInfo(AccessFlags::Write, Format::R16G16B16A16Sfloat, {}, ImageLayout::ColorAttachment,
+				MaterialStageFlags::ColorAttachmentOutput, MaterialAccessFlags::ColorAttachmentRead | MaterialAccessFlags::ColorAttachmentWrite)},
+			{"MetalRoughness", RenderPassImageInfo(AccessFlags::Write, Format::R8G8Unorm, {}, ImageLayout::ColorAttachment,
+				MaterialStageFlags::ColorAttachmentOutput, MaterialAccessFlags::ColorAttachmentRead | MaterialAccessFlags::ColorAttachmentWrite)},
+			{"Velocity", RenderPassImageInfo(AccessFlags::Write, Format::R16G16Sfloat, {}, ImageLayout::ColorAttachment,
+				MaterialStageFlags::ColorAttachmentOutput, MaterialAccessFlags::ColorAttachmentRead | MaterialAccessFlags::ColorAttachmentWrite)},
+			{"Depth", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderDepth, {}, ImageLayout::DepthStencilAttachment,
+				MaterialStageFlags::EarlyFragmentTests | MaterialStageFlags::LateFragmentTests, MaterialAccessFlags::DepthStencilAttachmentRead | MaterialAccessFlags::DepthStencilAttachmentWrite)}
 		};
 
 		m_bufferInputInfos =
@@ -54,13 +60,12 @@ namespace Engine::Rendering
 		m_colourAttachments.emplace_back(m_material->GetColourAttachmentInfo(4, imageOutputs.at("Velocity"), AttachmentLoadOp::Clear));
 
 		m_indirectDrawBuffer = bufferInputs.at("IndirectDraw");
-		m_bufferInputInfos.at("IndirectDraw").Buffer = m_indirectDrawBuffer;
 
 		m_depthAttachment = AttachmentInfo(imageOutputs.at("Depth"), ImageLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, ClearValue(1.0f));
 
 		// If scene manager has not been built or is empty, mark the pass as done so drawing is skipped for this pass.
 		if (!m_sceneGeometryBatch.IsBuilt() || m_sceneGeometryBatch.GetVertexBuffers().empty())
-			return true;
+			return IRenderNode::Build(renderer, imageInputs, imageOutputs, bufferInputs, bufferOutputs);
 
 		const IBuffer& meshInfoBuffer = m_sceneGeometryBatch.GetMeshInfoBuffer();
 		const std::vector<std::unique_ptr<IRenderImage>>& imageArray = m_sceneGeometryBatch.GetImages();
@@ -76,7 +81,7 @@ namespace Engine::Rendering
 			return false;
 
 		m_built = true;
-		return true;
+		return IRenderNode::Build(renderer, imageInputs, imageOutputs, bufferInputs, bufferOutputs);
 	}
 
 	void SceneOpaquePass::Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,

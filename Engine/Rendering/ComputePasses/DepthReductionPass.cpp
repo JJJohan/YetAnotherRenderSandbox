@@ -43,7 +43,7 @@ namespace Engine::Rendering
 			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice,
 			AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
-			Logger::Error("Failed to create TAA history image.");
+			Logger::Error("Failed to create occlusion image.");
 			return false;
 		}
 
@@ -83,6 +83,7 @@ namespace Engine::Rendering
 		ClearResources();
 
 		m_depthImage = imageInputs.at("Depth");
+		m_imageInputInfos.at("Depth").Image = m_depthImage;
 		const IDevice& device = renderer.GetDevice();
 		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();
 		const glm::uvec3& extents = m_depthImage->GetDimensions();
@@ -158,6 +159,8 @@ namespace Engine::Rendering
 		const IDevice& device = renderer.GetDevice();
 
 		std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
+		m_occlusionImage->AppendImageLayoutTransitionExt(commandBuffer,
+			MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderRead, *memoryBarriers);
 
 		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
 
@@ -169,11 +172,7 @@ namespace Engine::Rendering
 			DimensionsAndIndex dimensionsAndIndex = { glm::vec2(levelWidth, levelHeight), i };
 			commandBuffer.PushConstants(m_material, ShaderStageFlags::Compute, 0, sizeof(dimensionsAndIndex), reinterpret_cast<uint32_t*>(&dimensionsAndIndex));
 			commandBuffer.Dispatch(getGroupCount(levelWidth, 32), getGroupCount(levelHeight, 32), 1);
-
-			m_occlusionImage->AppendImageLayoutTransitionExt(commandBuffer,
-				MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderRead, *memoryBarriers);
 			commandBuffer.MemoryBarrier(*memoryBarriers);
-			memoryBarriers->Clear();
 		}
 	}
 }

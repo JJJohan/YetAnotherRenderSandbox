@@ -27,12 +27,12 @@ namespace Engine::Rendering::Vulkan
 
 		virtual bool AppendImageLayoutTransition(const ICommandBuffer& commandBuffer,
 			ImageLayout newLayout, IMemoryBarriers& memoryBarriers, uint32_t srcQueueFamily,
-			uint32_t dstQueueFamily) override;
+			uint32_t dstQueueFamily, bool compute) override;
 
 		virtual bool AppendImageLayoutTransitionExt(const ICommandBuffer& commandBuffer,
 			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
 			IMemoryBarriers& memoryBarriers, uint32_t baseMipLevel, uint32_t mipLevelCount,
-			uint32_t srcQueueFamily, uint32_t dstQueueFamily) override;
+			uint32_t srcQueueFamily, uint32_t dstQueueFamily, bool compute) override;
 
 		virtual void GenerateMipmaps(const ICommandBuffer& commandBuffer) override;
 
@@ -44,7 +44,8 @@ namespace Engine::Rendering::Vulkan
 	private:
 		bool ProcessQueueFamilyIndices(const ICommandBuffer& commandBuffer, uint32_t& srcQueueFamily,
 			uint32_t& dstQueueFamily, vk::AccessFlags2& srcAccessMask, vk::AccessFlags2& dstAccessMask,
-			vk::PipelineStageFlags2& srcStage, vk::PipelineStageFlags2& dstStage, ImageLayout& newLayout);
+			vk::PipelineStageFlags2& srcStage, vk::PipelineStageFlags2& dstStage, ImageLayout& newLayout,
+			bool& isQueueRelease);
 
 		VkImage m_image;
 		VmaAllocation m_imageAlloc;

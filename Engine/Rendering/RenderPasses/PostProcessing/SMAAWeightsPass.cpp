@@ -20,12 +20,14 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Edges", RenderPassImageInfo(AccessFlags::Read, Format::R8G8Unorm)}
+			{"Edges", RenderPassImageInfo(AccessFlags::Read, Format::R8G8Unorm, {}, ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"BlendedWeights", RenderPassImageInfo(AccessFlags::Write, Format::R8G8B8A8Unorm)}
+			{"BlendedWeights", RenderPassImageInfo(AccessFlags::Write, Format::R8G8B8A8Unorm, {}, ImageLayout::ColorAttachment,
+				MaterialStageFlags::ColorAttachmentOutput, MaterialAccessFlags::ColorAttachmentRead | MaterialAccessFlags::ColorAttachmentWrite)}
 		};
 	}
 
@@ -153,7 +155,7 @@ namespace Engine::Rendering
 			!m_material->BindCombinedImageSampler(3, linearSampler, m_searchTexture->GetView(), ImageLayout::ShaderReadOnly))
 			return false;
 
-		return true;
+		return IRenderNode::Build(renderer, imageInputs, imageOutputs, bufferInputs, bufferOutputs);
 	}
 
 	void SMAAWeightsPass::PreDraw(const Renderer& renderer, const ICommandBuffer& commandBuffer,

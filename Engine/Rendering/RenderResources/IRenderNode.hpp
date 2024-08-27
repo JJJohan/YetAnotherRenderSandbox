@@ -37,6 +37,47 @@ namespace Engine::Rendering
 
 		inline const std::unordered_map<std::string, RenderPassImageInfo>& GetImageOutputInfos() const { return m_imageOutputInfos; }
 
+		virtual bool Build(const Renderer& renderer,
+			const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+			const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
+			const std::unordered_map<std::string, IBuffer*>& bufferInputs,
+			const std::unordered_map<std::string, IBuffer*>& bufferOutputs)
+		{
+			for (const auto& pair : imageInputs)
+			{
+				auto iter = m_imageInputInfos.find(pair.first);
+				if (iter != m_imageInputInfos.end())
+					iter->second.Image = pair.second;
+			}
+
+			for (const auto& pair : imageOutputs)
+			{
+				auto iter = m_imageOutputInfos.find(pair.first);
+				if (iter != m_imageOutputInfos.end())
+					iter->second.Image = pair.second;
+			}
+
+			for (const auto& pair : bufferInputs)
+			{
+				auto iter = m_bufferInputInfos.find(pair.first);
+				if (iter != m_bufferInputInfos.end())
+					iter->second.Buffer = pair.second;
+			}
+
+			for (const auto& pair : bufferOutputs)
+			{
+				auto iter = m_bufferOutputInfos.find(pair.first);
+				if (iter != m_bufferOutputInfos.end())
+					iter->second.Buffer = pair.second;
+			}
+
+			return true;
+		}
+
+		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
+		{
+		}
+
 	protected:
 		IRenderNode(std::string_view name, RenderNodeType nodeType)
 			: m_name(name)

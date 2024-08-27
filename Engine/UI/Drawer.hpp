@@ -24,6 +24,8 @@ namespace Engine::UI
 
 		EXPORT bool Begin(const char* label, bool* open = nullptr) const;
 		EXPORT void End() const;
+		EXPORT bool BeginChild(const char* label, const glm::vec2& size) const;
+		EXPORT void EndChild() const;
 
 		EXPORT void Text(const char* fmt, ...) const;
 		EXPORT bool Colour3(const char* label, Colour& clour) const;
@@ -33,6 +35,9 @@ namespace Engine::UI
 		EXPORT bool Checkbox(const char* label, bool* value) const;
 		EXPORT bool ComboBox(const char* label, const std::vector<const char*>& entries, int32_t* index) const;
 		EXPORT void Progress(const ProgressInfo& progress) const;
+		EXPORT bool Selectable(const char* label, bool& selected, const glm::vec2& size = {}) const;
+
+		EXPORT void DrawRect(const glm::vec2& min, const glm::vec2& max, const Colour& fillColour, const Colour& borderColour = {}) const;
 
 		EXPORT bool BeginTabBar(const char* label) const;
 		EXPORT void EndTabBar() const;
@@ -45,15 +50,21 @@ namespace Engine::UI
 
 		EXPORT bool BeginNodeEditor(const char* label) const;
 		EXPORT void NodeSetupLink(const char* outputNodeName, const char* outputPinName, const char* inputNodeName,
-			const char* inputPinName, const Colour& colour = {1.0f, 1.0f, 1.0f}) const;
-		EXPORT void DrawNode(const char* label, const glm::vec2& pos, const std::vector<NodePin>& inputs, 
-			const std::vector<NodePin>& outputs, const Colour& colour = {0.5f, 0.5f, 0.5f}) const;
+			const char* inputPinName, const Colour& colour = { 1.0f, 1.0f, 1.0f }) const;
+		EXPORT void DrawNode(const char* label, const glm::vec2& pos, const std::vector<NodePin>& inputs,
+			const std::vector<NodePin>& outputs, const Colour& colour = { 0.5f, 0.5f, 0.5f }) const;
 		EXPORT void EndNodeEditor() const;
 		EXPORT glm::vec2 GetNodeSize(const char* label) const;
 		EXPORT void NodeEditorZoomToContent() const;
 
 		EXPORT glm::vec2 GetContentRegionAvailable() const;
 		EXPORT void SetCursorPos(const glm::vec2& pos) const;
+		EXPORT void SetCursorPosX(float x) const;
+		EXPORT void SetCursorPosY(float y) const;
+		EXPORT glm::vec2 GetCursorPos() const;
+		EXPORT glm::vec2 GetCursorScreenPos() const;
+		EXPORT void SameLine(float offsetFromStartX = 0.0f, float spacing = -1.0f) const;
+		EXPORT void Tooltip(const char* fmt, ...) const;
 		EXPORT void BeginDisabled(bool disabled = true) const;
 		EXPORT void EndDisabled() const;
 

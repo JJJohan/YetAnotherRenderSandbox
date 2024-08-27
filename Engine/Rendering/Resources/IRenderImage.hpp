@@ -41,12 +41,12 @@ namespace Engine::Rendering
 
 		virtual bool AppendImageLayoutTransition(const ICommandBuffer& commandBuffer,
 			ImageLayout newLayout, IMemoryBarriers& memoryBarriers, uint32_t srcQueueFamily = 0,
-			uint32_t dstQueueFamily = 0) = 0;
+			uint32_t dstQueueFamily = 0, bool compute = false) = 0;
 
 		virtual bool AppendImageLayoutTransitionExt(const ICommandBuffer& commandBuffer,
 			MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
 			IMemoryBarriers& memoryBarriers, uint32_t baseMipLevel = 0, uint32_t mipLevelCount = 0,
-			uint32_t srcQueueFamily = 0, uint32_t dstQueueFamily = 0) = 0;
+			uint32_t srcQueueFamily = 0, uint32_t dstQueueFamily = 0, bool compute = false) = 0;
 
 		virtual void GenerateMipmaps(const ICommandBuffer& commandBuffer) = 0;
 

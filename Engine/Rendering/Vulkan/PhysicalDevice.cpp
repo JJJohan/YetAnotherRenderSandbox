@@ -29,7 +29,9 @@ namespace Engine::Rendering::Vulkan
 	static std::vector<const char*> GetOptionalExtensions()
 	{
 		return {
-			VK_NV_LOW_LATENCY_2_EXTENSION_NAME
+			VK_NV_LOW_LATENCY_2_EXTENSION_NAME,
+			VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
+			VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME
 		};
 	}
 
@@ -85,7 +87,7 @@ namespace Engine::Rendering::Vulkan
 			return m_depthFormat;
 		}
 
-		m_depthFormat = FindSupportedFormat({ Format::D32Sfloat, Format::D32SfloatS8Uint, Format::D24UnormS8Uint },
+		m_depthFormat = FindSupportedFormat({ Format::D24UnormS8Uint, Format::D32Sfloat, Format::D32SfloatS8Uint }, // Prefer 24-bit
 			vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
 
 		return m_depthFormat;

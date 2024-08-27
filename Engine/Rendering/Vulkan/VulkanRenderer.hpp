@@ -52,7 +52,6 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		virtual void SetHDRState(bool enable) override;
-		virtual void SetAsyncComputeState(bool enable) override;
 
 		inline VmaAllocator GetAllocator() const { return m_allocator; };
 
@@ -70,6 +69,7 @@ namespace Engine::Rendering::Vulkan
 		bool CreateSyncObjects();
 		bool CreateAllocator();
 		bool RecreateSwapChain(const glm::uvec2& size, bool rebuildPipelines);
+		bool SubmitQueue(const std::vector<SubmitInfo>& submitInfos, const vk::Queue& queue, const vk::Fence& fence, bool present) const;
 
 		struct ResourceCommandData
 		{

@@ -9,7 +9,7 @@
 
 namespace Engine::Rendering
 {
-	ShadowCullingPass::ShadowCullingPass(const GeometryBatch& sceneGeometryBatch)
+	ShadowCullingPass::ShadowCullingPass(const GeometryBatch& sceneGeometryBatch, const ShadowMap& shadowMap)
 		: IComputePass("ShadowCulling", "ShadowCulling")
 		, m_sceneGeometryBatch(sceneGeometryBatch)
 		, m_built(false)
@@ -63,7 +63,7 @@ namespace Engine::Rendering
 			return false;
 
 		m_built = true;
-		return true;
+		return IRenderNode::Build(renderer, imageInputs, imageOutputs, bufferInputs, bufferOutputs);
 	}
 
 	void ShadowCullingPass::ClearResources()

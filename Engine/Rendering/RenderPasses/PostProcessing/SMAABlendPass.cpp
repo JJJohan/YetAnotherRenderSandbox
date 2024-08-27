@@ -11,13 +11,16 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Output", RenderPassImageInfo(AccessFlags::Read, Format::PlaceholderSwapchain)},
-			{"BlendedWeights", RenderPassImageInfo(AccessFlags::Read, Format::R8G8B8A8Unorm)},
+			{"Output", RenderPassImageInfo(AccessFlags::Read, Format::PlaceholderSwapchain, {}, ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead)},
+			{"BlendedWeights", RenderPassImageInfo(AccessFlags::Read, Format::R8G8B8A8Unorm, {}, ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead)},
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderSwapchain)}
+			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderSwapchain, {}, ImageLayout::ColorAttachment,
+				MaterialStageFlags::ColorAttachmentOutput, MaterialAccessFlags::ColorAttachmentRead | MaterialAccessFlags::ColorAttachmentWrite)}
 		};
 	}
 
@@ -48,7 +51,7 @@ namespace Engine::Rendering
 			!m_material->BindCombinedImageSampler(2, linearSampler, blendedWeightsImageView, ImageLayout::ShaderReadOnly))
 			return false;
 
-		return true;
+		return IRenderNode::Build(renderer, imageInputs, imageOutputs, bufferInputs, bufferOutputs);
 	}
 
 	void SMAABlendPass::Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,

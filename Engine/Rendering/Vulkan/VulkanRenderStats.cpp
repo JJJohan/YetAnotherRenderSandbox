@@ -4,6 +4,7 @@
 #include "Core/Logger.hpp"
 #include "CommandBuffer.hpp"
 #include "../RenderResources/IRenderResource.hpp"
+#include <algorithm>
 
 namespace Engine::Rendering::Vulkan
 {
@@ -19,6 +20,7 @@ namespace Engine::Rendering::Vulkan
 		, m_renderPassCount(0)
 		, m_renderPassIndex(0)
 		, m_renderPassNames()
+		, m_isComputePass()
 	{
 	}
 
@@ -98,6 +100,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		m_renderPassNames.emplace_back(passName);
+		m_isComputePass.emplace_back(isCompute);
 	}
 
 	void VulkanRenderStats::End(const ICommandBuffer& commandBuffer, bool isCompute)
@@ -161,10 +164,13 @@ namespace Engine::Rendering::Vulkan
 		m_statsData.clear();
 		const vk::Device& deviceImp = vkDevice.Get();
 
+		uint64_t earliestTimestamp = ~0ULL;
+		uint64_t latestTimestamp = 0;
 		for (uint32_t i = 0; i < m_renderPassCount; ++i)
 		{
 			FrameStats& data = m_statsData[m_renderPassNames[i]];
 			std::vector<uint64_t> buffer(static_cast<size_t>(statisticsCount) + 1);
+			bool isCompute = m_isComputePass[i];
 
 			if (m_timestampSupported)
 			{
@@ -173,11 +179,15 @@ namespace Engine::Rendering::Vulkan
 
 				if (result == vk::Result::eSuccess && buffer[2] != 0)
 				{
+					data.RenderBegin = buffer[0];
+					data.RenderEnd = buffer[1];
 					data.RenderTime = float(buffer[1] - buffer[0]) * m_timestampPeriod / 1000000.0f;
+					earliestTimestamp = std::min(earliestTimestamp, data.RenderBegin);
+					latestTimestamp = std::max(latestTimestamp, data.RenderEnd);
 				}
 			}
 
-			if (m_statisticsSupported)
+			if (!isCompute && m_statisticsSupported)
 			{
 				vk::Result result = deviceImp.getQueryPoolResults(m_statisticsQueryPool.get(), i, 1, statisticsCount * sizeof(uint64_t) + sizeof(uint64_t),
 					buffer.data(), sizeof(uint64_t), vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWithAvailability);
@@ -193,6 +203,7 @@ namespace Engine::Rendering::Vulkan
 		}
 
 		m_renderPassNames.clear();
+		m_isComputePass.clear();
 
 		// Add a 'Total' entry.
 		FrameStats total = {};
@@ -203,9 +214,11 @@ namespace Engine::Rendering::Vulkan
 			total.InputAssemblyPrimitivesCount += data.InputAssemblyPrimitivesCount;
 			total.VertexShaderInvocations += data.VertexShaderInvocations;
 			total.FragmentShaderInvocations += data.FragmentShaderInvocations;
-			total.RenderTime += data.RenderTime;
 		}
 
+		total.RenderTime = float(latestTimestamp - earliestTimestamp) * m_timestampPeriod / 1000000.0f;
+		total.RenderBegin = earliestTimestamp;
+		total.RenderEnd = latestTimestamp;
 		m_statsData["Total"] = total;
 	}
 }

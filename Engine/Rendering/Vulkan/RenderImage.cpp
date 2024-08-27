@@ -61,7 +61,7 @@ namespace Engine::Rendering::Vulkan
 		if (m_mipLevels == 1)
 		{
 			VulkanMemoryBarriers memoryBarriers{};
-			AppendImageLayoutTransition(commandBuffer, ImageLayout::ShaderReadOnly, memoryBarriers, 0, 0);
+			AppendImageLayoutTransition(commandBuffer, ImageLayout::ShaderReadOnly, memoryBarriers, 0, 0, false);
 			commandBuffer.MemoryBarrier(memoryBarriers);
 			return;
 		}
@@ -205,7 +205,7 @@ namespace Engine::Rendering::Vulkan
 		return HasStencilComponent(format) || format == Format::D32Sfloat;
 	}
 
-	static inline bool SetFlags(const ImageLayout& srcLayout, const ImageLayout& destLayout, vk::AccessFlags2& accessMask, vk::PipelineStageFlags2& stage, bool input)
+	static inline bool SetFlags(const ImageLayout& srcLayout, const ImageLayout& destLayout, vk::AccessFlags2& accessMask, vk::PipelineStageFlags2& stage, bool input, bool compute)
 	{
 		switch (srcLayout)
 		{
@@ -223,14 +223,14 @@ namespace Engine::Rendering::Vulkan
 			return true;
 		case ImageLayout::ShaderReadOnly:
 			accessMask = vk::AccessFlagBits2::eShaderRead;
-			stage = destLayout == ImageLayout::General ? vk::PipelineStageFlagBits2::eComputeShader : vk::PipelineStageFlagBits2::eFragmentShader;
+			stage = compute ? vk::PipelineStageFlagBits2::eComputeShader : vk::PipelineStageFlagBits2::eFragmentShader;
 			return true;
 		case ImageLayout::ColorAttachment:
 			accessMask = input ? vk::AccessFlagBits2::eColorAttachmentWrite : vk::AccessFlagBits2::eColorAttachmentRead | vk::AccessFlagBits2::eColorAttachmentWrite;
 			stage = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
 			return true;
 		case ImageLayout::DepthStencilAttachment:
-			accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+			accessMask = input ? vk::AccessFlagBits2::eDepthStencilAttachmentWrite : vk::AccessFlagBits2::eDepthStencilAttachmentRead | vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
 			stage = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests;
 			return true;
 		case ImageLayout::General:
@@ -293,7 +293,8 @@ namespace Engine::Rendering::Vulkan
 
 	bool RenderImage::ProcessQueueFamilyIndices(const ICommandBuffer& commandBuffer, uint32_t& srcQueueFamily,
 		uint32_t& dstQueueFamily, vk::AccessFlags2& srcAccessMask, vk::AccessFlags2& dstAccessMask,
-		vk::PipelineStageFlags2& srcStage, vk::PipelineStageFlags2& dstStage, ImageLayout& newLayout)
+		vk::PipelineStageFlags2& srcStage, vk::PipelineStageFlags2& dstStage, ImageLayout& newLayout,
+		bool& isQueueRelease)
 	{
 		if (srcQueueFamily != dstQueueFamily)
 		{
@@ -304,22 +305,17 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
-			if (commandBufferQueueIndex == srcQueueFamily)
+			if (commandBufferQueueIndex == srcQueueFamily) // release
 			{
-				newLayout = m_layout;
-				dstStage = vk::PipelineStageFlagBits2::eTopOfPipe;
+				dstStage = vk::PipelineStageFlagBits2::eBottomOfPipe;
 				dstAccessMask = vk::AccessFlagBits2::eNone;
+				isQueueRelease = true;
 			}
-			else
+			else // acquire
 			{
-				srcStage = vk::PipelineStageFlagBits2::eBottomOfPipe;
+				srcStage = vk::PipelineStageFlagBits2::eTopOfPipe;
 				srcAccessMask = vk::AccessFlagBits2::eNone;
 			}
-		}
-		else
-		{
-			srcQueueFamily = VK_QUEUE_FAMILY_IGNORED;
-			dstQueueFamily = VK_QUEUE_FAMILY_IGNORED;
 		}
 
 		return true;
@@ -327,9 +323,10 @@ namespace Engine::Rendering::Vulkan
 
 	bool RenderImage::AppendImageLayoutTransition(const ICommandBuffer& commandBuffer,
 		ImageLayout newLayout, IMemoryBarriers& memoryBarriers, uint32_t srcQueueFamily,
-		uint32_t dstQueueFamily)
+		uint32_t dstQueueFamily, bool compute)
 	{
-		if (m_layout == newLayout)
+		// Skip barrier if it's redundant.
+		if (m_layout == newLayout && srcQueueFamily == dstQueueFamily)
 			return false;
 
 		if (!LayoutSupported(m_usageFlags, newLayout))
@@ -343,38 +340,51 @@ namespace Engine::Rendering::Vulkan
 		vk::PipelineStageFlags2 srcStage;
 		vk::PipelineStageFlags2 dstStage;
 
-		if (!SetFlags(m_layout, newLayout, srcAccessMask, srcStage, true))
+		if (!SetFlags(m_layout, newLayout, srcAccessMask, srcStage, true, compute))
 		{
 			Logger::Error("Source image layout not handled.");
 			return false;
 		}
 
-		if (!SetFlags(newLayout, newLayout, dstAccessMask, dstStage, false))
+		if (!SetFlags(newLayout, newLayout, dstAccessMask, dstStage, false, compute))
 		{
 			Logger::Error("Destination image layout not handled.");
 			return false;
 		}
 
+		bool isQueueRelease = false;
 		if (!ProcessQueueFamilyIndices(commandBuffer, srcQueueFamily, dstQueueFamily,
-			srcAccessMask, dstAccessMask, srcStage, dstStage, newLayout))
+			srcAccessMask, dstAccessMask, srcStage, dstStage, newLayout, isQueueRelease))
 			return false;
+
+		if (newLayout == ImageLayout::Undefined)
+		{
+			Logger::Error("New image layout cannot be undefined.");
+			return false;
+		}
+
+		ImageLayout oldLayout = m_layout;
+		if (srcQueueFamily != commandBuffer.GetQueueFamilyIndex()) // acquire
+			oldLayout = ImageLayout::Undefined;
 
 		vk::ImageAspectFlags aspectFlags = GetAspectFlags(m_format);
 
 		vk::ImageSubresourceRange subResourceRange(aspectFlags, 0, m_mipLevels, 0, m_layerCount);
 
 		VulkanMemoryBarriers& vulkanMemoryBarriers = static_cast<VulkanMemoryBarriers&>(memoryBarriers);
-		vulkanMemoryBarriers.AddImageMemoryBarrier(vk::ImageMemoryBarrier2(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
+		vulkanMemoryBarriers.AddImageMemoryBarrier(vk::ImageMemoryBarrier2(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(oldLayout), GetImageLayout(newLayout),
 			srcQueueFamily, dstQueueFamily, m_image, subResourceRange));
 
-		m_layout = newLayout;
+		if (!isQueueRelease)
+			m_layout = newLayout;
+
 		return true;
 	}
 
 	bool RenderImage::AppendImageLayoutTransitionExt(const ICommandBuffer& commandBuffer,
 		MaterialStageFlags newStageFlags, ImageLayout newLayout, MaterialAccessFlags newAccessFlags,
 		IMemoryBarriers& imageMemoryBarriers, uint32_t baseMipLevel, uint32_t mipLevelCount,
-		uint32_t srcQueueFamily, uint32_t dstQueueFamily)
+		uint32_t srcQueueFamily, uint32_t dstQueueFamily, bool compute)
 	{
 		if (!LayoutSupported(m_usageFlags, newLayout))
 		{
@@ -387,25 +397,32 @@ namespace Engine::Rendering::Vulkan
 		vk::PipelineStageFlags2 srcStage;
 		vk::PipelineStageFlags2 dstStage = static_cast<vk::PipelineStageFlagBits2>(newStageFlags);
 
-		if (!SetFlags(m_layout, newLayout, srcAccessMask, srcStage, true))
+		if (!SetFlags(m_layout, newLayout, srcAccessMask, srcStage, true, compute))
 		{
 			Logger::Error("Source image layout not handled.");
 			return false;
 		}
 
+		bool isQueueRelease = false;
 		if (!ProcessQueueFamilyIndices(commandBuffer, srcQueueFamily, dstQueueFamily,
-			srcAccessMask, dstAccessMask, srcStage, dstStage, newLayout))
+			srcAccessMask, dstAccessMask, srcStage, dstStage, newLayout, isQueueRelease))
 			return false;
+
+		ImageLayout oldLayout = m_layout;
+		if (srcQueueFamily != commandBuffer.GetQueueFamilyIndex()) // acquire
+			oldLayout = ImageLayout::Undefined;
 
 		vk::ImageAspectFlags aspectFlags = GetAspectFlags(m_format);
 
 		vk::ImageSubresourceRange subResourceRange(aspectFlags, baseMipLevel, mipLevelCount == 0 ? m_mipLevels : mipLevelCount, 0, m_layerCount);
 
 		VulkanMemoryBarriers& vulkanMemoryBarriers = static_cast<VulkanMemoryBarriers&>(imageMemoryBarriers);
-		vulkanMemoryBarriers.AddImageMemoryBarrier(vk::ImageMemoryBarrier2(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(m_layout), GetImageLayout(newLayout),
+		vulkanMemoryBarriers.AddImageMemoryBarrier(vk::ImageMemoryBarrier2(srcStage, srcAccessMask, dstStage, dstAccessMask, GetImageLayout(oldLayout), GetImageLayout(newLayout),
 			srcQueueFamily, dstQueueFamily, m_image, subResourceRange));
 
-		m_layout = newLayout;
+		if (!isQueueRelease)
+			m_layout = newLayout;
+
 		return true;
 	}
 }

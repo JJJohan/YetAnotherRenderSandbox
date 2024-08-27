@@ -89,7 +89,7 @@ namespace Engine::Rendering
 		inline bool GetHDRState() const { return m_renderSettings.m_hdr; }
 		bool IsHDRSupported() const { return m_swapChain->IsHDRCapable(); }
 
-		EXPORT virtual void SetAsyncComputeState(bool enable) = 0;
+		EXPORT void SetAsyncComputeState(bool enable);
 		inline bool GetAsyncComputeState() const { return m_asyncComputeEnabled; }
 		inline bool IsAsyncComputeSupported() const { return m_asyncComputeSupported; }
 
@@ -163,6 +163,7 @@ namespace Engine::Rendering
 		RenderSettings m_renderSettings;
 		bool m_asyncComputeSupported;
 		bool m_asyncComputeEnabled;
+		bool m_asyncComputePendingState;
 
 		std::vector<std::unique_ptr<IBuffer>> m_frameInfoBuffers;
 		std::vector<std::unique_ptr<IBuffer>> m_lightBuffers;

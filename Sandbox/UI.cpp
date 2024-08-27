@@ -21,6 +21,7 @@ namespace Sandbox
 		, m_prevTabIndex(-1)
 		, m_statGraphBuffers()
 		, m_prevTime()
+		, m_queueTimingsData()
 	{
 		m_debugModes = { "None", "Albedo", "Normal", "WorldPos", "MetalRoughness", "Cascade Index" };
 		m_cullingModes = { "Paused", "None", "Frustum", "Frustum + Occlusion" };
@@ -169,47 +170,152 @@ namespace Sandbox
 			float fps = m_renderer->GetUIManager().GetFPS();
 
 			const std::unordered_map<std::string, FrameStats>& frameStats = m_renderer->GetRenderStats();
-
-			// Iterate over the unordered map of graphs by reference and remove any that are no longer in the render graph.
-			for (auto it = m_statGraphBuffers.begin(); it != m_statGraphBuffers.end();)
-			{
-				if (!frameStats.contains(it->first))
-				{
-					it = m_statGraphBuffers.erase(it);
-				}
-				else
-				{
-					++it;
-				}
-			}
-
-			// Iterate over the set and add new map entries if they do not exist.
-			for (const auto& pass : frameStats)
-			{
-				if (m_statGraphBuffers.find(pass.first) == m_statGraphBuffers.end())
-				{
-					m_statGraphBuffers.emplace(pass.first, ScrollingGraphBuffer(pass.first, 1000));
-				}
-
-				if (gpuFrameTime < 1e-5f && pass.first == "Total")
-				{
-					gpuFrameTime = pass.second.RenderTime;
-				}
-			}
+			auto totalFind = frameStats.find("Total");
+			if (totalFind != frameStats.end())
+				gpuFrameTime = totalFind->second.RenderTime;
 
 			drawer.Text("FPS %.2f", fps);
 			drawer.Text("GPU Frame Time %.2fms", gpuFrameTime);
 			drawer.Text("CPU Frame Time: %.2fms", cpuFrameTime);
 
-			for (auto& buffer : m_statGraphBuffers)
+			// Draw queue timings
+			glm::vec2 space;
+			if (drawer.CollapsingHeader("Queue Timings", true))
 			{
-				const FrameStats& stats = frameStats.at(buffer.first);
-				float passFrameTime = stats.RenderTime;
-				buffer.second.AddValue(passFrameTime);
+
+				float lastUpdateDelta = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - m_queueTimingsData.lastUpdateTime).count();
+				if (lastUpdateDelta > 0.5f)
+				{
+					m_queueTimingsData.lastUpdateTime = currentTime;
+					m_queueTimingsData.graphicsTooltipLabels.clear();
+					m_queueTimingsData.graphicsSelectableIds.clear();
+					m_queueTimingsData.graphicsNormalisedBeginEnds.clear();
+					m_queueTimingsData.computeTooltipLabels.clear();
+					m_queueTimingsData.computeSelectableIds.clear();
+					m_queueTimingsData.computeNormalisedBeginEnds.clear();
+
+					// Retrieve names and compute normalized start & end positions for display.
+					const FrameStats& total = frameStats.at("Total");
+					uint64_t totalStart = total.RenderBegin;
+					uint64_t totalEnd = total.RenderEnd;
+					float graphicsTime = 0;
+					float computeTime = 0;
+					uint64_t totalTime = totalEnd - totalStart;
+
+					const RenderGraph& renderGraph = m_renderer->GetRenderGraph();
+					for (const auto& pass : frameStats)
+					{
+						if (pass.first == "Total")
+							continue;
+
+						float normalisedStart = std::clamp((float)((int64_t)pass.second.RenderBegin - (int64_t)totalStart) / totalTime, 0.0f, 1.0f);
+						float normalisedEnd = std::clamp((float)((int64_t)pass.second.RenderEnd - (int64_t)totalStart) / totalTime, 0.0f, 1.0f);
+						if (renderGraph.TryGetComputePass(pass.first, nullptr))
+						{
+							m_queueTimingsData.computeTooltipLabels.emplace_back(pass.first);
+							m_queueTimingsData.computeSelectableIds.emplace_back(std::format("##{}", pass.first));
+							m_queueTimingsData.computeNormalisedBeginEnds.emplace_back(glm::vec2(normalisedStart, normalisedEnd));
+							computeTime += pass.second.RenderTime;
+						}
+						else
+						{
+							m_queueTimingsData.graphicsTooltipLabels.emplace_back(pass.first);
+							m_queueTimingsData.graphicsSelectableIds.emplace_back(std::format("##{}", pass.first));
+							m_queueTimingsData.graphicsNormalisedBeginEnds.emplace_back(glm::vec2(normalisedStart, normalisedEnd));
+							graphicsTime += pass.second.RenderTime;
+						}
+					}
+
+					float combinedTime = graphicsTime + computeTime;
+					m_queueTimingsData.asyncSavingsPercent = (100.0f - (total.RenderTime / combinedTime) * 100.0f);
+				}
+
+				// Draw 'Graphics Tasks'
+				bool selected = false;
+				drawer.Text("Graphics Tasks");
+				glm::vec2 cursorPos = drawer.GetCursorPos();
+				glm::vec2 screenPos = drawer.GetCursorScreenPos();
+				glm::vec2 space = drawer.GetContentRegionAvailable();
+				drawer.DrawRect(screenPos, glm::vec2(screenPos.x + space.x, screenPos.y + 20.0f), Colour(0.5f, 0.5f, 0.5f, 1.0f), {});
+				for (size_t i = 0; i < m_queueTimingsData.graphicsTooltipLabels.size(); ++i)
+				{
+					if (i > 0)
+						drawer.SameLine(8.0f + m_queueTimingsData.graphicsNormalisedBeginEnds[i].x * space.x);
+					else
+						drawer.SetCursorPosX(8.0f + m_queueTimingsData.graphicsNormalisedBeginEnds[i].x * space.x);
+
+					glm::vec2 begin(screenPos.x + m_queueTimingsData.graphicsNormalisedBeginEnds[i].x * space.x, screenPos.y);
+					glm::vec2 end(screenPos.x + m_queueTimingsData.graphicsNormalisedBeginEnds[i].y * space.x, screenPos.y + 20.0f);
+					drawer.DrawRect(begin, end, Colour(1, 1, 0, 1), Colour(0, 0, 0, 1));
+					drawer.Selectable(m_queueTimingsData.graphicsSelectableIds[i].c_str(), selected, glm::vec2((m_queueTimingsData.graphicsNormalisedBeginEnds[i].y - m_queueTimingsData.graphicsNormalisedBeginEnds[i].x) * space.x, 20.0f));
+					drawer.Tooltip(m_queueTimingsData.graphicsTooltipLabels[i].c_str());
+				}
+
+				// Draw 'Compute Tasks'
+				drawer.Text("Compute Tasks");
+				cursorPos = drawer.GetCursorPos();
+				screenPos = drawer.GetCursorScreenPos();
+				space = drawer.GetContentRegionAvailable();
+				drawer.DrawRect(screenPos, glm::vec2(screenPos.x + space.x, screenPos.y + 20.0f), Colour(0.5f, 0.5f, 0.5f, 1.0f), {});
+				for (size_t i = 0; i < m_queueTimingsData.computeTooltipLabels.size(); ++i)
+				{
+					if (i > 0)
+						drawer.SameLine(8.0f + m_queueTimingsData.computeNormalisedBeginEnds[i].x * space.x);
+					else
+						drawer.SetCursorPosX(8.0f + m_queueTimingsData.computeNormalisedBeginEnds[i].x * space.x);
+
+					glm::vec2 begin(screenPos.x + m_queueTimingsData.computeNormalisedBeginEnds[i].x * space.x, screenPos.y);
+					glm::vec2 end(screenPos.x + m_queueTimingsData.computeNormalisedBeginEnds[i].y * space.x, screenPos.y + 20.0f);
+					drawer.DrawRect(begin, end, Colour(1, 1, 0, 1), Colour(0, 0, 0, 1));
+					drawer.Selectable(m_queueTimingsData.computeSelectableIds[i].c_str(), selected, glm::vec2((m_queueTimingsData.computeNormalisedBeginEnds[i].y - m_queueTimingsData.computeNormalisedBeginEnds[i].x) * space.x, 20.0f));
+					drawer.Tooltip(m_queueTimingsData.computeTooltipLabels[i].c_str());
+				}
+
+				if (m_renderer->GetAsyncComputeState())
+				{
+					drawer.Text("Async compute total frame time reduction: %.2f%%%", m_queueTimingsData.asyncSavingsPercent);
+				}
+				else
+				{
+					drawer.Text("Async compute total frame time reduction: 0.0%%");
+				}
 			}
 
-			const glm::vec2& space = drawer.GetContentRegionAvailable();
-			drawer.PlotGraphs("Frame Times (ms)", m_statGraphBuffers, space);
+			// Draw frame time graph
+			if (drawer.CollapsingHeader("Frame Graph", true))
+			{
+				// Iterate over the unordered map of graphs by reference and remove any that are no longer in the render graph.
+				for (auto it = m_statGraphBuffers.begin(); it != m_statGraphBuffers.end();)
+				{
+					if (!frameStats.contains(it->first))
+					{
+						it = m_statGraphBuffers.erase(it);
+					}
+					else
+					{
+						++it;
+					}
+				}
+
+				// Iterate over the set and add new map entries if they do not exist.
+				for (const auto& pass : frameStats)
+				{
+					if (m_statGraphBuffers.find(pass.first) == m_statGraphBuffers.end())
+					{
+						m_statGraphBuffers.emplace(pass.first, ScrollingGraphBuffer(pass.first, 1000));
+					}
+				}
+
+				for (auto& buffer : m_statGraphBuffers)
+				{
+					const FrameStats& stats = frameStats.at(buffer.first);
+					float passFrameTime = stats.RenderTime;
+					buffer.second.AddValue(passFrameTime);
+				}
+
+				space = drawer.GetContentRegionAvailable();
+				drawer.PlotGraphs("Frame Times (ms)", m_statGraphBuffers, space);
+			}
 		}
 	}
 

@@ -38,9 +38,24 @@ namespace Engine::Rendering::Vulkan
 
 		// Chain optional extensions.
 		void* nextExtension = nullptr;
+
+		vk::PhysicalDeviceMemoryPriorityFeaturesEXT memoryPriorityFeatures;
+		vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageableMemoryFeatures;
 		for (const char* extension : optionalExtensionNames)
 		{
-			// None of the current optional extensions require additional device features.
+			// VK_EXT_memory_priority
+			if (strcmp(extension, VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME) == 0)
+			{
+				memoryPriorityFeatures.memoryPriority = true;
+				nextExtension = &memoryPriorityFeatures;
+			}
+
+			// VK_EXT_pageable_device_local_memory
+			if (strcmp(extension, VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME) == 0)
+			{
+				pageableMemoryFeatures.pageableDeviceLocalMemory = true;
+				nextExtension = &pageableMemoryFeatures;
+			}
 		}
 
 		vk::PhysicalDeviceVulkan13Features vulkan13Features;
@@ -96,6 +111,14 @@ namespace Engine::Rendering::Vulkan
 		m_presentQueue = m_device->getQueue(indices.PresentFamily.value(), 0);
 		m_computeQueue = m_device->getQueue(indices.ComputeFamily.value(), 0);
 		m_transferQueue = m_device->getQueue(indices.TransferFamily.value(), 0);
+
+		SetResourceName(ResourceType::Queue, m_graphicsQueue, "Graphics Queue");
+		if (indices.ComputeFamily.value() != indices.GraphicsFamily.value())
+			SetResourceName(ResourceType::Queue, m_computeQueue, "Compute Queue");
+		if (indices.TransferFamily.value() != indices.GraphicsFamily.value())
+			SetResourceName(ResourceType::Queue, m_transferQueue, "Transfer Queue");
+		if (indices.PresentFamily.value() != indices.GraphicsFamily.value())
+			SetResourceName(ResourceType::Queue, m_presentQueue, "Present Queue");
 
 		return true;
 	}

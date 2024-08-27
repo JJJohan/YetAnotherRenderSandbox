@@ -16,14 +16,18 @@ namespace Engine::Rendering
 	{
 		m_imageInputInfos =
 		{
-			{"Output", RenderPassImageInfo(AccessFlags::Read, Format::PlaceholderSwapchain)},
-			{"Velocity", RenderPassImageInfo(AccessFlags::Read, Format::R16G16Sfloat)},
-			{"Depth", RenderPassImageInfo(AccessFlags::Read, Format::D32Sfloat)}
+			{"Output", RenderPassImageInfo(AccessFlags::Read, Format::PlaceholderSwapchain, {}, ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead)},
+			{"Velocity", RenderPassImageInfo(AccessFlags::Read, Format::R16G16Sfloat, {}, ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead)},
+			{"Depth", RenderPassImageInfo(AccessFlags::Read, Format::D32Sfloat, {}, ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead)}
 		};
 
 		m_imageOutputInfos =
 		{
-			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderSwapchain)}
+			{"Output", RenderPassImageInfo(AccessFlags::Write, Format::PlaceholderSwapchain, {}, ImageLayout::ColorAttachment,
+				MaterialStageFlags::ColorAttachmentOutput, MaterialAccessFlags::ColorAttachmentRead | MaterialAccessFlags::ColorAttachmentWrite)}
 		};
 	}
 
@@ -85,7 +89,7 @@ namespace Engine::Rendering
 			!m_material->BindImageView(5, depthImageView))
 			return false;
 
-		return true;
+		return IRenderNode::Build(renderer, imageInputs, imageOutputs, bufferInputs, bufferOutputs);
 	}
 
 	void TAAPass::PreDraw(const Renderer& renderer, const ICommandBuffer& commandBuffer,

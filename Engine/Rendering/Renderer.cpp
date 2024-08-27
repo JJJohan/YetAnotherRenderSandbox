@@ -76,6 +76,7 @@ namespace Engine::Rendering
 		, m_nvidiaReflex(nullptr)
 		, m_asyncComputeEnabled(false)
 		, m_asyncComputeSupported(false)
+		, m_asyncComputePendingState(false)
 	{
 	}
 
@@ -136,6 +137,21 @@ namespace Engine::Rendering
 		}
 
 		return true;
+	}
+
+	void Renderer::SetAsyncComputeState(bool enable)
+	{
+		if (!m_asyncComputeSupported && enable)
+		{
+			Logger::Error("Async compute is not supported.");
+			return;
+		}
+
+		if (m_asyncComputeEnabled != enable)
+		{
+			m_asyncComputePendingState = enable;
+			m_renderGraph->MarkDirty();
+		}
 	}
 
 	void Renderer::SetAntiAliasingMode(AntiAliasingMode mode)
@@ -243,7 +259,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		if (!m_renderGraph->Initialise(*m_physicalDevice, *m_device, *m_resourceFactory, m_maxConcurrentFrames, m_asyncComputeEnabled))
+		if (!m_renderGraph->Initialise(*m_physicalDevice, *m_device, *m_resourceFactory, m_maxConcurrentFrames, m_asyncComputePendingState))
 		{
 			Logger::Error("Failed to initialise render graph.");
 			return false;
@@ -254,7 +270,7 @@ namespace Engine::Rendering
 		m_renderPasses["Combine"] = std::make_unique<CombinePass>(*m_shadowMap);
 
 		m_computePasses["FrustumCulling"] = std::make_unique<FrustumCullingPass>(*m_sceneGeometryBatch);
-		m_computePasses["ShadowCulling"] = std::make_unique<ShadowCullingPass>(*m_sceneGeometryBatch);
+		m_computePasses["ShadowCulling"] = std::make_unique<ShadowCullingPass>(*m_sceneGeometryBatch, *m_shadowMap);
 		FrustumCullingPass& frustumCullingPass = reinterpret_cast<FrustumCullingPass&>(*m_computePasses["FrustumCulling"].get());
 		m_computePasses["DepthReduction"] = std::make_unique<DepthReductionPass>(frustumCullingPass);
 
@@ -297,7 +313,7 @@ namespace Engine::Rendering
 			return false;
 		}
 
-		if (!m_renderGraph->Build(*this))
+		if (!m_renderGraph->Build(*this, m_asyncComputePendingState))
 		{
 			Logger::Error("Failed to build render graph.");
 			return false;
@@ -350,6 +366,8 @@ namespace Engine::Rendering
 		const std::unique_ptr<ShadowCullingPass>& shadowCullingPass = reinterpret_cast<const std::unique_ptr<ShadowCullingPass>&>(m_computePasses.at("ShadowCulling"));
 		frustumCullingPass->SetCullingMode(mode);
 		shadowCullingPass->SetCullingMode(mode);
+
+		m_renderGraph->SetPassEnabled("DepthReduction", mode == CullingMode::FrustumAndOcclusion);
 	}
 
 	void Renderer::SetHDRState(bool enable)

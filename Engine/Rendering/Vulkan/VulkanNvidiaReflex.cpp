@@ -29,7 +29,10 @@ namespace Engine::Rendering::Vulkan
 		_vkLatencySleepNV = (PFN_vkLatencySleepNV)deviceImp.getProcAddr("vkLatencySleepNV");
 		_vkSetLatencyMarkerNV = (PFN_vkSetLatencyMarkerNV)deviceImp.getProcAddr("vkSetLatencyMarkerNV");
 		if (!_vkSetLatencySleepModeNVAddr || !_vkLatencySleepNV || !_vkSetLatencyMarkerNV)
+		{
+			Logger::Error("Nvidia Reflex -  Failed to query memory addresses.");
 			return false;
+		}
 
 		m_semaphore = std::make_unique<Semaphore>();
 		if (!m_semaphore->Initialise("ReflexSemaphore", m_device, false))

@@ -7,11 +7,12 @@ namespace Engine::Rendering
 {
 	class IResourceFactory;
 	class GeometryBatch;
+	class ShadowMap;
 
 	class ShadowCullingPass : public IComputePass
 	{
 	public:
-		ShadowCullingPass(const GeometryBatch& sceneGeometryBatch);
+		ShadowCullingPass(const GeometryBatch& sceneGeometryBatch, const ShadowMap& shadowMap);
 
 		virtual bool Build(const Renderer& renderer,
 			const std::unordered_map<std::string, IRenderImage*>& imageInputs,

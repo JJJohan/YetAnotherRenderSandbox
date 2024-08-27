@@ -78,7 +78,7 @@ namespace Engine::Rendering
 		for (uint32_t i = 0; i < concurrentFrameCount; ++i)
 		{
 			m_renderCommandPools.emplace_back(std::move(resourceFactory.CreateCommandPool()));
-			if (!m_renderCommandPools[i]->Initialise("RenderCommandPool", physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::Reset))
+			if (!m_renderCommandPools[i]->Initialise("RenderCommandPool", physicalDevice, device, indices.GraphicsFamily.value(), CommandPoolFlags::None))
 			{
 				return false;
 			}
@@ -93,7 +93,7 @@ namespace Engine::Rendering
 			if (asyncCompute)
 			{
 				m_computeCommandPools.emplace_back(std::move(resourceFactory.CreateCommandPool()));
-				if (!m_computeCommandPools[i]->Initialise("ComputeCommandPool", physicalDevice, device, indices.ComputeFamily.value(), CommandPoolFlags::Reset))
+				if (!m_computeCommandPools[i]->Initialise("ComputeCommandPool", physicalDevice, device, indices.ComputeFamily.value(), CommandPoolFlags::None))
 				{
 					return false;
 				}
@@ -245,7 +245,7 @@ namespace Engine::Rendering
 	{
 		if (format == Format::PlaceholderDepth || format == Format::PlaceholderSwapchain)
 		{
-			Logger::Error("Placeholder format should be handled by IRenderPass::UpdatePlaceholderFormats.");
+			Logger::Error("Placeholder format should be handled by IRenderNode::UpdatePlaceholderFormats.");
 			return false;
 		}
 
@@ -592,12 +592,14 @@ namespace Engine::Rendering
 					else
 					{
 						RenderPassImageInfo& existing = m_imageInfoBarrierState.at(pair.first);
-						if (existing.LastUsagePassType != node.Type)
+						if (existing.LastUsagePassType == RenderNodeType::Resource)
+							existing.LastUsagePassType = node.Type;
+						else if (existing.LastUsagePassType != node.Type)
 						{
 							m_perStageOwnershipReleaseResources[existing.LastUsagePassStageIndex].push_back(std::make_pair(pair.first, node.Type == RenderNodeType::Compute));
 							existing.LastUsagePassType = node.Type;
-							existing.LastUsagePassStageIndex = stageIndex;
 						}
+						existing.LastUsagePassStageIndex = stageIndex;
 					}
 
 				for (const auto& pair : node.Node->GetImageOutputInfos())
@@ -606,12 +608,14 @@ namespace Engine::Rendering
 					else
 					{
 						RenderPassImageInfo& existing = m_imageInfoBarrierState.at(pair.first);
-						if (existing.LastUsagePassType != node.Type)
+						if (existing.LastUsagePassType == RenderNodeType::Resource)
+							existing.LastUsagePassType = node.Type;
+						else if (existing.LastUsagePassType != node.Type)
 						{
 							m_perStageOwnershipReleaseResources[existing.LastUsagePassStageIndex].push_back(std::make_pair(pair.first, node.Type == RenderNodeType::Compute));
 							existing.LastUsagePassType = node.Type;
-							existing.LastUsagePassStageIndex = stageIndex;
 						}
+						existing.LastUsagePassStageIndex = stageIndex;
 					}
 
 				for (const auto& pair : node.Node->GetBufferInputInfos())
@@ -620,12 +624,14 @@ namespace Engine::Rendering
 					else
 					{
 						RenderPassBufferInfo& existing = m_bufferInfoBarrierState.at(pair.first);
-						if (existing.LastUsagePassType != node.Type)
+						if (existing.LastUsagePassType == RenderNodeType::Resource)
+							existing.LastUsagePassType = node.Type;
+						else if (existing.LastUsagePassType != node.Type)
 						{
 							m_perStageOwnershipReleaseResources[existing.LastUsagePassStageIndex].push_back(std::make_pair(pair.first, node.Type == RenderNodeType::Compute));
 							existing.LastUsagePassType = node.Type;
-							existing.LastUsagePassStageIndex = stageIndex;
 						}
+						existing.LastUsagePassStageIndex = stageIndex;
 					}
 
 				for (const auto& pair : node.Node->GetBufferOutputInfos())
@@ -634,12 +640,14 @@ namespace Engine::Rendering
 					else
 					{
 						RenderPassBufferInfo& existing = m_bufferInfoBarrierState.at(pair.first);
-						if (existing.LastUsagePassType != node.Type)
+						if (existing.LastUsagePassType == RenderNodeType::Resource)
+							existing.LastUsagePassType = node.Type;
+						else if (existing.LastUsagePassType != node.Type)
 						{
 							m_perStageOwnershipReleaseResources[existing.LastUsagePassStageIndex].push_back(std::make_pair(pair.first, node.Type == RenderNodeType::Compute));
 							existing.LastUsagePassType = node.Type;
-							existing.LastUsagePassStageIndex = stageIndex;
 						}
+						existing.LastUsagePassStageIndex = stageIndex;
 					}
 			}
 
@@ -705,7 +713,7 @@ namespace Engine::Rendering
 		return true;
 	}
 
-	bool RenderGraph::Build(const Renderer& renderer)
+	bool RenderGraph::Build(const Renderer& renderer, bool asyncCompute)
 	{
 		const IDevice& device = renderer.GetDevice();
 		const IPhysicalDevice& physicalDevice = renderer.GetPhysicalDevice();
@@ -722,7 +730,6 @@ namespace Engine::Rendering
 		m_bufferInfoBarrierState.clear();
 		m_perStageOwnershipReleaseResources.clear();
 
-		bool asyncCompute = renderer.GetAsyncComputeState();
 		if (asyncCompute != m_asyncCompute)
 		{
 			if (!Initialise(physicalDevice, device, renderer.GetResourceFactory(), renderer.GetConcurrentFrameCount(), asyncCompute))
@@ -754,6 +761,7 @@ namespace Engine::Rendering
 			if (pass->GetEnabled())
 			{
 				pass->UpdateConnections(renderer, passNames);
+				pass->UpdatePlaceholderFormats(swapchainFormat, depthFormat);
 				renderNodeStack.emplace_back(pass);
 				++enabledPasses;
 			}
@@ -797,37 +805,18 @@ namespace Engine::Rendering
 
 		std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
 
-		// Transition image layouts where necessary.		
+		// Transition image layouts where necessary.
 		for (const auto& node : nodes)
 		{
-			if (node.Type == RenderNodeType::Pass && (!isCompute || !m_asyncCompute))
-			{
-				IRenderPass* pass = static_cast<IRenderPass*>(node.Node);
+			if (node.Type == RenderNodeType::Resource)
+				continue;
 
-				for (const auto& imageInput : node.InputImages)
-				{
-					imageInput.second->AppendImageLayoutTransition(commandBuffer, ImageLayout::ShaderReadOnly, *memoryBarriers);
-				}
-
-				const std::vector<AttachmentInfo>& colourAttachments = pass->GetColourAttachments();
-				for (const auto& colourAttachment : colourAttachments)
-				{
-					colourAttachment.renderImage->AppendImageLayoutTransition(commandBuffer, ImageLayout::ColorAttachment, *memoryBarriers);
-				}
-
-				const std::optional<AttachmentInfo>& depthAttachment = pass->GetDepthAttachment();
-
-				if (depthAttachment.has_value())
-				{
-					depthAttachment->renderImage->AppendImageLayoutTransition(commandBuffer, ImageLayout::DepthStencilAttachment, *memoryBarriers);
-				}
-			}
-			else if (node.Type == RenderNodeType::Compute && (isCompute || !m_asyncCompute))
+			if (!m_asyncCompute || (node.Type == RenderNodeType::Compute && isCompute) || (node.Type == RenderNodeType::Pass && !isCompute))
 			{
 				for (const auto& pair : node.Node->GetImageInputInfos())
 				{
 					const RenderPassImageInfo& imageInfo = pair.second;
-					if (imageInfo.Image != nullptr)
+					if (imageInfo.Image != nullptr && imageInfo.Access != AccessFlags::None)
 					{
 						auto& currentState = m_imageInfoBarrierState.at(pair.first);
 						currentState.Image = imageInfo.Image;
@@ -836,8 +825,11 @@ namespace Engine::Rendering
 							currentState.QueueFamilyIndex = currentQueueFamilyIndex;
 
 						imageInfo.Image->AppendImageLayoutTransitionExt(commandBuffer, imageInfo.StageFlags, imageInfo.Layout, imageInfo.MatAccessFlags,
-							*memoryBarriers, 0, 0, currentState.QueueFamilyIndex, currentQueueFamilyIndex);
+							*memoryBarriers, 0, 0, currentState.QueueFamilyIndex, currentQueueFamilyIndex, isCompute);
 
+						currentState.StageFlags = imageInfo.StageFlags;
+						currentState.MatAccessFlags = imageInfo.MatAccessFlags;
+						currentState.Layout = imageInfo.Layout;
 						currentState.QueueFamilyIndex = currentQueueFamilyIndex;
 					}
 				}
@@ -845,7 +837,7 @@ namespace Engine::Rendering
 				for (const auto& pair : node.Node->GetImageOutputInfos())
 				{
 					const RenderPassImageInfo& imageInfo = pair.second;
-					if (imageInfo.Image != nullptr)
+					if (imageInfo.Image != nullptr && imageInfo.Access != AccessFlags::None)
 					{
 						auto& currentState = m_imageInfoBarrierState.at(pair.first);
 						currentState.Image = imageInfo.Image;
@@ -854,15 +846,18 @@ namespace Engine::Rendering
 							currentState.QueueFamilyIndex = currentQueueFamilyIndex;
 
 						imageInfo.Image->AppendImageLayoutTransitionExt(commandBuffer, imageInfo.StageFlags, imageInfo.Layout, imageInfo.MatAccessFlags,
-							*memoryBarriers, 0, 0, currentState.QueueFamilyIndex, currentQueueFamilyIndex);
+							*memoryBarriers, 0, 0, currentState.QueueFamilyIndex, currentQueueFamilyIndex, isCompute);
 
+						currentState.StageFlags = imageInfo.StageFlags;
+						currentState.MatAccessFlags = imageInfo.MatAccessFlags;
+						currentState.Layout = imageInfo.Layout;
 						currentState.QueueFamilyIndex = currentQueueFamilyIndex;
 					}
 				}
 			}
 		}
 
-		// Iterate over relevant buffer resources to determine if a memory barrier and/or a semaphore needs to occur.
+		// Perform buffer memory barriers where necessary.
 
 		std::unordered_map<std::string, RenderPassBufferInfo> bufferInfos{};
 		for (const auto& node : nodes)
@@ -878,14 +873,6 @@ namespace Engine::Rendering
 
 		if (!bufferInfos.empty())
 		{
-			// If queue family index changes, insert an appropriate semaphore.
-			// Find the earliest stages to perform memory barrier for.
-			bool needsBarrier = false;
-			MaterialStageFlags srcStage = MaterialStageFlags::None;
-			MaterialAccessFlags srcMask = MaterialAccessFlags::None;
-			MaterialStageFlags dstStage = MaterialStageFlags::None;
-			MaterialAccessFlags dstMask = MaterialAccessFlags::None;
-
 			for (const auto& pair : bufferInfos)
 			{
 				const RenderPassBufferInfo& bufferInfo = pair.second;
@@ -965,7 +952,6 @@ namespace Engine::Rendering
 		std::vector<SubmitInfo>& renderSubmitInfos, std::vector<SubmitInfo>& computeSubmitInfos) const
 	{
 		ICommandBuffer& blitCommandBuffer = *m_blitCommandBuffers[frameIndex];
-		blitCommandBuffer.Reset();
 		if (!blitCommandBuffer.Begin())
 		{
 			return false;
@@ -1013,8 +999,9 @@ namespace Engine::Rendering
 		if (resourcesToTransfer.empty())
 			return;
 
-		std::unique_ptr<IMemoryBarriers> renderToComputeMemoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
-		std::unique_ptr<IMemoryBarriers> computeToRenderMemoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
+		const IResourceFactory& resourceFactory = renderer.GetResourceFactory();
+		std::unique_ptr<IMemoryBarriers> renderToComputeMemoryBarriers = std::move(resourceFactory.CreateMemoryBarriers());
+		std::unique_ptr<IMemoryBarriers> computeToRenderMemoryBarriers = std::move(resourceFactory.CreateMemoryBarriers());
 
 		uint32_t renderQueueFamilyIndex = renderCommandBuffer.GetQueueFamilyIndex();
 		uint32_t computeQueueFamilyIndex = computeCommandBuffer.GetQueueFamilyIndex();
@@ -1039,10 +1026,12 @@ namespace Engine::Rendering
 				}
 				else
 				{
-					const auto& imageResource = m_imageInfoBarrierState.at(resourceName);
+					auto& imageResource = m_imageInfoBarrierState.at(resourceName);
 					if (imageResource.Image != nullptr)
-						imageResource.Image->AppendImageLayoutTransition(renderCommandBuffer, imageResource.Layout,
-							*renderToComputeMemoryBarriers, renderQueueFamilyIndex, computeQueueFamilyIndex);
+					{
+						imageResource.Image->AppendImageLayoutTransition(renderCommandBuffer, ImageLayout::ShaderReadOnly,
+							*renderToComputeMemoryBarriers, renderQueueFamilyIndex, computeQueueFamilyIndex, false);
+					}
 				}
 			}
 			else
@@ -1062,8 +1051,8 @@ namespace Engine::Rendering
 				{
 					const auto& imageResource = m_imageInfoBarrierState.at(resourceName);
 					if (imageResource.Image != nullptr)
-						imageResource.Image->AppendImageLayoutTransition(computeCommandBuffer, imageResource.Layout,
-							*computeToRenderMemoryBarriers, computeQueueFamilyIndex, renderQueueFamilyIndex);
+						imageResource.Image->AppendImageLayoutTransition(computeCommandBuffer, ImageLayout::ShaderReadOnly,
+							*computeToRenderMemoryBarriers, computeQueueFamilyIndex, renderQueueFamilyIndex, true);
 				}
 			}
 		}
@@ -1092,7 +1081,7 @@ namespace Engine::Rendering
 		if (m_asyncCompute)
 			m_computeCommandPools[frameIndex]->Reset(device);
 
-		// Reset family queue index on resource state tracking to indicate their first usage do not require a queue family ownership transfer.
+		// Reset family queue index for resource state tracking at start of frame to indicate their first usage do not require a queue family ownership transfer.
 		for (auto& bufferState : m_bufferInfoBarrierState)
 			bufferState.second.QueueFamilyIndex = ~0U;
 		for (auto& imageState : m_imageInfoBarrierState)
@@ -1120,8 +1109,8 @@ namespace Engine::Rendering
 				}
 			}
 
-			SubmitInfo renderSubmitInfo;
-			SubmitInfo computeSubmitInfo;
+			SubmitInfo renderSubmitInfo{};
+			SubmitInfo computeSubmitInfo{};
 
 			// Perform resource transitions in bulk, per stage.
 
@@ -1162,16 +1151,25 @@ namespace Engine::Rendering
 			if (m_asyncCompute)
 				computeCommandBuffer->End();
 
+			if (lastStageUsedComputeToRenderSemaphore && stageHasRenderPasses)
+			{
+				renderSubmitInfo.WaitSemaphores.emplace_back(m_computeToRenderSemaphore.get());
+				renderSubmitInfo.WaitValues.emplace_back(m_computeToRenderSemaphore->Value);
+				renderSubmitInfo.Stages.emplace_back(MaterialStageFlags::TopOfPipe);
+				lastStageUsedComputeToRenderSemaphore = false;
+			}
+
+			if (lastStageUsedRenderToComputeSemaphore && m_asyncCompute && stageHasComputePasses)
+			{
+				computeSubmitInfo.WaitSemaphores.emplace_back(m_renderToComputeSemaphore.get());
+				computeSubmitInfo.WaitValues.emplace_back(m_renderToComputeSemaphore->Value);
+				computeSubmitInfo.Stages.emplace_back(MaterialStageFlags::TopOfPipe);
+				lastStageUsedRenderToComputeSemaphore = false;
+			}
+
 			if (stageHasRenderPasses || (!m_asyncCompute && stageHasComputePasses))
 			{
 				renderSubmitInfo.CommandBuffers.emplace_back(&renderCommandBuffer);
-				if (lastStageUsedComputeToRenderSemaphore)
-				{
-					renderSubmitInfo.WaitSemaphores.emplace_back(m_computeToRenderSemaphore.get());
-					renderSubmitInfo.WaitValues.emplace_back(m_computeToRenderSemaphore->Value - 1);
-					renderSubmitInfo.Stages.emplace_back(MaterialStageFlags::ComputeShader);
-					lastStageUsedComputeToRenderSemaphore = false;
-				}
 				if (renderToComputeSemaphore)
 				{
 					++m_renderToComputeSemaphore->Value;
@@ -1185,13 +1183,6 @@ namespace Engine::Rendering
 			if (m_asyncCompute && stageHasComputePasses)
 			{
 				computeSubmitInfo.CommandBuffers.emplace_back(computeCommandBuffer);
-				if (lastStageUsedRenderToComputeSemaphore)
-				{
-					computeSubmitInfo.WaitSemaphores.emplace_back(m_renderToComputeSemaphore.get());
-					computeSubmitInfo.WaitValues.emplace_back(m_renderToComputeSemaphore->Value - 1);
-					computeSubmitInfo.Stages.emplace_back(MaterialStageFlags::TopOfPipe);
-					lastStageUsedRenderToComputeSemaphore = false;
-				}
 				if (computeToRenderSemaphore)
 				{
 					++m_computeToRenderSemaphore->Value;

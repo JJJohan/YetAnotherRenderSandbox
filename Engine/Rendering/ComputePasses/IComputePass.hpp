@@ -31,12 +31,6 @@ namespace Engine::Rendering
 			return true;
 		}
 
-		virtual bool Build(const Renderer& renderer,
-			const std::unordered_map<std::string, IRenderImage*>& imageInputs,
-			const std::unordered_map<std::string, IRenderImage*>& imageOutputs,
-			const std::unordered_map<std::string, IBuffer*>& bufferInputs,
-			const std::unordered_map<std::string, IBuffer*>& bufferOutputs) = 0;
-
 		virtual void Dispatch(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 			uint32_t frameIndex) = 0;
 

@@ -55,7 +55,7 @@ namespace Engine::Rendering
 
 		bool AddRenderNode(IRenderNode* renderNode, const IMaterialManager& materialManager);
 		bool AddResource(IRenderResource* renderResource);
-		bool Build(const Renderer& renderer);
+		bool Build(const Renderer& renderer, bool asyncCompute);
 		bool Draw(Renderer& renderer, uint32_t frameIndex);
 		void SetPassEnabled(const std::string& passName, bool enabled);
 
@@ -68,7 +68,8 @@ namespace Engine::Rendering
 			const auto& search = m_renderNodeLookup.find(name);
 			if (search != m_renderNodeLookup.end() && search->second->GetNodeType() == RenderNodeType::Pass)
 			{
-				*result = static_cast<const IRenderPass*>(search->second);
+				if (result)
+					*result = static_cast<const IRenderPass*>(search->second);
 				return true;
 			}
 
@@ -80,7 +81,8 @@ namespace Engine::Rendering
 			const auto& search = m_renderNodeLookup.find(name);
 			if (search != m_renderNodeLookup.end() && search->second->GetNodeType() == RenderNodeType::Compute)
 			{
-				*result = static_cast<const IComputePass*>(search->second);
+				if (result)
+					*result = static_cast<const IComputePass*>(search->second);
 				return true;
 			}
 

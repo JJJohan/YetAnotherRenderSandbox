@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Macros.hpp"
-#include <stdint.h>
 #include <vector>
 #include <unordered_map>
 #include <string>
@@ -14,6 +13,8 @@ namespace Engine::Rendering
 		uint64_t InputAssemblyPrimitivesCount;
 		uint64_t VertexShaderInvocations;
 		uint64_t FragmentShaderInvocations;
+		uint64_t RenderBegin;
+		uint64_t RenderEnd;
 		float RenderTime;
 	};
 

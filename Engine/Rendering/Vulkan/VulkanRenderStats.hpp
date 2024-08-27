@@ -24,6 +24,7 @@ namespace Engine::Rendering::Vulkan
 		vk::UniqueQueryPool m_statisticsQueryPool;
 		vk::UniqueQueryPool m_timestampQueryPool;
 		std::vector<std::string> m_renderPassNames;
+		std::vector<bool> m_isComputePass;
 
 		bool m_timestampSupported;
 		bool m_statisticsSupported;

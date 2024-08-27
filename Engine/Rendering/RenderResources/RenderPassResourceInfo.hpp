@@ -20,12 +20,16 @@ namespace Engine::Rendering
 		uint32_t QueueFamilyIndex;
 		RenderNodeType LastUsagePassType;
 		uint32_t LastUsagePassStageIndex;
+		MaterialStageFlags StageFlags;
+		MaterialAccessFlags MatAccessFlags;
 
-		RenderPassResourceInfo(AccessFlags accessFlags = AccessFlags::None)
+		RenderPassResourceInfo(AccessFlags accessFlags = AccessFlags::None, MaterialStageFlags stageFlags = MaterialStageFlags::None, MaterialAccessFlags materialAccessFlags = MaterialAccessFlags::None)
 			: Access(accessFlags)
 			, QueueFamilyIndex(0)
 			, LastUsagePassStageIndex(0)
 			, LastUsagePassType(RenderNodeType::Pass)
+			, StageFlags(stageFlags)
+			, MatAccessFlags(materialAccessFlags)
 		{
 		}
 	};
@@ -36,19 +40,15 @@ namespace Engine::Rendering
 		glm::uvec3 Dimensions;
 		IRenderImage* Image;
 		ImageLayout Layout;
-		MaterialStageFlags StageFlags;
-		MaterialAccessFlags MatAccessFlags;
 
 		RenderPassImageInfo(AccessFlags accessFlags = AccessFlags::None, Engine::Rendering::Format format = Format::Undefined,
 			const glm::uvec3& dimensions = {}, ImageLayout imageLayout = ImageLayout::Undefined, MaterialStageFlags stageFlags = MaterialStageFlags::None,
 			MaterialAccessFlags materialAccessFlags = MaterialAccessFlags::None, IRenderImage* image = nullptr)
-			: RenderPassResourceInfo(accessFlags)
+			: RenderPassResourceInfo(accessFlags, stageFlags, materialAccessFlags)
 			, Format(format)
 			, Dimensions(dimensions)
 			, Image(image)
 			, Layout(imageLayout)
-			, StageFlags(stageFlags)
-			, MatAccessFlags(materialAccessFlags)
 		{
 		}
 	};
@@ -56,15 +56,11 @@ namespace Engine::Rendering
 	struct RenderPassBufferInfo : public RenderPassResourceInfo
 	{
 		IBuffer* Buffer;
-		MaterialStageFlags StageFlags;
-		MaterialAccessFlags MatAccessFlags;
 
 		RenderPassBufferInfo(AccessFlags accessFlags = AccessFlags::None, MaterialStageFlags stageFlags = MaterialStageFlags::TopOfPipe,
 			MaterialAccessFlags materialAccessFlags = MaterialAccessFlags::None, IBuffer* buffer = nullptr)
-			: RenderPassResourceInfo(accessFlags)
+			: RenderPassResourceInfo(accessFlags, stageFlags, materialAccessFlags)
 			, Buffer(buffer)
-			, StageFlags(stageFlags)
-			, MatAccessFlags(materialAccessFlags)
 		{
 		}
 	};
