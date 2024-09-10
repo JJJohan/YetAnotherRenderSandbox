@@ -61,7 +61,7 @@ namespace Engine
 		{
 			return base
 				* glm::translate(glm::mat4(1.0f), glm::make_vec3(pTransform->translation.data()))
-				* glm::toMat4(glm::make_quat(pTransform->rotation.value_ptr()))
+				* glm::toMat4(glm::make_quat(pTransform->rotation.data()))
 				* glm::scale(glm::mat4(1.0f), glm::make_vec3(pTransform->scale.data()));
 		}
 		else
