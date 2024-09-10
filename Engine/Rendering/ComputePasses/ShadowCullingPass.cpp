@@ -99,7 +99,7 @@ namespace Engine::Rendering
 
 		// Create one single buffer with the capacity to hold each cascade.
 		if (!m_shadowIndirectBuffer->Initialise("shadowIndirectBuffer", device, cascadeCount * (sizeof(uint32_t) + meshCount * sizeof(IndexedIndirectCommand)),
-			BufferUsageFlags::IndirectBuffer | BufferUsageFlags::StorageBuffer | BufferUsageFlags::TransferDst, MemoryUsage::GPUOnly, AllocationCreateFlags::None, SharingMode::Exclusive))
+			BufferUsageFlags::IndirectBuffer | BufferUsageFlags::StorageBuffer | BufferUsageFlags::TransferDst, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to initialise indirect buffer.");
 			return false;

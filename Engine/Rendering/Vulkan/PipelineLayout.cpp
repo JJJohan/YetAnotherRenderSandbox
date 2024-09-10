@@ -73,11 +73,15 @@ namespace Engine::Rendering::Vulkan
 			shaderStageInfo.pName = "main";
 			shaderStageInfo.pSpecializationInfo = &specialisationInfo;
 
+			uint32_t mapOffset = 0;
 			for (const auto& entry : m_specialisationConstants)
 			{
 				if ((entry.second.stageFlags & module.first) == module.first)
 				{
-					specialisationMapEntries.emplace_back(entry.second.entry);
+					auto& addedEntry = specialisationMapEntries.emplace_back(entry.second.entry);
+					addedEntry.offset = mapOffset;
+					mapOffset += addedEntry.size;
+
 					specialisationData.emplace_back(entry.second.value);
 				}
 			}
@@ -564,6 +568,10 @@ namespace Engine::Rendering::Vulkan
 		return true;
 	}
 
+	bool sortByConstantId(const SpvReflectSpecializationConstant* a, const SpvReflectSpecializationConstant* b) {
+		return a->constant_id < b->constant_id;
+	}
+
 	bool PipelineLayout::PerformReflection(vk::ShaderStageFlagBits stage, const std::vector<uint8_t>& data, SpvReflectShaderModule& module, ReflectionData& entry)
 	{
 		SpvReflectResult result = spvReflectCreateShaderModule(data.size(), data.data(), &module);
@@ -786,6 +794,7 @@ namespace Engine::Rendering::Vulkan
 				return false;
 			}
 
+			std::sort(specialisationConstants.begin(), specialisationConstants.end(), sortByConstantId);
 			for (uint32_t i = 0; i < specialisationConstantCount; ++i)
 			{
 				const SpvReflectSpecializationConstant& spvSpecialisationConstant = *(specialisationConstants[i]);

@@ -53,6 +53,7 @@ namespace Sandbox
 		std::vector<const char*> m_nvidiaReflexModes;
 		QueueTimingsData m_queueTimingsData;
 		uint32_t m_prevTabIndex;
+		uint32_t m_graphOffset;
 		std::chrono::steady_clock::time_point m_prevTime;
 	};
 }

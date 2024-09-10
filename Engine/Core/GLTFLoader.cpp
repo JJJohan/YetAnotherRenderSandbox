@@ -308,8 +308,14 @@ namespace Engine
 
 		auto path = std::filesystem::path(filePath);
 
-		fastgltf::GltfDataBuffer data;
-		data.FromPath(path);
+		fastgltf::Expected<fastgltf::GltfDataBuffer> fromPathResult = fastgltf::GltfDataBuffer::FromPath(path);
+		if (fromPathResult.error() != fastgltf::Error::None)
+		{
+			Logger::Error("Failed to load GLTF data at '{}'. {} - {}", fastgltf::getErrorName(fromPathResult.error()), fastgltf::getErrorMessage(fromPathResult.error()));
+			return false;
+		}
+
+		fastgltf::GltfDataBuffer& data = fromPathResult.get();
 
 		fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
 		fastgltf::Asset asset;

@@ -22,10 +22,11 @@ namespace Sandbox
 		, m_statGraphBuffers()
 		, m_prevTime()
 		, m_queueTimingsData()
+		, m_graphOffset(0)
 	{
 		m_debugModes = { "None", "Albedo", "Normal", "WorldPos", "MetalRoughness", "Cascade Index" };
 		m_cullingModes = { "Paused", "None", "Frustum", "Frustum + Occlusion" };
-		m_shadowResolutions = { "1024", "2048", "4096" };
+		m_shadowResolutions = { "Off", "1024", "2048", "4096" };
 		m_aaModes = { "None", "FXAA", "SMAA", "TAA" };
 		m_nvidiaReflexModes = { "Off", "On", "On + Boost" };
 	}
@@ -66,7 +67,7 @@ namespace Sandbox
 		}
 	}
 
-	uint32_t shadowResolutionValues[3] = { 1024, 2048, 4096 };
+	uint32_t shadowResolutionValues[4] = { 0, 1024, 2048, 4096 };
 
 	void UI::DrawOptions(const Drawer& drawer)
 	{
@@ -310,9 +311,10 @@ namespace Sandbox
 				{
 					const FrameStats& stats = frameStats.at(buffer.first);
 					float passFrameTime = stats.RenderTime;
-					buffer.second.AddValue(passFrameTime);
+					buffer.second.SetValue(m_graphOffset, passFrameTime);
 				}
 
+				++m_graphOffset;
 				space = drawer.GetContentRegionAvailable();
 				drawer.PlotGraphs("Frame Times (ms)", m_statGraphBuffers, space);
 			}

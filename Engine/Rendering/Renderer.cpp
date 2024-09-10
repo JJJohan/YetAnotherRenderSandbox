@@ -74,6 +74,8 @@ namespace Engine::Rendering
 		, m_reductionSampler(nullptr)
 		, m_sceneGeometryBatch(std::make_unique<GeometryBatch>(*this))
 		, m_nvidiaReflex(nullptr)
+		, m_blankImage(nullptr)
+		, m_blankShadowImage(nullptr)
 		, m_asyncComputeEnabled(false)
 		, m_asyncComputeSupported(false)
 		, m_asyncComputePendingState(false)
@@ -96,6 +98,8 @@ namespace Engine::Rendering
 		m_renderPasses.clear();
 		m_computePasses.clear();
 
+		m_blankShadowImage.reset();
+		m_blankImage.reset();
 		m_nvidiaReflex.reset();
 		m_renderGraph.reset();
 		m_linearSampler.reset();
@@ -220,6 +224,24 @@ namespace Engine::Rendering
 			|| !CreateLightUniformBuffer()
 			|| !m_postProcessing->Initialise())
 		{
+			return false;
+		}
+
+		m_blankImage = std::move(m_resourceFactory->CreateRenderImage());
+		if (!m_blankImage->Initialise("BlankImage", *m_device, ImageType::e2D, Format::R8Unorm, glm::uvec3(1, 1, 1),
+			1, 1, ImageTiling::Linear, ImageUsageFlags::Sampled, ImageAspectFlags::Color,
+			MemoryUsage::Auto, AllocationCreateFlags::HostAccessRandom, SharingMode::Exclusive, true))
+		{
+			Logger::Error("Failed to initialise blank image.");
+			return false;
+		}
+
+		m_blankShadowImage = std::move(m_resourceFactory->CreateRenderImage());
+		if (!m_blankShadowImage->Initialise("BlankShadowImage", *m_device, ImageType::e2D, m_depthFormat, glm::uvec3(1, 1, 1),
+			1, m_shadowMap->GetCascadeCount(), ImageTiling::Optimal, ImageUsageFlags::Sampled, ImageAspectFlags::Depth,
+			MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
+		{
+			Logger::Error("Failed to initialise blank shadow image.");
 			return false;
 		}
 
@@ -383,7 +405,23 @@ namespace Engine::Rendering
 
 	void Renderer::SetShadowResolution(uint32_t resolution)
 	{
-		m_shadowMap->SetResolution(resolution);
+		bool wasEnabled = m_renderGraph->GetPassEnabled("ShadowMap");
+
+		bool toggleState = (wasEnabled && resolution == 0) || (!wasEnabled && resolution != 0);
+		if (toggleState)
+		{
+			bool enable = resolution != 0;
+			m_renderGraph->SetPassEnabled("ShadowMap", enable);
+			m_renderGraph->SetPassEnabled("ShadowCulling", enable);
+			m_renderGraph->SetPassEnabled("SceneShadow", enable);
+
+			const std::unique_ptr<CombinePass>& combinePass = reinterpret_cast<const std::unique_ptr<CombinePass>&>(m_renderPasses.at("Combine"));
+			combinePass->GetMaterial()->SetSpecialisationConstant("shadowsEnabled", static_cast<uint32_t>(resolution != 0 ? 1 : 0));
+		}
+
+		if (resolution != 0)
+			m_shadowMap->SetResolution(resolution);
+
 		m_renderGraph->MarkDirty();
 	}
 

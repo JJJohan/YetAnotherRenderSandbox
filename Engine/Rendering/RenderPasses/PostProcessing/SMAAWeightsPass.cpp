@@ -47,7 +47,7 @@ namespace Engine::Rendering
 
 		m_areaTexture = std::move(resourceFactory.CreateRenderImage());
 		if (!m_areaTexture->Initialise("SMAAAreaTexture", device, ImageType::e2D, Format::R8G8B8A8Unorm, glm::uvec3(160, 560, 1), 1, 1,
-			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::GPUOnly,
+			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice,
 			AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to create SMAA area texture.");
@@ -56,7 +56,7 @@ namespace Engine::Rendering
 
 		m_searchTexture = std::move(resourceFactory.CreateRenderImage());
 		if (!m_searchTexture->Initialise("SMAASearchTexture", device, ImageType::e2D, Format::R8G8B8A8Unorm, glm::uvec3(64, 16, 1), 1, 1,
-			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::GPUOnly,
+			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice,
 			AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to create SMAA search texture.");

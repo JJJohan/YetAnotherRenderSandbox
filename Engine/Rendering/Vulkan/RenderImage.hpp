@@ -19,7 +19,8 @@ namespace Engine::Rendering::Vulkan
 		virtual bool Initialise(std::string_view name, const IDevice& device, ImageType imageType,
 			Format format, const glm::uvec3& dimensions, uint32_t mipLevels, uint32_t layerCount,
 			ImageTiling tiling, ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags,
-			MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode) override;
+			MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode,
+			bool preinitialise) override;
 
 		virtual bool InitialiseView(std::string_view name, const IDevice& device, ImageAspectFlags aspectFlags) override;
 

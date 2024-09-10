@@ -45,7 +45,7 @@ namespace Engine::Rendering
 		m_taaHistoryImage = std::move(resourceFactory.CreateRenderImage());
 		glm::uvec3 extent(size.x, size.y, 1);
 		if (!m_taaHistoryImage->Initialise("TAAHistoryImage", device, ImageType::e2D, format, extent, 1, 1,
-			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::GPUOnly,
+			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice,
 			AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to create TAA history image.");

@@ -131,6 +131,8 @@ namespace Engine::Rendering::Vulkan
 	{
 		switch (format)
 		{
+		case Format::R8Unorm:
+			return vk::Format::eR8Unorm;
 		case Format::R8G8Unorm:
 			return vk::Format::eR8G8Unorm;
 		case Format::R8G8B8A8Unorm:
@@ -260,6 +262,8 @@ namespace Engine::Rendering::Vulkan
 		{
 		case ImageLayout::Undefined:
 			return vk::ImageLayout::eUndefined;
+		case ImageLayout::Preinitialised:
+			return vk::ImageLayout::ePreinitialized;
 		case ImageLayout::ColorAttachment:
 			return vk::ImageLayout::eColorAttachmentOptimal;
 		case ImageLayout::DepthStencilAttachment:
@@ -317,16 +321,6 @@ namespace Engine::Rendering::Vulkan
 		{
 		case MemoryUsage::Unknown:
 			return VMA_MEMORY_USAGE_UNKNOWN;
-		case MemoryUsage::GPUOnly:
-			return VMA_MEMORY_USAGE_GPU_ONLY;
-		case MemoryUsage::CPUOnly:
-			return VMA_MEMORY_USAGE_CPU_ONLY;
-		case MemoryUsage::CPUToGPU:
-			return VMA_MEMORY_USAGE_CPU_TO_GPU;
-		case MemoryUsage::GPUToCPU:
-			return VMA_MEMORY_USAGE_GPU_TO_CPU;
-		case MemoryUsage::CPUCopy:
-			return VMA_MEMORY_USAGE_CPU_COPY;
 		case MemoryUsage::GPULazilyAllocated:
 			return VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED;
 		case MemoryUsage::Auto:

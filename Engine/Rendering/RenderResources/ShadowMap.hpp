@@ -43,6 +43,8 @@ namespace Engine::Rendering
 
 		inline virtual size_t GetMemoryUsage() const override
 		{
+			if (!GetEnabled()) return 0;
+
 			const size_t bytesPerTexel = 4;
 			return bytesPerTexel * m_cascadeCount * m_extent.x * m_extent.y;
 		}

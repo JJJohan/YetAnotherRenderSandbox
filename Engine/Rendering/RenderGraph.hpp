@@ -58,6 +58,7 @@ namespace Engine::Rendering
 		bool Build(const Renderer& renderer, bool asyncCompute);
 		bool Draw(Renderer& renderer, uint32_t frameIndex);
 		void SetPassEnabled(const std::string& passName, bool enabled);
+		bool GetPassEnabled(const std::string& passName) const;
 
 		inline const std::vector<std::vector<RenderGraphNode>>& GetBuiltGraph() const { return m_renderGraph; }
 		inline void MarkDirty() { m_dirty = true; }

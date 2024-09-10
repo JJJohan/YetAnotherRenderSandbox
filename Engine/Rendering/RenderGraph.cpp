@@ -192,16 +192,20 @@ namespace Engine::Rendering
 			return;
 		}
 
-		if (pass->second->GetNodeType() == RenderNodeType::Pass)
+		pass->second->SetEnabled(enabled);
+		m_dirty = true;
+	}
+
+	bool RenderGraph::GetPassEnabled(const std::string& passName) const
+	{
+		auto pass = m_renderNodeLookup.find(passName);
+		if (pass == m_renderNodeLookup.end())
 		{
-			static_cast<IRenderPass*>(pass->second)->SetEnabled(enabled);
-		}
-		else if (pass->second->GetNodeType() == RenderNodeType::Compute)
-		{
-			static_cast<IComputePass*>(pass->second)->SetEnabled(enabled);
+			Logger::Error("Pass '{}' not found in render graph.", passName);
+			return false;
 		}
 
-		m_dirty = true;
+		return pass->second->GetEnabled();
 	}
 
 	bool RenderGraph::AddResource(IRenderResource* renderResource)
@@ -750,8 +754,15 @@ namespace Engine::Rendering
 		std::vector<IRenderNode*> renderNodeStack;
 		for (auto& renderResource : m_renderResources)
 		{
-			renderResource->UpdateConnections(renderer, passNames);
-			renderNodeStack.push_back(renderResource);
+			if (renderResource->GetEnabled())
+			{
+				renderResource->UpdateConnections(renderer, passNames);
+				renderNodeStack.push_back(renderResource);
+			}
+			else
+			{
+				renderResource->ClearResources();
+			}
 		}
 
 		uint32_t enabledPasses = 0;
@@ -765,6 +776,10 @@ namespace Engine::Rendering
 				renderNodeStack.emplace_back(pass);
 				++enabledPasses;
 			}
+			else
+			{
+				pass->ClearResources();
+			}
 		}
 		for (const auto& pass : m_renderPasses)
 		{
@@ -775,6 +790,10 @@ namespace Engine::Rendering
 
 				renderNodeStack.emplace_back(pass);
 				++enabledPasses;
+			}
+			else
+			{
+				pass->ClearResources();
 			}
 		}
 

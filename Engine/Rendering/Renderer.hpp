@@ -127,6 +127,9 @@ namespace Engine::Rendering
 
 		inline GeometryBatch& GetSceneGeometryBatch() const { return *m_sceneGeometryBatch; }
 
+		inline IRenderImage& GetBlankImage() const { return *m_blankImage; }
+		inline IRenderImage& GetBlankShadowImage() const { return *m_blankShadowImage; }
+
 		virtual bool SubmitResourceCommand(std::function<bool(const IDevice& device, const IPhysicalDevice& physicalDevice,
 			const ICommandBuffer&, std::vector<std::unique_ptr<IBuffer>>&)> command,
 			std::optional<std::function<void()>> postAction = std::nullopt) = 0;
@@ -176,6 +179,8 @@ namespace Engine::Rendering
 		std::unique_ptr<IImageSampler> m_nearestSampler;
 		std::unique_ptr<IImageSampler> m_shadowSampler;
 		std::unique_ptr<IImageSampler> m_reductionSampler;
+		std::unique_ptr<IRenderImage> m_blankImage;
+		std::unique_ptr<IRenderImage> m_blankShadowImage;
 		std::unique_ptr<Engine::Rendering::NvidiaReflex> m_nvidiaReflex;
 
 		std::unique_ptr<SceneManager> m_sceneManager;

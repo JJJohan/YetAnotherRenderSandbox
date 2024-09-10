@@ -34,6 +34,7 @@ layout(location = 0) in vec2 fragUv;
 layout(location = 0) out vec4 outColor;
 
 layout (constant_id = 0) const uint debugMode = 0U;
+layout (constant_id = 1) const uint shadowsEnabled = 1U;
 
 const mat4 biasMat = mat4(
 	0.5, 0.0, 0.0, 0.0,
@@ -164,11 +165,19 @@ void main()
 	vec3 diffuseContrib = (1.0 - F) * diffuse(pbrInputs);
 	vec3 specContrib = F * G * D / (4.0 * NdotL * NdotV);
 
-    // Calculate shadow
-    float shadow = ShadowCalculation(worldPos, viewDepth);
+	vec3 color;
+	if (shadowsEnabled != 0U)
+	{
+		// Calculate shadow
+		float shadow = ShadowCalculation(worldPos, viewDepth);
 
-	// Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
-	vec3 color = (1.0 - shadow) * NdotL * lightColor * (diffuseContrib + specContrib);
+		// Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
+		color = (1.0 - shadow) * NdotL * lightColor * (diffuseContrib + specContrib);
+	}
+	else
+	{
+		color = NdotL * lightColor * (diffuseContrib + specContrib);
+	}
 
 	// Calculate lighting contribution from image based lighting source (IBL)
 	//color += getIBLContribution(pbrInputs, n, reflection);

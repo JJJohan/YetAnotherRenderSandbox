@@ -38,8 +38,6 @@ namespace Engine::Rendering
 			uint32_t enableOcclusion;
 		};
 
-		bool CreateDummyOcclusionImage(const IDevice& device, const IResourceFactory& resourceFactory);
-
 		bool CreateIndirectBuffer(const Renderer& renderer, uint32_t meshCount);
 
 		const GeometryBatch& m_sceneGeometryBatch;
@@ -48,7 +46,6 @@ namespace Engine::Rendering
 		IRenderImage* m_occlusionImage;
 		uint32_t m_dispatchSize;
 		DrawCullData m_drawCullData;
-		std::unique_ptr<IRenderImage> m_dummyOcclusionImage; // Might be worth providing a re-usable 'blank' image somewhere.
 		std::unique_ptr<IBuffer> m_indirectBuffer;
 		std::unique_ptr<IBuffer> m_shadowIndirectBuffer;
 	};

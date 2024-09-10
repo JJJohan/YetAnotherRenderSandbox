@@ -2,8 +2,10 @@
 #include "../Resources/IBuffer.hpp"
 #include "../Resources/IRenderImage.hpp"
 #include "../Resources/ICommandBuffer.hpp"
+#include "../Resources/IMemoryBarriers.hpp"
 #include "../Renderer.hpp"
 #include "../RenderResources/ShadowMap.hpp"
+#include "../IResourceFactory.hpp"
 
 namespace Engine::Rendering
 {
@@ -34,9 +36,23 @@ namespace Engine::Rendering
 
 	void CombinePass::UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat)
 	{
-		auto& inputShadowImage = m_imageInputInfos.at("Shadows");
-		inputShadowImage.Format = depthFormat;
-		inputShadowImage.Dimensions = m_shadowMap.GetExtent();
+		bool hasShadows = m_imageInputInfos.contains("Shadows");
+		bool shadowsEnabled = m_shadowMap.GetEnabled();
+		if (hasShadows && !shadowsEnabled)
+		{
+			m_imageInputInfos.erase("Shadows");
+		}
+		else if (!hasShadows && shadowsEnabled)
+		{
+			m_imageInputInfos.emplace("Shadows", RenderPassImageInfo(AccessFlags::Read, depthFormat, m_shadowMap.GetExtent(), ImageLayout::ShaderReadOnly,
+				MaterialStageFlags::FragmentShader, MaterialAccessFlags::ShaderRead));
+		}
+		else if (shadowsEnabled)
+		{
+			auto& inputShadowImage = m_imageInputInfos.at("Shadows");
+			inputShadowImage.Format = depthFormat;
+			inputShadowImage.Dimensions = m_shadowMap.GetExtent();
+		}
 	}
 
 	bool CombinePass::Build(const Renderer& renderer,
@@ -62,7 +78,11 @@ namespace Engine::Rendering
 			&imageInputs.at("MetalRoughness")->GetView()
 		};
 
-		const IImageView& shadowImageView = imageInputs.at("Shadows")->GetView();
+		const IImageView* shadowImageView;
+		if (m_shadowMap.GetEnabled())
+			shadowImageView = &imageInputs.at("Shadows")->GetView();
+		else
+			shadowImageView = &renderer.GetBlankShadowImage().GetView();
 
 		if (!m_material->BindUniformBuffers(0, frameInfoBuffers) ||
 			!m_material->BindUniformBuffers(1, lightBuffers) ||
@@ -72,7 +92,25 @@ namespace Engine::Rendering
 			!m_material->BindImageView(5, shadowImageView))
 			return false;
 
+
 		return IRenderNode::Build(renderer, imageInputs, imageOutputs, bufferInputs, bufferOutputs);
+	}
+
+	void CombinePass::PreDraw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
+		const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+		const std::unordered_map<std::string, IRenderImage*>& imageOutputs)
+	{
+		// Special case of the shadows being disabled - ensure the blank image is in an accessible state.
+		if (!m_shadowMap.GetEnabled())
+		{
+			IRenderImage& blankShadowImage = renderer.GetBlankShadowImage();
+			if (blankShadowImage.GetLayout() != ImageLayout::ShaderReadOnly)
+			{
+				std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
+				blankShadowImage.AppendImageLayoutTransition(commandBuffer, ImageLayout::ShaderReadOnly, *memoryBarriers);
+				commandBuffer.MemoryBarrier(*memoryBarriers);
+			}
+		}
 	}
 
 	void CombinePass::Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,

@@ -24,6 +24,10 @@ namespace Engine::Rendering
 
 		virtual void UpdatePlaceholderFormats(Format swapchainFormat, Format depthFormat) override;
 
+		virtual void PreDraw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
+			const glm::uvec2& size, uint32_t frameIndex, const std::unordered_map<std::string, IRenderImage*>& imageInputs,
+			const std::unordered_map<std::string, IRenderImage*>& imageOutputs) override;
+
 		virtual void Draw(const Renderer& renderer, const ICommandBuffer& commandBuffer,
 			const glm::uvec2& size, uint32_t frameIndex, uint32_t layerIndex) override;
 

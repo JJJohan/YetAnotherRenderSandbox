@@ -130,7 +130,7 @@ namespace Engine::Rendering::Vulkan
 
 	bool RenderImage::Initialise(std::string_view name, const IDevice& device, ImageType imageType, Format format, const glm::uvec3& dimensions,
 		uint32_t mipLevels, uint32_t layerCount, ImageTiling tiling, ImageUsageFlags imageUsage, ImageAspectFlags aspectFlags,
-		MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode)
+		MemoryUsage memoryUsage, AllocationCreateFlags createFlags, SharingMode sharingMode, bool preinitialise)
 	{
 		m_format = format;
 		m_dimensions = dimensions;
@@ -138,12 +138,20 @@ namespace Engine::Rendering::Vulkan
 		m_layerCount = layerCount;
 		m_usageFlags = imageUsage;
 
-		vk::ImageCreateInfo renderImageInfo(vk::ImageCreateFlags(), GetImageType(imageType), GetVulkanFormat(format), GetExtent3D(dimensions),
-			mipLevels, layerCount, vk::SampleCountFlagBits::e1, GetImageTiling(tiling), static_cast<vk::ImageUsageFlagBits>(imageUsage), GetSharingMode(sharingMode));
-
 		VmaAllocationCreateInfo allocCreateInfo = {};
 		allocCreateInfo.usage = GetVmaMemoryUsage(memoryUsage);
 		allocCreateInfo.flags = static_cast<VmaAllocationCreateFlagBits>(createFlags);
+
+		vk::ImageLayout initialLayout = vk::ImageLayout::eUndefined;
+		if (preinitialise)
+		{
+			initialLayout = vk::ImageLayout::ePreinitialized;
+			m_layout = ImageLayout::Preinitialised;
+		}
+
+		vk::ImageCreateInfo renderImageInfo(vk::ImageCreateFlags(), GetImageType(imageType), GetVulkanFormat(format), GetExtent3D(dimensions),
+			mipLevels, layerCount, vk::SampleCountFlagBits::e1, GetImageTiling(tiling), static_cast<vk::ImageUsageFlagBits>(imageUsage), GetSharingMode(sharingMode), {}, initialLayout);
+
 
 		VkImageCreateInfo renderImageInfoImp = static_cast<VkImageCreateInfo>(renderImageInfo);
 		VkResult createResult = vmaCreateImage(m_allocator, &renderImageInfoImp, &allocCreateInfo, &m_image, &m_imageAlloc, &m_imageAllocInfo);
@@ -151,6 +159,15 @@ namespace Engine::Rendering::Vulkan
 		{
 			Logger::Error("Failed to create RenderImage '{}'.", name);
 			return false;
+		}
+
+		if (preinitialise)
+		{
+			std::vector<uint8_t> data(dimensions.x * dimensions.y * dimensions.z, 0);
+			if (!UpdateContents(data.data(), 0, data.size()))
+			{
+				return false;
+			}
 		}
 
 		if (!InitialiseView(name, device, aspectFlags))
@@ -210,6 +227,7 @@ namespace Engine::Rendering::Vulkan
 		switch (srcLayout)
 		{
 		case ImageLayout::Undefined:
+		case ImageLayout::Preinitialised:
 			accessMask = vk::AccessFlagBits2::eNone;
 			stage = vk::PipelineStageFlagBits2::eTopOfPipe;
 			return true;

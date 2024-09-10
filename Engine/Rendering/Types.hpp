@@ -6,6 +6,7 @@ namespace Engine::Rendering
 	enum class Format
 	{
 		Undefined,
+		R8Unorm,
 		R8G8Unorm,
 		R8G8B8A8Unorm,
 		R16G16Sfloat,
@@ -287,7 +288,8 @@ namespace Engine::Rendering
 		TransferDst,
 		DepthAttachment,
 		PresentSrc,
-		General
+		General,
+		Preinitialised
 	};
 
 	enum class ImageUsageFlags : uint32_t
@@ -326,11 +328,6 @@ namespace Engine::Rendering
 	enum class MemoryUsage
 	{
 		Unknown,
-		GPUOnly,
-		CPUOnly,
-		CPUToGPU,
-		GPUToCPU,
-		CPUCopy,
 		GPULazilyAllocated,
 		Auto,
 		AutoPreferDevice,

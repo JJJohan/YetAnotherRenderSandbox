@@ -46,7 +46,7 @@ namespace Engine::Rendering
 
 		if (m_mode != CullingMode::FrustumAndOcclusion)
 		{
-			return FrustumPassBuild(renderer, m_dummyOcclusionImage.get());
+			return FrustumPassBuild(renderer, &renderer.GetBlankImage());
 		}
 
 		return true;
@@ -55,27 +55,9 @@ namespace Engine::Rendering
 	void FrustumCullingPass::ClearResources()
 	{
 		m_indirectBuffer.reset();
-		m_dummyOcclusionImage.reset();
 		auto& bufferInfo = m_bufferOutputInfos.at("IndirectDraw");
 		bufferInfo.Buffer = nullptr;
 		IComputePass::ClearResources();
-	}
-
-	bool FrustumCullingPass::CreateDummyOcclusionImage(const IDevice& device, const IResourceFactory& resourceFactory)
-	{
-		glm::uvec3 dimensions(1, 1, 1);
-
-		ImageUsageFlags usageFlags = ImageUsageFlags::Storage | ImageUsageFlags::Sampled | ImageUsageFlags::TransferSrc;
-		m_dummyOcclusionImage = std::move(resourceFactory.CreateRenderImage());
-		if (!m_dummyOcclusionImage->Initialise("DummyOcclusionImage", device, ImageType::e2D, Format::R32Sfloat, dimensions, 1, 1,
-			ImageTiling::Optimal, usageFlags, ImageAspectFlags::Color, MemoryUsage::AutoPreferDevice,
-			AllocationCreateFlags::None, SharingMode::Exclusive))
-		{
-			Logger::Error("Failed to create dummy occlusion image.");
-			return false;
-		}
-
-		return true;
 	}
 
 	bool FrustumCullingPass::FrustumPassBuild(const Renderer& renderer, IRenderImage* occlusionImage)
@@ -104,7 +86,7 @@ namespace Engine::Rendering
 			!m_material->BindStorageBuffer(1, boundsBuffer) ||
 			!m_material->BindStorageBuffer(2, indirectDrawBuffer) ||
 			!m_material->BindStorageBuffer(3, m_indirectBuffer) ||
-			!m_material->BindCombinedImageSampler(4, renderer.GetReductionSampler(), occlusionImage->GetView(), ImageLayout::ShaderReadOnly))
+			!m_material->BindCombinedImageSampler(4, renderer.GetReductionSampler(), m_occlusionImage->GetView(), ImageLayout::ShaderReadOnly))
 			return false;
 
 		m_built = true;
@@ -116,11 +98,6 @@ namespace Engine::Rendering
 		ClearResources();
 
 		if (!CreateIndirectBuffer(renderer, m_sceneGeometryBatch.GetMeshCapacity()))
-		{
-			return false;
-		}
-
-		if (m_mode != CullingMode::FrustumAndOcclusion && !CreateDummyOcclusionImage(renderer.GetDevice(), renderer.GetResourceFactory()))
 		{
 			return false;
 		}
@@ -140,7 +117,7 @@ namespace Engine::Rendering
 		m_indirectBuffer = resourceFactory.CreateBuffer();
 
 		if (!m_indirectBuffer->Initialise("indirectBuffer", device, sizeof(uint32_t) + meshCount * sizeof(IndexedIndirectCommand),
-			BufferUsageFlags::IndirectBuffer | BufferUsageFlags::StorageBuffer | BufferUsageFlags::TransferDst, MemoryUsage::GPUOnly, AllocationCreateFlags::None, SharingMode::Exclusive))
+			BufferUsageFlags::IndirectBuffer | BufferUsageFlags::StorageBuffer | BufferUsageFlags::TransferDst, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to initialise indirect buffer.");
 			return false;
@@ -159,12 +136,14 @@ namespace Engine::Rendering
 
 		bool enableOcclusion = m_mode == CullingMode::FrustumAndOcclusion && m_occlusionImage->GetLayout() != ImageLayout::Undefined;
 
-		// Occlusion image may be used for the first time in this pass, so transition it to a shader read layout.
-		std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
-		m_occlusionImage->AppendImageLayoutTransitionExt(commandBuffer,
-			MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly,
-			MaterialAccessFlags::ShaderRead, *memoryBarriers);
-		commandBuffer.MemoryBarrier(*memoryBarriers);
+		if (m_occlusionImage->GetLayout() != ImageLayout::ShaderReadOnly)
+		{
+			std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
+			m_occlusionImage->AppendImageLayoutTransitionExt(commandBuffer,
+				MaterialStageFlags::ComputeShader, ImageLayout::ShaderReadOnly,
+				MaterialAccessFlags::ShaderRead, *memoryBarriers);
+			commandBuffer.MemoryBarrier(*memoryBarriers);
+		}
 
 		m_material->BindMaterial(commandBuffer, BindPoint::Compute, frameIndex);
 

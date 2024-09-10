@@ -16,7 +16,7 @@ namespace Sandbox
 			, AntiAliasingMode(Engine::Rendering::AntiAliasingMode::TAA)
 			, UseHDR(false)
 			, CullingMode(Engine::Rendering::CullingMode::FrustumAndOcclusion)
-			, ShadowResolutionIndex(2)
+			, ShadowResolutionIndex(3)
 			, NvidiaReflexMode(Engine::Rendering::NvidiaReflexMode::On)
 			, UseAsyncCompute(true)
 		{
