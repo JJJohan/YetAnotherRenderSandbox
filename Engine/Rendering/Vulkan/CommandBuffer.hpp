@@ -52,6 +52,10 @@ namespace Engine::Rendering::Vulkan
 
 		virtual void MemoryBarrier(const IMemoryBarriers& memoryBarriersContainer) const override;
 
+		virtual void ClearColourImage(const IRenderImage& image, const Colour& colour) const override;
+
+		virtual void ClearDepthStencilImage(const IRenderImage& image, float depth, uint32_t stencil) const override;
+
 		virtual void FillBuffer(const IBuffer& buffer, size_t offset, size_t size, uint32_t data) const override;
 
 	private:

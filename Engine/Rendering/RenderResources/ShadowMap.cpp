@@ -125,7 +125,7 @@ namespace Engine::Rendering
 	{
 		m_shadowImage = std::move(resourceFactory.CreateRenderImage());
 		if (!m_shadowImage->Initialise("ShadowImage", device, ImageType::e2D, depthFormat, m_extent, 1, m_cascadeCount, ImageTiling::Optimal,
-			ImageUsageFlags::Sampled | ImageUsageFlags::DepthStencilAttachment,
+			ImageUsageFlags::Sampled | ImageUsageFlags::DepthStencilAttachment | ImageUsageFlags::TransferDst,
 			ImageAspectFlags::Depth, MemoryUsage::AutoPreferDevice, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to create shadow image.");

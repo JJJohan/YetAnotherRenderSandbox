@@ -25,7 +25,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Binaries)
 find_package(Vulkan REQUIRED)
 
 # Options
-option(FASTGLTF_USE_CUSTOM_SMALLVECTOR "Uses a custom SmallVector type optimised for small arrays" ON)
+option(FASTGLTF_USE_CUSTOM_SMALLVECTOR "Uses a custom SmallVector type optimised for small arrays" OFF)
 option(ENABLE_AVX2 "Compile with AVX2 vectorisation" OFF)
 option(ENABLE_LTO "Compile with Link Time Optimisation" OFF)
 
@@ -41,9 +41,10 @@ add_library(fastgltf STATIC
 	"ThirdParty/fastgltf/include/fastgltf/core.hpp"
 	"ThirdParty/fastgltf/include/fastgltf/tools.hpp"
 	"ThirdParty/fastgltf/include/fastgltf/types.hpp"
-	"ThirdParty/fastgltf/include/fastgltf/util.hpp")
+	"ThirdParty/fastgltf/include/fastgltf/util.hpp"
+	"ThirdParty/fastgltf/include/fastgltf/math.hpp")
 
-target_compile_options(fastgltf PRIVATE "-w")
+target_compile_options(fastgltf PRIVATE /EHsc /utf-8 /external:W0 /external:anglebrackets)
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_USE_CUSTOM_SMALLVECTOR=$<BOOL:${FASTGLTF_USE_CUSTOM_SMALLVECTOR}>")
 target_include_directories(fastgltf PRIVATE "ThirdParty/simdjson/" "ThirdParty/fastgltf/include/")
 
@@ -105,7 +106,8 @@ target_compile_definitions(imgui PUBLIC
 	IMGUI_DISABLE_OBSOLETE_FUNCTIONS
 	IMGUI_DISABLE_DEMO_WINDOWS
 	IMGUI_DISABLE_DEBUG_TOOLS
-	IMGUI_DISABLE_OBSOLETE_KEYIO)
+	IMGUI_DISABLE_OBSOLETE_KEYIO
+	IMGUI_DISABLE_DEFAULT_FONT)
 target_include_directories(imgui PRIVATE "ThirdParty/imgui/" ${Vulkan_INCLUDE_DIR})
 
 add_library(imgui-node-editor STATIC

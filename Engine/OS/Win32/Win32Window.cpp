@@ -206,6 +206,8 @@ namespace Engine::OS
 		SetForegroundWindow(window->m_hWnd); // Slightly Higher Priority
 		SetFocus(window->m_hWnd);            // Sets Keyboard Focus To The Window
 
+		window->m_dpi = static_cast<uint32_t>(GetDpiForWindow(window->m_hWnd));
+
 		// Register raw input
 		RAWINPUTDEVICE Rid[2];
 

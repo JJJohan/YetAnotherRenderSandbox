@@ -167,6 +167,20 @@ namespace Engine::Rendering::Vulkan
 		m_commandBuffer->pipelineBarrier2(dependencyInfo);
 	}
 
+	void CommandBuffer::ClearColourImage(const IRenderImage& image, const Colour& colour) const
+	{
+		vk::ImageSubresourceRange subResourceRange(vk::ImageAspectFlagBits::eColor, 0, image.GetMipLevels(), 0, image.GetLayerCount());
+		m_commandBuffer->clearColorImage(static_cast<const RenderImage&>(image).Get(),
+			GetImageLayout(image.GetLayout()), vk::ClearColorValue(colour, colour, colour, colour), subResourceRange);
+	}
+
+	void CommandBuffer::ClearDepthStencilImage(const IRenderImage& image, float depth, uint32_t stencil) const
+	{
+		vk::ImageSubresourceRange subResourceRange(vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil, 0, image.GetMipLevels(), 0, image.GetLayerCount());
+		m_commandBuffer->clearDepthStencilImage(static_cast<const RenderImage&>(image).Get(),
+			GetImageLayout(image.GetLayout()), vk::ClearDepthStencilValue(depth, stencil), subResourceRange);
+	}
+
 	void CommandBuffer::FillBuffer(const IBuffer& buffer, size_t offset, size_t size, uint32_t data) const
 	{
 		m_commandBuffer->fillBuffer(static_cast<const Buffer&>(buffer).Get(), offset, size, data);

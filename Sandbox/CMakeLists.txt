@@ -8,6 +8,8 @@ set(SOURCE_LIST
 
 add_executable(Sandbox ${SOURCE_LIST})
 
+target_sources(Sandbox PRIVATE app.manifest)
+
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})
 
 target_include_directories(Sandbox PRIVATE "Engine")
@@ -19,7 +21,7 @@ set_property(TARGET Sandbox PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_RUNTI
 set_compile_flags(Sandbox)
 
 # Download & extract level asset
-FetchContent_Declare(LevelAsset 
+FetchContent_Declare(LevelAsset
   URL https://renscreations.com/files/Bistro_small.7z
   SOURCE_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/DownloadedAssets)
 FetchContent_MakeAvailable(LevelAsset)

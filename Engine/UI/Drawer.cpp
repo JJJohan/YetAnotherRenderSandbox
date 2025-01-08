@@ -1,5 +1,6 @@
 #include "Drawer.hpp"
 #include "Core/AsyncData.hpp"
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 #include <implot.h>
 
@@ -196,9 +197,13 @@ namespace Engine::UI
 		const char* progressText = progress.ProgressText.c_str();
 		const char* subProgressText = progress.SubProgressText.c_str();
 
+		const ImGuiIO& io = ImGui::GetIO();
+		float scale = io.FontGlobalScale; // use font scale for scaling the progress dialog.
+
 		bool hasSubProgress = subProgressText != nullptr;
 		ImVec2 dialogSize(300.0f, hasSubProgress ? 128.0f : 88.0f);
-		const ImVec2& center = ImGui::GetIO().DisplaySize;
+		dialogSize *= scale;
+		const ImVec2& center = io.DisplaySize;
 		const ImGuiStyle& style = ImGui::GetStyle();
 		float progressWidth = dialogSize.x - style.WindowPadding.x * 2.0f;
 

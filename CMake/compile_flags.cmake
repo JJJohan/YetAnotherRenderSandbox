@@ -1,6 +1,6 @@
 macro(set_compile_flags target)
 	target_compile_features(${target} PUBLIC c_std_17 cxx_std_23)
-	
+
 	target_compile_definitions(${target} PRIVATE UNICODE)
 
 	if(ENABLE_LTO)

@@ -98,6 +98,7 @@ namespace Engine::OS
 		inline const glm::uvec2 GetSize() const { return m_size; }
 		inline bool IsFullscreen() const { return m_fullscreen; }
 		inline bool IsClosed() const { return m_closed; }
+		inline uint32_t GetDPI() const { return m_dpi; }
 		inline virtual void* GetHandle() const { return nullptr; }
 		inline virtual void* GetInstance() const { return nullptr; }
 
@@ -117,10 +118,14 @@ namespace Engine::OS
 		inline void RegisterResizeCallback(std::function<void(const glm::uvec2&)> callback) { RegisterCallback(m_resizeCallbacks, callback); }
 		inline void UnregisterResizeCallback(std::function<void(const glm::uvec2&)> callback) { UnregisterCallback(m_resizeCallbacks, callback); }
 
+		inline void RegisterDPIChangeCallback(std::function<void(uint32_t)> callback) { RegisterCallback(m_dpiChangeCallbacks, callback); }
+		inline void UnregisterDPIChangeCallback(std::function<void(uint32_t)> callback) { UnregisterCallback(m_dpiChangeCallbacks, callback); }
+
 		inline void RegisterCloseCallback(std::function<void(void)> callback) { RegisterCallback(m_closeCallbacks, callback); }
 		inline void UnregisterCloseCallback(std::function<void(void)> callback) { RegisterCallback(m_closeCallbacks, callback); }
 
 		void OnResize(const glm::uvec2& size);
+		void OnDPIChanged(uint32_t dpi);
 
 		InputState InputState;
 
@@ -130,11 +135,13 @@ namespace Engine::OS
 		std::vector<std::function<void(void)>> m_prePollCallbacks;
 		std::vector<std::function<void(void)>> m_postPollCallbacks;
 		std::vector<std::function<void(const glm::uvec2&)>> m_resizeCallbacks;
+		std::vector<std::function<void(uint32_t)>> m_dpiChangeCallbacks;
 		std::vector<std::function<void(void)>> m_closeCallbacks;
 		std::string m_title;
 		std::atomic<glm::uvec2> m_size;
 		bool m_fullscreen;
 		bool m_closed;
 		bool m_cursorVisible;
+		uint32_t m_dpi;
 	};
 }

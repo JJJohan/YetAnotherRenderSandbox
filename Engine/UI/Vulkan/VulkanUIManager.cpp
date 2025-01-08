@@ -30,7 +30,7 @@ namespace Engine::UI::Vulkan
 			abort();
 	}
 
-	VulkanUIManager::VulkanUIManager(const Window& window, Renderer& renderer)
+	VulkanUIManager::VulkanUIManager(Window& window, Renderer& renderer)
 		: UIManager::UIManager(window, renderer)
 		, m_descriptorPool()
 	{

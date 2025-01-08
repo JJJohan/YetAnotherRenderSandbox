@@ -41,7 +41,7 @@ int main()
 {
 	Logger::SetLogOutputLevel(LogLevel::Verbose);
 
-	std::unique_ptr<Window> window = Window::Create("Sandbox", glm::uvec2(1280, 720), false);
+	std::unique_ptr<Window> window = Window::Create("Sandbox", glm::uvec2(1920, 1080), false);
 	std::unique_ptr<Renderer> renderer = Renderer::Create(RendererType::Vulkan, *window, debug);
 	g_renderer = renderer.get();
 	g_window = window.get();

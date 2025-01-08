@@ -15,6 +15,7 @@ namespace Engine::OS
 		, m_resizeCallbacks()
 		, m_closeCallbacks()
 		, m_cursorVisible(true)
+		, m_dpi(96)
 	{
 	}
 
@@ -76,8 +77,22 @@ namespace Engine::OS
 		}
 	}
 
+	void Window::OnDPIChanged(uint32_t dpi)
+	{
+		if (m_dpi == dpi)
+		{
+			return;
+		}
+
+		m_dpi = dpi;
+		for (const auto& callback : m_dpiChangeCallbacks)
+		{
+			callback(dpi);
+		}
+	}
+
 	void Window::Resize(const glm::uvec2& size)
 	{
 		m_size = size;
 	}
-	}
+}

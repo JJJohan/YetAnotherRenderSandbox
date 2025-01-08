@@ -67,6 +67,10 @@ namespace Engine::Rendering
 
 		virtual void MemoryBarrier(const IMemoryBarriers& memoryBarriersContainer) const = 0;
 
+		virtual void ClearColourImage(const IRenderImage& image, const Colour& colour) const = 0;
+
+		virtual void ClearDepthStencilImage(const IRenderImage& image, float depth = 0.0f, uint32_t stencil = 0) const = 0;
+
 		virtual void FillBuffer(const IBuffer& buffer, size_t offset, size_t size, uint32_t data) const = 0;
 
 		inline uint32_t GetQueueFamilyIndex() const { return m_queueFamilyIndex; }

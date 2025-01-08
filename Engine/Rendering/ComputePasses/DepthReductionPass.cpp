@@ -159,6 +159,17 @@ namespace Engine::Rendering
 		const IDevice& device = renderer.GetDevice();
 
 		std::unique_ptr<IMemoryBarriers> memoryBarriers = std::move(renderer.GetResourceFactory().CreateMemoryBarriers());
+
+		if (m_occlusionImage->GetLayout() == ImageLayout::Undefined)
+		{
+			m_occlusionImage->AppendImageLayoutTransitionExt(commandBuffer,
+				MaterialStageFlags::Transfer, ImageLayout::TransferDst, MaterialAccessFlags::TransferWrite, *memoryBarriers);
+			commandBuffer.MemoryBarrier(*memoryBarriers);
+			memoryBarriers->Clear();
+
+			commandBuffer.ClearColourImage(*m_occlusionImage, Engine::Colour());
+		}
+
 		m_occlusionImage->AppendImageLayoutTransitionExt(commandBuffer,
 			MaterialStageFlags::ComputeShader, ImageLayout::General, MaterialAccessFlags::ShaderRead, *memoryBarriers);
 

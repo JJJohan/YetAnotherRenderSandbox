@@ -42,6 +42,12 @@ namespace Engine::OS
 			window->OnSizeEvent(wParam); // Private variant to handle cursor state.
 			break;
 		}
+		case WM_DPICHANGED:
+		{
+			uint32_t dpi = static_cast<uint32_t>(GetDpiForWindow(hwnd));
+			window->OnDPIChanged(dpi);
+			break;
+		}
 		case WM_SETFOCUS:
 		{
 			window->OnFocusChanged(true);

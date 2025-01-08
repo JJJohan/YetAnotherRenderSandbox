@@ -27,10 +27,10 @@ namespace Engine::UI::Vulkan
 	class VulkanUIManager : public UIManager
 	{
 	public:
-		VulkanUIManager(const Engine::OS::Window& window, Engine::Rendering::Renderer& renderer);
+		VulkanUIManager(Engine::OS::Window& window, Engine::Rendering::Renderer& renderer);
 		virtual ~VulkanUIManager() override;
 
-		bool Initialise(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer & renderer);
+		bool Initialise(const vk::Instance& instance, Engine::Rendering::Vulkan::VulkanRenderer& renderer);
 
 		virtual void Draw(const Engine::Rendering::ICommandBuffer& commandBuffer, float width, float height) override;
 

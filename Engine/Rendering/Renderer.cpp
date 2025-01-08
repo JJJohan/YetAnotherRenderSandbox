@@ -229,8 +229,8 @@ namespace Engine::Rendering
 
 		m_blankImage = std::move(m_resourceFactory->CreateRenderImage());
 		if (!m_blankImage->Initialise("BlankImage", *m_device, ImageType::e2D, Format::R8Unorm, glm::uvec3(1, 1, 1),
-			1, 1, ImageTiling::Linear, ImageUsageFlags::Sampled, ImageAspectFlags::Color,
-			MemoryUsage::Auto, AllocationCreateFlags::HostAccessRandom, SharingMode::Exclusive, true))
+			1, 1, ImageTiling::Optimal, ImageUsageFlags::Sampled, ImageAspectFlags::Color,
+			MemoryUsage::Auto, AllocationCreateFlags::None, SharingMode::Exclusive))
 		{
 			Logger::Error("Failed to initialise blank image.");
 			return false;

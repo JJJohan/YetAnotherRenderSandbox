@@ -3,7 +3,7 @@
 #include "OS/Window.hpp"
 #include "Core/Logger.hpp"
 #include "imgui.h"
-#include "NodeManager.hpp"
+#include <functional>
 
 #ifdef _WIN32
 #include "backends/imgui_impl_win32.h"
@@ -16,16 +16,23 @@ using namespace Engine::Rendering;
 
 namespace Engine::UI
 {
-	UIManager::UIManager(const Window& window, Renderer& renderer)
+	UIManager::UIManager(Window& window, Renderer& renderer)
 		: m_window(window)
 		, m_renderer(renderer)
 		, m_drawCallbacks()
 		, m_drawer()
+		, m_initialised(false)
 	{
 	}
 
 	UIManager::~UIManager()
 	{
+		if (m_initialised)
+		{
+			m_window.UnregisterDPIChangeCallback(std::bind(&UIManager::OnDPIChanged, this, std::placeholders::_1));
+			m_initialised = false;
+		}
+
 #ifdef _WIN32
 		ImGui_ImplWin32_Shutdown();
 #else
@@ -33,7 +40,7 @@ namespace Engine::UI
 #endif
 	}
 
-	bool UIManager::Initialise() const
+	bool UIManager::Initialise()
 	{
 		// Setup Dear ImGui context
 		IMGUI_CHECKVERSION();
@@ -67,7 +74,18 @@ namespace Engine::UI
 
 		io.Fonts->Build();
 
+		OnDPIChanged(m_window.GetDPI());
+		m_window.RegisterDPIChangeCallback(std::bind(&UIManager::OnDPIChanged, this, std::placeholders::_1));
+		m_initialised = true;
+
 		return true;
+	}
+
+	void UIManager::OnDPIChanged(uint32_t dpi)
+	{
+		float scale = static_cast<float>(dpi) / 96.0f;
+		ImGuiIO& io = ImGui::GetIO();
+		io.FontGlobalScale = scale;
 	}
 
 	void UIManager::RegisterDrawCallback(std::function<void(const Drawer&)> callback)

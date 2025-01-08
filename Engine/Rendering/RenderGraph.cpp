@@ -299,12 +299,12 @@ namespace Engine::Rendering
 		if (format == depthFormat)
 		{
 			aspectFlags = ImageAspectFlags::Depth;
-			usageFlags = ImageUsageFlags::DepthStencilAttachment | ImageUsageFlags::Sampled;
+			usageFlags = ImageUsageFlags::DepthStencilAttachment | ImageUsageFlags::Sampled | ImageUsageFlags::TransferDst;
 		}
 		else
 		{
 			aspectFlags = ImageAspectFlags::Color;
-			usageFlags = ImageUsageFlags::ColorAttachment | ImageUsageFlags::Sampled | ImageUsageFlags::TransferSrc;
+			usageFlags = ImageUsageFlags::ColorAttachment | ImageUsageFlags::Sampled | ImageUsageFlags::TransferSrc | ImageUsageFlags::TransferDst;
 		}
 
 		if (!image->Initialise(name, device, ImageType::e2D, format, dimensions, 1, 1, ImageTiling::Optimal,
@@ -842,6 +842,20 @@ namespace Engine::Rendering
 
 						if (currentState.QueueFamilyIndex == ~0U)
 							currentState.QueueFamilyIndex = currentQueueFamilyIndex;
+
+						// If image layout is currently undefined, clear it as it may be being used as a read-only input.
+						if (imageInfo.Image->GetLayout() == ImageLayout::Undefined && imageInfo.Layout == ImageLayout::ShaderReadOnly)
+						{
+							imageInfo.Image->AppendImageLayoutTransitionExt(commandBuffer,
+								MaterialStageFlags::Transfer, ImageLayout::TransferDst, MaterialAccessFlags::TransferWrite, *memoryBarriers);
+							commandBuffer.MemoryBarrier(*memoryBarriers);
+							memoryBarriers->Clear();
+
+							if (imageInfo.Format == renderer.GetDepthFormat())
+								commandBuffer.ClearDepthStencilImage(*imageInfo.Image);
+							else
+								commandBuffer.ClearColourImage(*imageInfo.Image, Engine::Colour());
+						}
 
 						imageInfo.Image->AppendImageLayoutTransitionExt(commandBuffer, imageInfo.StageFlags, imageInfo.Layout, imageInfo.MatAccessFlags,
 							*memoryBarriers, 0, 0, currentState.QueueFamilyIndex, currentQueueFamilyIndex, isCompute);
